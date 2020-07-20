@@ -2114,12 +2114,11 @@ int MacroAssembler::push_fp(unsigned int bitset, Register stack) {
     return 0;
   }
 
+  add(stack, stack, -count * wordSize * 2);
+
   if (count & 1) {
-    strq(as_FloatRegister(regs[0]), Address(pre(stack, -count * wordSize * 2)));
+    strq(as_FloatRegister(regs[0]), Address(stack));
     i += 1;
-  } else {
-    stpq(as_FloatRegister(regs[0]), as_FloatRegister(regs[1]), Address(pre(stack, -count * wordSize * 2)));
-    i += 2;
   }
 
   for (; i < count; i += 2) {
@@ -2145,20 +2144,15 @@ int MacroAssembler::pop_fp(unsigned int bitset, Register stack) {
   }
 
   if (count & 1) {
+    ldrq(as_FloatRegister(regs[0]), Address(stack));
     i += 1;
-  } else {
-    i += 2;
   }
 
   for (; i < count; i += 2) {
     ldpq(as_FloatRegister(regs[i]), as_FloatRegister(regs[i+1]), Address(stack, i * wordSize * 2));
   }
 
-  if ((count & 1) == 0) {
-    ldpq(as_FloatRegister(regs[0]), as_FloatRegister(regs[1]), Address(post(stack, count * wordSize * 2)));
-  } else {
-    ldrq(as_FloatRegister(regs[0]), Address(post(stack, count * wordSize * 2)));
-  }
+  add(stack, stack, count * wordSize * 2);
 
   return count;
 }
