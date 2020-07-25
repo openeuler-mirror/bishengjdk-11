@@ -10,7 +10,7 @@ Boole JDK currentyly supports `Linux/x86_64` and `Linux/AArch64`.
 
 ## License
 
-Boole JDK is licensed under GPLv2 with Classpath Exception, see [License](https://gitee.com/openeuler/boolejdk-11/LICENSE).
+Boole JDK is licensed under GPLv2 with Classpath Exception, see [License](https://gitee.com/openeuler/boolejdk-11/blob/master/LICENSE).
 
 ## Installation
 
