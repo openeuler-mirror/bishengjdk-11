@@ -381,6 +381,11 @@ public class ObjectInputStream
                     "printFastSerializer")).booleanValue();
 
     /**
+     * Magic number that is written to the stream header when using fastserilizer.
+     */
+    private static final short STREAM_MAGIC_FAST = (short)0xdeca;
+
+    /**
      * Creates an ObjectInputStream that reads from the specified InputStream.
      * A serialization stream header is read from the stream and verified.
      * This constructor will block until the corresponding ObjectOutputStream
@@ -752,7 +757,7 @@ public class ObjectInputStream
      * Cache the class meta during serialization.
      * Only used in FastSerilizer.
      */
-    protected static ConcurrentHashMap<String,Class<?>> nameToClass = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String,Class<?>> nameToClass = new ConcurrentHashMap<>();
 
     /**
      * Load the local class equivalent of the specified stream class
