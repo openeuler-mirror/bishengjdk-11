@@ -57,15 +57,26 @@ struct InCSetState {
     // used to index into arrays.
     // The negative values are used for objects requiring various special cases,
     // for example eager reclamation of humongous objects.
-    Humongous    = -1,    // The region is humongous
-    NotInCSet    =  0,    // The region is not in the collection set.
-    Young        =  1,    // The region is in the collection set and a young region.
-    Old          =  2,    // The region is in the collection set and an old region.
+    Humongous    = -2,    // The region is humongous
+    NotInCSet    = -1,    // The region is not in the collection set.
+    Young        =  0,    // The region is in the collection set and a young region.
+    Old          =  1,    // The region is in the collection set and an old region.
     Num
   };
 
   InCSetState(in_cset_state_t value = NotInCSet) : _value(value) {
     assert(is_valid(), "Invalid state %d", _value);
+  }
+
+  const char* get_type_str() const {
+    switch (value()) {
+      //case Optional: return "Optional";
+      case Humongous: return "Humongous";
+      case NotInCSet: return "NotInCSet";
+      case Young: return "Young";
+      case Old: return "Old";
+      default: ShouldNotReachHere(); return "";
+    }
   }
 
   in_cset_state_t value() const        { return _value; }

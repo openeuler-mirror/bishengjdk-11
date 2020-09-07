@@ -117,6 +117,10 @@ class HeapRegionManager: public CHeapObj<mtGC> {
   // the heap. Returns the length of the sequence found. If this value is zero, no
   // sequence could be found, otherwise res_idx contains the start index of this range.
   uint find_empty_from_idx_reverse(uint start_idx, uint* res_idx) const;
+  // Checks the G1MemoryNodeManager to see if this region is on the preferred node.
+  bool is_on_preferred_index(uint region_index, uint preferred_node_index);
+
+protected:
   // Allocate a new HeapRegion for the given index.
   HeapRegion* new_heap_region(uint hrm_index);
 #ifdef ASSERT
@@ -128,11 +132,7 @@ public:
 
  public:
   // Empty constructor, we'll initialize it with the initialize() method.
-  HeapRegionManager() : _regions(), _heap_mapper(NULL), _num_committed(0),
-                    _next_bitmap_mapper(NULL), _prev_bitmap_mapper(NULL), _bot_mapper(NULL),
-                    _allocated_heapregions_length(0), _available_map(mtGC),
-                    _free_list("Free list", new MasterFreeRegionListMtSafeChecker())
-  { }
+  HeapRegionManager();
 
   void initialize(G1RegionToSpaceMapper* heap_storage,
                   G1RegionToSpaceMapper* prev_bitmap,
@@ -167,15 +167,8 @@ public:
     _free_list.add_ordered(list);
   }
 
-  HeapRegion* allocate_free_region(bool is_old) {
-    HeapRegion* hr = _free_list.remove_region(is_old);
-
-    if (hr != NULL) {
-      assert(hr->next() == NULL, "Single region should not have next");
-      assert(is_available(hr->hrm_index()), "Must be committed");
-    }
-    return hr;
-  }
+  // Allocate a free region with specific node index. If fails allocate with next node index.
+  virtual HeapRegion* allocate_free_region(HeapRegionType type, uint requested_node_index);
 
   inline void allocate_free_regions_starting_at(uint first, uint num_regions);
 
@@ -187,6 +180,10 @@ public:
   // Return the number of committed free regions in the heap.
   uint num_free_regions() const {
     return _free_list.length();
+  }
+
+  uint num_free_regions(uint node_index) const {
+    return _free_list.length(node_index);
   }
 
   size_t total_free_bytes() const {
@@ -216,6 +213,9 @@ public:
   // for allocation. Returns the number of regions that were committed to achieve
   // this.
   uint expand_at(uint start, uint num_regions, WorkGang* pretouch_workers);
+
+  // Try to expand on the given node index.
+  virtual uint expand_on_preferred_node(uint node_index);
 
   // Find a contiguous set of empty regions of length num. Returns the start index of
   // that set, or G1_NO_HRM_INDEX.

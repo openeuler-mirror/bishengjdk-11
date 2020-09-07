@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,37 +22,30 @@
  *
  */
 
-#ifndef SHARE_VM_GC_G1_G1SURVIVORREGIONS_HPP
-#define SHARE_VM_GC_G1_G1SURVIVORREGIONS_HPP
+#ifndef SHARE_VM_GC_G1_G1REGIONS_HPP
+#define SHARE_VM_GC_G1_G1REGIONS_HPP
 
-#include "gc/g1/g1RegionsOnNodes.hpp"
-#include "runtime/globals.hpp"
+#include "memory/allocation.hpp"
 
-template <typename T>
-class GrowableArray;
+class G1NUMA;
 class HeapRegion;
 
-class G1SurvivorRegions {
-private:
-  GrowableArray<HeapRegion*>* _regions;
-  volatile size_t             _used_bytes;
-  G1RegionsOnNodes            _regions_on_node;
+// Contains per node index region count
+class G1RegionsOnNodes : public StackObj {
+  volatile uint* _count_per_node;
+  G1NUMA*        _numa;
 
 public:
-  G1SurvivorRegions();
+  G1RegionsOnNodes();
 
-  virtual uint add(HeapRegion* hr);
+  ~G1RegionsOnNodes();
 
-  void convert_to_eden();
+  // Increase _count_per_node for the node of given heap region and returns node index.
+  uint add(HeapRegion* hr);
 
   void clear();
 
-  uint length() const;
-  uint regions_on_node(uint node_index) const;
-
-  const GrowableArray<HeapRegion*>* regions() const {
-    return _regions;
-  }
+  uint count(uint node_index) const;
 };
 
-#endif // SHARE_VM_GC_G1_G1SURVIVORREGIONS_HPP
+#endif // SHARE_VM_GC_G1_G1REGIONS_HPP
