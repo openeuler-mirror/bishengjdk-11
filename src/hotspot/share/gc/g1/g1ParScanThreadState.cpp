@@ -52,7 +52,9 @@ G1ParScanThreadState::G1ParScanThreadState(G1CollectedHeap* g1h, uint worker_id,
     _stack_trim_upper_threshold(GCDrainStackTargetSize * 2 + 1),
     _stack_trim_lower_threshold(GCDrainStackTargetSize),
     _trim_ticks(),
-    _old_gen_is_full(false)
+    _old_gen_is_full(false),
+    _numa(g1h->numa()),
+    _obj_alloc_stat(NULL)
 {
   // we allocate G1YoungSurvRateNumRegions plus one entries, since
   // we "sacrifice" entry 0 to keep track of surviving bytes for
@@ -72,13 +74,13 @@ G1ParScanThreadState::G1ParScanThreadState(G1CollectedHeap* g1h, uint worker_id,
 
   _plab_allocator = new G1PLABAllocator(_g1h->allocator());
 
-  _dest[InCSetState::NotInCSet]    = InCSetState::NotInCSet;
   // The dest for Young is used when the objects are aged enough to
   // need to be moved to the next space.
   _dest[InCSetState::Young]        = InCSetState::Old;
   _dest[InCSetState::Old]          = InCSetState::Old;
 
   _closures = G1EvacuationRootClosures::create_root_closures(this, _g1h);
+  initialize_numa_stats();
 }
 
 // Pass locally gathered statistics to global state.
@@ -92,16 +94,22 @@ void G1ParScanThreadState::flush(size_t* surviving_young_words) {
   for (uint region_index = 0; region_index < length; region_index++) {
     surviving_young_words[region_index] += _surviving_young_words[region_index];
   }
+  flush_numa_stats();
 }
 
 G1ParScanThreadState::~G1ParScanThreadState() {
   delete _plab_allocator;
   delete _closures;
   FREE_C_HEAP_ARRAY(size_t, _surviving_young_words_base);
+  FREE_C_HEAP_ARRAY(size_t, _obj_alloc_stat);
 }
 
-void G1ParScanThreadState::waste(size_t& wasted, size_t& undo_wasted) {
-  _plab_allocator->waste(wasted, undo_wasted);
+size_t G1ParScanThreadState::lab_waste_words() const {
+  return _plab_allocator->waste();
+}
+
+size_t G1ParScanThreadState::lab_undo_waste_words() const {
+  return _plab_allocator->undo_waste();
 }
 
 #ifdef ASSERT
@@ -150,7 +158,8 @@ void G1ParScanThreadState::trim_queue() {
 HeapWord* G1ParScanThreadState::allocate_in_next_plab(InCSetState const state,
                                                       InCSetState* dest,
                                                       size_t word_sz,
-                                                      bool previous_plab_refill_failed) {
+                                                      bool previous_plab_refill_failed,
+                                                      uint node_index) {
   assert(state.is_in_cset_or_humongous(), "Unexpected state: " CSETSTATE_FORMAT, state.value());
   assert(dest->is_in_cset_or_humongous(), "Unexpected dest: " CSETSTATE_FORMAT, dest->value());
 
@@ -160,7 +169,8 @@ HeapWord* G1ParScanThreadState::allocate_in_next_plab(InCSetState const state,
     bool plab_refill_in_old_failed = false;
     HeapWord* const obj_ptr = _plab_allocator->allocate(InCSetState::Old,
                                                         word_sz,
-                                                        &plab_refill_in_old_failed);
+                                                        &plab_refill_in_old_failed,
+                                                        node_index);
     // Make sure that we won't attempt to copy any other objects out
     // of a survivor region (given that apparently we cannot allocate
     // any new ones) to avoid coming into this slow path again and again.
@@ -199,8 +209,8 @@ InCSetState G1ParScanThreadState::next_state(InCSetState const state, markOop co
 
 void G1ParScanThreadState::report_promotion_event(InCSetState const dest_state,
                                                   oop const old, size_t word_sz, uint age,
-                                                  HeapWord * const obj_ptr) const {
-  PLAB* alloc_buf = _plab_allocator->alloc_buffer(dest_state);
+                                                  HeapWord * const obj_ptr, uint node_index) const {
+  PLAB* alloc_buf = _plab_allocator->alloc_buffer(dest_state, node_index);
   if (alloc_buf->contains(obj_ptr)) {
     _g1h->_gc_tracer_stw->report_promotion_in_new_plab_event(old->klass(), word_sz, age,
                                                              dest_state.value() == InCSetState::Old,
@@ -215,11 +225,6 @@ oop G1ParScanThreadState::copy_to_survivor_space(InCSetState const state,
                                                  oop const old,
                                                  markOop const old_mark) {
   const size_t word_sz = old->size();
-  HeapRegion* const from_region = _g1h->heap_region_containing(old);
-  // +1 to make the -1 indexes valid...
-  const int young_index = from_region->young_index_in_cset()+1;
-  assert( (from_region->is_young() && young_index >  0) ||
-         (!from_region->is_young() && young_index == 0), "invariant" );
 
   uint age = 0;
   InCSetState dest_state = next_state(state, old_mark, age);
@@ -228,24 +233,30 @@ oop G1ParScanThreadState::copy_to_survivor_space(InCSetState const state,
   if (_old_gen_is_full && dest_state.is_old()) {
     return handle_evacuation_failure_par(old, old_mark);
   }
-  HeapWord* obj_ptr = _plab_allocator->plab_allocate(dest_state, word_sz);
+  HeapRegion* const from_region = _g1h->heap_region_containing(old);
+  uint node_index = from_region->node_index();
+
+  HeapWord* obj_ptr = _plab_allocator->plab_allocate(dest_state, word_sz, node_index);
 
   // PLAB allocations should succeed most of the time, so we'll
   // normally check against NULL once and that's it.
   if (obj_ptr == NULL) {
     bool plab_refill_failed = false;
-    obj_ptr = _plab_allocator->allocate_direct_or_new_plab(dest_state, word_sz, &plab_refill_failed);
+    obj_ptr = _plab_allocator->allocate_direct_or_new_plab(dest_state, word_sz, &plab_refill_failed, node_index);
     if (obj_ptr == NULL) {
-      obj_ptr = allocate_in_next_plab(state, &dest_state, word_sz, plab_refill_failed);
+      assert(state.is_in_cset(), "Unexpected region attr type: %s", state.get_type_str());
+      obj_ptr = allocate_in_next_plab(state, &dest_state, word_sz, plab_refill_failed, node_index);
       if (obj_ptr == NULL) {
         // This will either forward-to-self, or detect that someone else has
         // installed a forwarding pointer.
         return handle_evacuation_failure_par(old, old_mark);
       }
     }
+    update_numa_stats(node_index);
+
     if (_g1h->_gc_tracer_stw->should_report_promotion_events()) {
       // The events are checked individually as part of the actual commit
-      report_promotion_event(dest_state, old, word_sz, age, obj_ptr);
+      report_promotion_event(dest_state, old, word_sz, age, obj_ptr, node_index);
     }
   }
 
@@ -257,7 +268,7 @@ oop G1ParScanThreadState::copy_to_survivor_space(InCSetState const state,
   if (_g1h->evacuation_should_fail()) {
     // Doing this after all the allocation attempts also tests the
     // undo_allocation() method too.
-    _plab_allocator->undo_allocation(dest_state, obj_ptr, word_sz);
+    _plab_allocator->undo_allocation(dest_state, obj_ptr, word_sz, node_index);
     return handle_evacuation_failure_par(old, old_mark);
   }
 #endif // !PRODUCT
@@ -269,6 +280,11 @@ oop G1ParScanThreadState::copy_to_survivor_space(InCSetState const state,
   const oop forward_ptr = old->forward_to_atomic(obj, memory_order_relaxed);
   if (forward_ptr == NULL) {
     Copy::aligned_disjoint_words((HeapWord*) old, obj_ptr, word_sz);
+
+    const int young_index = from_region->young_index_in_cset() + 1;
+
+    assert((from_region->is_young() && young_index >  0) ||
+           (!from_region->is_young() && young_index == 0), "invariant" );
 
     if (dest_state.is_young()) {
       if (age < markOopDesc::max_age) {
@@ -318,7 +334,7 @@ oop G1ParScanThreadState::copy_to_survivor_space(InCSetState const state,
     }
     return obj;
   } else {
-    _plab_allocator->undo_allocation(dest_state, obj_ptr, word_sz);
+    _plab_allocator->undo_allocation(dest_state, obj_ptr, word_sz, node_index);
     return forward_ptr;
   }
 }

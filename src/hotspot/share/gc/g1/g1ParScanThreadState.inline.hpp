@@ -193,4 +193,29 @@ inline void G1ParScanThreadState::reset_trim_ticks() {
   _trim_ticks = Tickspan();
 }
 
+void G1ParScanThreadState::initialize_numa_stats() {
+  if (_numa->is_enabled()) {
+    LogTarget(Info, gc, heap, numa) lt;
+
+    if (lt.is_enabled()) {
+      uint num_nodes = _numa->num_active_nodes();
+      // Record only if there are multiple active nodes.
+      _obj_alloc_stat = NEW_C_HEAP_ARRAY(size_t, num_nodes, mtGC);
+      memset(_obj_alloc_stat, 0, sizeof(size_t) * num_nodes);
+    }
+  }
+}
+
+void G1ParScanThreadState::flush_numa_stats() {
+  if (_obj_alloc_stat != NULL) {
+    uint node_index = _numa->index_of_current_thread();
+    _numa->copy_statistics(G1NUMAStats::LocalObjProcessAtCopyToSurv, node_index, _obj_alloc_stat);
+  }
+}
+
+void G1ParScanThreadState::update_numa_stats(uint node_index) {
+  if (_obj_alloc_stat != NULL) {
+    _obj_alloc_stat[node_index]++;
+  }
+}
 #endif // SHARE_VM_GC_G1_G1PARSCANTHREADSTATE_INLINE_HPP
