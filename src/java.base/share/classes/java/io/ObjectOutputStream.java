@@ -36,7 +36,6 @@ import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import static java.io.ObjectStreamClass.processQueue;
-import jdk.internal.misc.Unsafe;
 import sun.reflect.misc.ReflectUtil;
 
 /**
@@ -175,25 +174,6 @@ public class ObjectOutputStream
             new ReferenceQueue<>();
     }
 
-    private static class Logging {
-        /*
-         * Logger for FastSerializer.
-         * Setup the FastSerializer logger if it is set to DEBUG.
-         * (Assuming it will not change).
-         */
-        static final System.Logger fastSerLogger;
-
-        static {
-            if (printFastSerializer) {
-                System.Logger fastSerLog = System.getLogger("fastSerializer");
-                fastSerLogger = (fastSerLog.isLoggable(System.Logger.Level.DEBUG))
-                        ? fastSerLog : null;
-            } else {
-                fastSerLogger = null;
-            }
-        }
-    }
-
     /** filter stream for handling block data conversion */
     private final BlockDataOutputStream bout;
     /** obj -> wire handle map */
@@ -212,6 +192,7 @@ public class ObjectOutputStream
     private final boolean enableOverride;
     /** if true, invoke replaceObject() */
     private boolean enableReplace;
+
     // values below valid only during upcalls to writeObject()/writeExternal()
     /**
      * Context during upcalls to class-defined writeObject methods; holds
@@ -233,27 +214,6 @@ public class ObjectOutputStream
         java.security.AccessController.doPrivileged(
             new sun.security.action.GetBooleanAction(
                 "sun.io.serialization.extendedDebugInfo")).booleanValue();
-
-    private static final Unsafe UNSAFE = Unsafe.getUnsafe();
-
-    /**
-     * Value of "UseFastSerializer" property, The fastSerializer is turned
-     * on when it is true.
-     */
-    private static final boolean useFastSerializer = UNSAFE.getUseFastSerializer();
-
-    /**
-     *  value of  "printFastSerializer" property,
-     *  as true or false for printing FastSerializer logs.
-     */
-    private static final boolean printFastSerializer = java.security.AccessController.doPrivileged(
-            new sun.security.action.GetBooleanAction(
-                    "printFastSerializer")).booleanValue();
-
-    /**
-     * Magic number that is written to the stream header when using fastserilizer.
-     */
-    private static final short STREAM_MAGIC_FAST = (short)0xdeca;
 
     /**
      * Creates an ObjectOutputStream that writes to the specified OutputStream.
@@ -367,9 +327,6 @@ public class ObjectOutputStream
      * writeObject and the readObject methods.  Objects referenced by this
      * object are written transitively so that a complete equivalent graph of
      * objects can be reconstructed by an ObjectInputStream.
-     *
-     * The difference between fastSerialzation and default serialization is the
-     * descriptor serialization. The data serialization is same with each other.
      *
      * <p>Exceptions are thrown for problems with the OutputStream and for
      * classes that should not be serialized.  All exceptions are fatal to the
@@ -679,11 +636,7 @@ public class ObjectOutputStream
      *          stream
      */
     protected void writeStreamHeader() throws IOException {
-        if (useFastSerializer) {
-            bout.writeShort(STREAM_MAGIC_FAST);
-        } else {
-            bout.writeShort(STREAM_MAGIC);
-        }
+        bout.writeShort(STREAM_MAGIC);
         bout.writeShort(STREAM_VERSION);
     }
 
@@ -697,9 +650,6 @@ public class ObjectOutputStream
      * reconstitute the class descriptor from its custom stream representation.
      * By default, this method writes class descriptors according to the format
      * defined in the Object Serialization specification.
-     *
-     * In fastSerializer mode, we will only write the classname to the stream.
-     * The annotateClass is used to match the resolveClass in readClassDescriptor.
      *
      * <p>Note that this method will only be called if the ObjectOutputStream
      * is not using the old serialization stream format (set by calling
@@ -718,14 +668,7 @@ public class ObjectOutputStream
     protected void writeClassDescriptor(ObjectStreamClass desc)
         throws IOException
     {
-        if (useFastSerializer) {
-            writeUTF(desc.getName());
-            // The annotateClass is used to match the resolveClass called in
-            // readClassDescriptor.
-            annotateClass(desc.forClass());
-        } else {
-            desc.writeNonProxy(this);
-        }
+        desc.writeNonProxy(this);
     }
 
     /**
@@ -1333,21 +1276,9 @@ public class ObjectOutputStream
         bout.writeByte(TC_CLASSDESC);
         handles.assign(unshared ? null : desc);
 
-        if (Logging.fastSerLogger != null) {
-            Logging.fastSerLogger.log(System.Logger.Level.DEBUG,
-            "[Serialize]   useFastSerializer:{0}, Class name:{1}, SerialVersionUID:{2}, flags:{3}, protocol:{4}",
-            useFastSerializer, desc.getName(), desc.getSerialVersionUID(), desc.getFlags(this), protocol);
-        }
-
         if (protocol == PROTOCOL_VERSION_1) {
             // do not invoke class descriptor write hook with old protocol
-            if (useFastSerializer) {
-                // only write name and annotate class when using FastSerializer
-                writeUTF(desc.getName());
-                annotateClass(desc.forClass());
-            } else {
-                desc.writeNonProxy(this);
-            }
+            desc.writeNonProxy(this);
         } else {
             writeClassDescriptor(desc);
         }
@@ -1360,9 +1291,8 @@ public class ObjectOutputStream
         annotateClass(cl);
         bout.setBlockDataMode(false);
         bout.writeByte(TC_ENDBLOCKDATA);
-        if (!useFastSerializer) {
-            writeClassDesc(desc.getSuperDesc(), false);
-        }
+
+        writeClassDesc(desc.getSuperDesc(), false);
     }
 
     /**

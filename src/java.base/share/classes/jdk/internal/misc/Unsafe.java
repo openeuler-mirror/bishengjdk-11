@@ -3703,7 +3703,7 @@ public final class Unsafe {
     private static long convEndian(boolean big, long n)   { return big == BE ? n : Long.reverseBytes(n)     ; }
 
 
-    public native boolean getUseFastSerializer();
+
     private native long allocateMemory0(long bytes);
     private native long reallocateMemory0(long address, long bytes);
     private native void freeMemory0(long address);
