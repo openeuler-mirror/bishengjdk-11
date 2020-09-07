@@ -309,7 +309,7 @@ void ZBarrierSetAssembler::generate_c1_load_barrier_runtime_stub(StubAssembler* 
 
   __ pop(save_regs, sp);
 
-  for (int i = 30; i >0; i -= 2) {
+  for (int i = 30; i >= 0; i -= 2) {
       __ ldpd(as_FloatRegister(i), as_FloatRegister(i + 1), Address(__ post(sp, 16)));
     }
 
