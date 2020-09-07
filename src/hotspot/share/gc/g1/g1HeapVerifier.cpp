@@ -777,7 +777,7 @@ class G1CheckCSetFastTableClosure : public HeapRegionClosure {
 
 bool G1HeapVerifier::check_cset_fast_test() {
   G1CheckCSetFastTableClosure cl;
-  _g1h->_hrm->iterate(&cl);
+  _g1h->_hrm.iterate(&cl);
   return !cl.failures();
 }
 #endif // PRODUCT

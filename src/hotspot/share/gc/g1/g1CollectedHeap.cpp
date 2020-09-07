@@ -343,7 +343,8 @@ HeapWord* G1CollectedHeap::humongous_obj_allocate(size_t word_size) {
   } else {
     // Policy: Try only empty regions (i.e. already committed first). Maybe we
     // are lucky enough to find some.
-    first = _hrm.find_contiguous_only_empty(obj_regions);
+    uint node_index = _numa->is_humongous_region_enabled() ? _numa->index_of_current_thread() : G1NUMA::AnyNodeIndex;
+    first = _hrm.find_contiguous_only_empty(obj_regions, node_index);
     if (first != G1_NO_HRM_INDEX) {
       _hrm.allocate_free_regions_starting_at(first, obj_regions);
     }
@@ -353,14 +354,15 @@ HeapWord* G1CollectedHeap::humongous_obj_allocate(size_t word_size) {
     // Policy: We could not find enough regions for the humongous object in the
     // free list. Look through the heap to find a mix of free and uncommitted regions.
     // If so, try expansion.
-    first = _hrm.find_contiguous_empty_or_unavailable(obj_regions);
+    uint node_index = _numa->is_humongous_region_enabled() ? _numa->index_of_current_thread() : G1NUMA::AnyNodeIndex;
+    first = _hrm.find_contiguous_empty_or_unavailable(obj_regions, node_index);
     if (first != G1_NO_HRM_INDEX) {
       // We found something. Make sure these regions are committed, i.e. expand
       // the heap. Alternatively we could do a defragmentation GC.
       log_debug(gc, ergo, heap)("Attempt heap expansion (humongous allocation request failed). Allocation request: " SIZE_FORMAT "B",
                                     word_size * HeapWordSize);
 
-      _hrm.expand_at(first, obj_regions, workers());
+      _hrm.expand_at(first, obj_regions, workers(), node_index);
       g1_policy()->record_new_heap_size(num_regions());
 
 #ifdef ASSERT
@@ -4823,7 +4825,7 @@ public:
                            HeapRegionSet* old_set, HeapRegionManager* hrm) :
     _free_list_only(free_list_only),
     _old_set(old_set), _hrm(hrm), _total_used(0) {
-    assert(_hrm.num_free_regions() == 0, "pre-condition");
+    assert(_hrm->num_free_regions() == 0, "pre-condition");
     if (!free_list_only) {
       assert(_old_set->is_empty(), "pre-condition");
     }

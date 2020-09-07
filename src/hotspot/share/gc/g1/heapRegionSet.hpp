@@ -53,6 +53,7 @@ class HeapRegionSetChecker : public CHeapObj<mtGC> {
 public:
   // Verify MT safety for this HeapRegionSet.
   virtual void check_mt_safety() = 0;
+  virtual bool is_correct_type(HeapRegion *hr) = 0;
 };
 
 // Base class for all the classes that represent heap region sets. It

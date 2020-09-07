@@ -89,6 +89,8 @@ public:
 
   bool is_enabled() const;
 
+  bool is_humongous_region_enabled() const;
+
   int numa_id(int index) const;
 
   // Returns memory node ids
@@ -113,7 +115,7 @@ public:
   uint index_for_region(HeapRegion* hr) const;
 
   // Requests the given memory area to be located at the given node index.
-  void request_memory_on_node(void* aligned_address, size_t size_in_bytes, uint region_index);
+  void request_memory_on_node(void* aligned_address, size_t size_in_bytes, uint region_index, uint node = AnyNodeIndex);
 
   // Returns maximum search depth which is used to limit heap region search iterations.
   // The number of active nodes, page size and heap region size are considered.

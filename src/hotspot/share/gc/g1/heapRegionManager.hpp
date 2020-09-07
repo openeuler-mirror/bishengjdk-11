@@ -26,6 +26,7 @@
 #define SHARE_VM_GC_G1_HEAPREGIONMANAGER_HPP
 
 #include "gc/g1/g1BiasedArray.hpp"
+#include "gc/g1/g1NUMA.hpp"
 #include "gc/g1/g1RegionToSpaceMapper.hpp"
 #include "gc/g1/heapRegionSet.hpp"
 #include "services/memoryUsage.hpp"
@@ -81,7 +82,7 @@ class HeapRegionManager: public CHeapObj<mtGC> {
   G1RegionToSpaceMapper* _card_counts_mapper;
 
   FreeRegionList _free_list;
-
+  G1RegionsOnNodes _humongous;
   // Each bit in this bitmap indicates that the corresponding region is available
   // for allocation.
   CHeapBitMap _available_map;
@@ -95,10 +96,10 @@ class HeapRegionManager: public CHeapObj<mtGC> {
   HeapWord* heap_bottom() const { return _regions.bottom_address_mapped(); }
   HeapWord* heap_end() const {return _regions.end_address_mapped(); }
 
-  void make_regions_available(uint index, uint num_regions = 1, WorkGang* pretouch_gang = NULL);
+  void make_regions_available(uint index, uint num_regions = 1, WorkGang* pretouch_gang = NULL, uint node = G1NUMA::AnyNodeIndex);
 
   // Pass down commit calls to the VirtualSpace.
-  void commit_regions(uint index, size_t num_regions = 1, WorkGang* pretouch_gang = NULL);
+  void commit_regions(uint index, size_t num_regions = 1, WorkGang* pretouch_gang = NULL, uint node = G1NUMA::AnyNodeIndex);
   void uncommit_regions(uint index, size_t num_regions = 1);
 
   // Notify other data structures about change in the heap layout.
@@ -108,7 +109,7 @@ class HeapRegionManager: public CHeapObj<mtGC> {
   // the index of the first region or G1_NO_HRM_INDEX if the search was unsuccessful.
   // If only_empty is true, only empty regions are considered.
   // Searches from bottom to top of the heap, doing a first-fit.
-  uint find_contiguous(size_t num, bool only_empty);
+  uint find_contiguous(size_t num, bool only_empty, uint node = G1NUMA::AnyNodeIndex);
   // Finds the next sequence of unavailable regions starting from start_idx. Returns the
   // length of the sequence found. If this result is zero, no such sequence could be found,
   // otherwise res_idx indicates the start index of these regions.
@@ -212,17 +213,17 @@ public:
   // Makes sure that the regions from start to start+num_regions-1 are available
   // for allocation. Returns the number of regions that were committed to achieve
   // this.
-  uint expand_at(uint start, uint num_regions, WorkGang* pretouch_workers);
+  uint expand_at(uint start, uint num_regions, WorkGang* pretouch_workers, uint node = G1NUMA::AnyNodeIndex);
 
   // Try to expand on the given node index.
   virtual uint expand_on_preferred_node(uint node_index);
 
   // Find a contiguous set of empty regions of length num. Returns the start index of
   // that set, or G1_NO_HRM_INDEX.
-  uint find_contiguous_only_empty(size_t num) { return find_contiguous(num, true); }
+  uint find_contiguous_only_empty(size_t num, uint node = G1NUMA::AnyNodeIndex) { return find_contiguous(num, true, node); }
   // Find a contiguous set of empty or unavailable regions of length num. Returns the
   // start index of that set, or G1_NO_HRM_INDEX.
-  uint find_contiguous_empty_or_unavailable(size_t num) { return find_contiguous(num, false); }
+  uint find_contiguous_empty_or_unavailable(size_t num, uint node = G1NUMA::AnyNodeIndex) { return find_contiguous(num, false, node); }
 
   HeapRegion* next_region_in_heap(const HeapRegion* r) const;
 

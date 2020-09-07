@@ -37,6 +37,11 @@
 #include "runtime/orderAccess.hpp"
 #include "utilities/bitMap.inline.hpp"
 
+// Avoid allocating too many humongous regions in the same node
+// at most (humongous regions already allocated)/ BALANCE_FACTOR_FOR_HUMONGOUS
+// if this threshold is exceeded, fallback to the original scheme
+const int BALANCE_FACTOR_FOR_HUMONGOUS = 2;
+
 class MasterFreeRegionListChecker : public HeapRegionSetChecker {
 public:
   void check_mt_safety() {
@@ -134,23 +139,23 @@ HeapRegion* HeapRegionManager::new_heap_region(uint hrm_index) {
   assert(reserved().contains(mr), "invariant");
   return g1h->new_heap_region(hrm_index, mr);
 }
- 
-void HeapRegionManager::commit_regions(uint index, size_t num_regions, WorkGang* pretouch_gang) {
+
+void HeapRegionManager::commit_regions(uint index, size_t num_regions, WorkGang* pretouch_gang, uint node) {
   guarantee(num_regions > 0, "Must commit more than zero regions");
   guarantee(_num_committed + num_regions <= max_length(), "Cannot commit more than the maximum amount of regions");
 
   _num_committed += (uint)num_regions;
 
-  _heap_mapper->commit_regions(index, num_regions, pretouch_gang);
+  _heap_mapper->commit_regions(index, num_regions, pretouch_gang, node);
 
   // Also commit auxiliary data
-  _prev_bitmap_mapper->commit_regions(index, num_regions, pretouch_gang);
-  _next_bitmap_mapper->commit_regions(index, num_regions, pretouch_gang);
+  _prev_bitmap_mapper->commit_regions(index, num_regions, pretouch_gang, node);
+  _next_bitmap_mapper->commit_regions(index, num_regions, pretouch_gang, node);
 
-  _bot_mapper->commit_regions(index, num_regions, pretouch_gang);
-  _cardtable_mapper->commit_regions(index, num_regions, pretouch_gang);
+  _bot_mapper->commit_regions(index, num_regions, pretouch_gang, node);
+  _cardtable_mapper->commit_regions(index, num_regions, pretouch_gang, node);
 
-  _card_counts_mapper->commit_regions(index, num_regions, pretouch_gang);
+  _card_counts_mapper->commit_regions(index, num_regions, pretouch_gang, node);
 }
 
 void HeapRegionManager::uncommit_regions(uint start, size_t num_regions) {
@@ -185,9 +190,22 @@ void HeapRegionManager::uncommit_regions(uint start, size_t num_regions) {
   _card_counts_mapper->uncommit_regions(start, num_regions);
 }
 
-void HeapRegionManager::make_regions_available(uint start, uint num_regions, WorkGang* pretouch_gang) {
+void HeapRegionManager::make_regions_available(uint start, uint num_regions, WorkGang* pretouch_gang, uint node) {
   guarantee(num_regions > 0, "No point in calling this for zero regions");
-  commit_regions(start, num_regions, pretouch_gang);
+  if (node != G1NUMA::AnyNodeIndex) {
+    G1NUMA* numa = G1NUMA::numa();
+    guarantee(numa->is_humongous_region_enabled(), "NUMA Humongous should be enabled in calling this");
+    guarantee(node < numa->num_active_nodes(), "node should be less than active nodes");
+    uint sum = 0;
+    for (uint i = 0; i < numa->num_active_nodes(); i++) {
+      sum += _humongous.count(i);
+    }
+    uint regionsOnThisNode = _humongous.count(node);
+    if (BALANCE_FACTOR_FOR_HUMONGOUS * regionsOnThisNode > sum + num_regions) {
+      node = G1NUMA::AnyNodeIndex;
+    }
+  }
+  commit_regions(start, num_regions, pretouch_gang, node);
   for (uint i = start; i < start + num_regions; i++) {
     if (_regions.get_by_index(i) == NULL) {
       HeapRegion* new_hr = new_heap_region(i);
@@ -209,7 +227,10 @@ void HeapRegionManager::make_regions_available(uint start, uint num_regions, Wor
     MemRegion mr(bottom, bottom + HeapRegion::GrainWords);
 
     hr->initialize(mr);
-    hr->set_node_index(G1NUMA::numa()->index_for_region(hr));
+    hr->set_node_index(node == G1NUMA::AnyNodeIndex ? G1NUMA::numa()->index_for_region(hr) : node);
+    if (node != G1NUMA::AnyNodeIndex) {
+      _humongous.add(hr);
+    }
     insert_into_free_list(at(i));
   }
 }
@@ -236,7 +257,7 @@ uint HeapRegionManager::expand_by(uint num_regions, WorkGang* pretouch_workers) 
   return expand_at(0, num_regions, pretouch_workers);
 }
 
-uint HeapRegionManager::expand_at(uint start, uint num_regions, WorkGang* pretouch_workers) {
+uint HeapRegionManager::expand_at(uint start, uint num_regions, WorkGang* pretouch_workers, uint node) {
   if (num_regions == 0) {
     return 0;
   }
@@ -250,7 +271,7 @@ uint HeapRegionManager::expand_at(uint start, uint num_regions, WorkGang* pretou
   while (expanded < num_regions &&
          (num_last_found = find_unavailable_from_idx(cur, &idx_last_found)) > 0) {
     uint to_expand = MIN2(num_regions - expanded, num_last_found);
-    make_regions_available(idx_last_found, to_expand, pretouch_workers);
+    make_regions_available(idx_last_found, to_expand, pretouch_workers, node);
     expanded += to_expand;
     cur = idx_last_found + num_last_found + 1;
   }
@@ -288,7 +309,7 @@ bool HeapRegionManager::is_on_preferred_index(uint region_index, uint preferred_
   return region_node_index == preferred_node_index;
 }
 
-uint HeapRegionManager::find_contiguous(size_t num, bool empty_only) {
+uint HeapRegionManager::find_contiguous(size_t num, bool empty_only, uint node) {
   uint found = 0;
   size_t length_found = 0;
   uint cur = 0;
@@ -297,7 +318,12 @@ uint HeapRegionManager::find_contiguous(size_t num, bool empty_only) {
     HeapRegion* hr = _regions.get_by_index(cur);
     if ((!empty_only && !is_available(cur)) || (is_available(cur) && hr != NULL && hr->is_empty())) {
       // This region is a potential candidate for allocation into.
-      length_found++;
+      if (node != G1NUMA::AnyNodeIndex && hr != NULL && hr->node_index() != node) {
+        length_found = 0;
+        found = cur + 1;
+      } else {
+        length_found++;
+      }
     } else {
       // This region is not a candidate. The next region is the next possible one.
       found = cur + 1;
@@ -306,13 +332,35 @@ uint HeapRegionManager::find_contiguous(size_t num, bool empty_only) {
     cur++;
   }
 
+  if (node != G1NUMA::AnyNodeIndex && length_found != num) {
+    found = 0;
+    length_found = 0;
+    cur = 0;
+    while (length_found < num && cur < max_length()) {
+      HeapRegion* hr = _regions.get_by_index(cur);
+      if ((!empty_only && !is_available(cur)) || (is_available(cur) && hr != NULL && hr->is_empty())) {
+        // This region is a potential candidate for allocation into.
+        length_found++;
+      } else {
+        // This region is not a candidate. The next region is the next possible one.
+        found = cur + 1;
+        length_found = 0;
+      }
+      cur++;
+    }
+  }
+
   if (length_found == num) {
+    G1NUMA* numa = G1NUMA::numa();
     for (uint i = found; i < (found + num); i++) {
       HeapRegion* hr = _regions.get_by_index(i);
       // sanity check
       guarantee((!empty_only && !is_available(i)) || (is_available(i) && hr != NULL && hr->is_empty()),
                 "Found region sequence starting at " UINT32_FORMAT ", length " SIZE_FORMAT
                 " that is not empty at " UINT32_FORMAT ". Hr is " PTR_FORMAT, found, num, i, p2i(hr));
+      if (numa->is_humongous_region_enabled() && hr != NULL && hr->node_index() < numa->num_active_nodes()) {
+        numa->update_statistics(G1NUMAStats::NewRegionAlloc, node, hr->node_index());
+      }
     }
     return found;
   } else {

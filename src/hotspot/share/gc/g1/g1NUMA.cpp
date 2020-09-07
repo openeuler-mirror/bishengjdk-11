@@ -42,6 +42,8 @@ size_t G1NUMA::page_size() const {
 
 bool G1NUMA::is_enabled() const { return num_active_nodes() > 1; }
 
+bool G1NUMA::is_humongous_region_enabled() const { return UseNUMAHumongous && num_active_nodes() > 1; }
+
 G1NUMA* G1NUMA::create() {
   guarantee(_inst == NULL, "Should be called once.");
   _inst = new G1NUMA();
@@ -203,7 +205,7 @@ uint G1NUMA::index_for_region(HeapRegion* hr) const {
 //      * Page #:       |-----0----||-----1----||-----2----||-----3----||-----4----||-----5----||-----6----||-----7----|
 //      * HeapRegion #: |-#0-||-#1-||-#2-||-#3-||-#4-||-#5-||-#6-||-#7-||-#8-||-#9-||#10-||#11-||#12-||#13-||#14-||#15-|
 //      * NUMA node #:  |----#0----||----#1----||----#2----||----#3----||----#0----||----#1----||----#2----||----#3----|
-void G1NUMA::request_memory_on_node(void* aligned_address, size_t size_in_bytes, uint region_index) {
+void G1NUMA::request_memory_on_node(void* aligned_address, size_t size_in_bytes, uint region_index, uint node) {
   if (!is_enabled()) {
     return;
   }
@@ -212,7 +214,7 @@ void G1NUMA::request_memory_on_node(void* aligned_address, size_t size_in_bytes,
     return;
   }
 
-  uint node_index = preferred_node_index_for_index(region_index);
+  uint node_index = node == G1NUMA::AnyNodeIndex ? preferred_node_index_for_index(region_index) : node;
 
   assert(is_aligned(aligned_address, page_size()), "Given address (" PTR_FORMAT ") should be aligned.", p2i(aligned_address));
   assert(is_aligned(size_in_bytes, page_size()), "Given size (" SIZE_FORMAT ") should be aligned.", size_in_bytes);
