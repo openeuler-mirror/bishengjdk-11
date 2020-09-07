@@ -299,6 +299,10 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   product(bool, UseNUMAInterleaving, false,                                 \
           "Interleave memory across NUMA nodes if available")               \
                                                                             \
+  experimental(bool, UseNUMAHumongous, false,                               \
+          "Allocate Humongous Regions in the same node if available"        \
+          "Only used if UseNUMA is enabled.")                               \
+                                                                            \
   product(size_t, NUMAInterleaveGranularity, 2*M,                           \
           "Granularity to use for NUMA interleaving on Windows OS")         \
           range(os::vm_allocation_granularity(), NOT_LP64(2*G) LP64_ONLY(8192*G)) \

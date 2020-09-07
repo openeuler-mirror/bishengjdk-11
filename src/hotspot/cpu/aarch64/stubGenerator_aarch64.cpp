@@ -5694,12 +5694,14 @@ class StubGenerator: public StubCodeGenerator {
 
     if (vmIntrinsics::is_intrinsic_available(vmIntrinsics::_dsin)) {
       // disabled pending fix and retest of generated code via JDK-8210461
-      // StubRoutines::_dsin = generate_dsin_dcos(/* isCos = */ false);
+      // fixed in JDK-8210461
+      StubRoutines::_dsin = generate_dsin_dcos(/* isCos = */ false);
     }
 
     if (vmIntrinsics::is_intrinsic_available(vmIntrinsics::_dcos)) {
       // disabled pending fix and retest of generated code via JDK-8210461
-      // StubRoutines::_dcos = generate_dsin_dcos(/* isCos = */ true);
+      // fixed in JDK-8210461
+      StubRoutines::_dcos = generate_dsin_dcos(/* isCos = */ true);
     }
   }
 

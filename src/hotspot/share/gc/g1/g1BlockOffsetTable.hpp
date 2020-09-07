@@ -34,6 +34,7 @@
 // Forward declarations
 class G1BlockOffsetTable;
 class G1ContiguousSpace;
+class G1RegionToSpaceMapper;
 
 // This implementation of "G1BlockOffsetTable" divides the covered region
 // into "N"-word subregions (where "N" = 2^"LogN".  An array with an entry

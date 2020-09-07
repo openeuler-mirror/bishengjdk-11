@@ -25,6 +25,7 @@
 #ifndef SHARE_VM_GC_G1_G1REGIONTOSPACEMAPPER_HPP
 #define SHARE_VM_GC_G1_G1REGIONTOSPACEMAPPER_HPP
 
+#include "gc/g1/g1NUMA.hpp"
 #include "gc/g1/g1PageBasedVirtualSpace.hpp"
 #include "memory/allocation.hpp"
 #include "utilities/debug.hpp"
@@ -72,7 +73,7 @@ class G1RegionToSpaceMapper : public CHeapObj<mtGC> {
     return _commit_map.at(idx);
   }
 
-  virtual void commit_regions(uint start_idx, size_t num_regions = 1, WorkGang* pretouch_workers = NULL) = 0;
+  virtual void commit_regions(uint start_idx, size_t num_regions = 1, WorkGang* pretouch_workers = NULL, uint node = G1NUMA::AnyNodeIndex) = 0;
   virtual void uncommit_regions(uint start_idx, size_t num_regions = 1) = 0;
 
   // Creates an appropriate G1RegionToSpaceMapper for the given parameters.

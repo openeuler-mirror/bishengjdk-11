@@ -69,7 +69,7 @@ class G1RegionsLargerThanCommitSizeMapper : public G1RegionToSpaceMapper {
     guarantee(alloc_granularity >= page_size, "allocation granularity smaller than commit granularity");
   }
 
-  virtual void commit_regions(uint start_idx, size_t num_regions, WorkGang* pretouch_gang) {
+  virtual void commit_regions(uint start_idx, size_t num_regions, WorkGang* pretouch_gang, uint node) {
     const size_t start_page = (size_t)start_idx * _pages_per_region;
     const size_t size_in_pages = num_regions * _pages_per_region;
     bool zero_filled = _storage.commit(start_page, size_in_pages);
@@ -77,7 +77,7 @@ class G1RegionsLargerThanCommitSizeMapper : public G1RegionToSpaceMapper {
       for (uint region_index = start_idx; region_index < start_idx + num_regions; region_index++ ) {
         void* address = _storage.page_start(region_index * _pages_per_region);
         size_t size_in_bytes = _storage.page_size() * _pages_per_region;
-        G1NUMA::numa()->request_memory_on_node(address, size_in_bytes, region_index);
+        G1NUMA::numa()->request_memory_on_node(address, size_in_bytes, region_index, node);
       }
     }
     if (AlwaysPreTouch) {
@@ -125,7 +125,7 @@ class G1RegionsSmallerThanCommitSizeMapper : public G1RegionToSpaceMapper {
     _refcounts.initialize((HeapWord*)rs.base(), (HeapWord*)(rs.base() + align_up(rs.size(), page_size)), page_size);
   }
 
-  virtual void commit_regions(uint start_idx, size_t num_regions, WorkGang* pretouch_gang) {
+  virtual void commit_regions(uint start_idx, size_t num_regions, WorkGang* pretouch_gang, uint node) {
     size_t const NoPage = ~(size_t)0;
 
     size_t first_committed = NoPage;
