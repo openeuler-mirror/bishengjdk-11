@@ -2674,6 +2674,10 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   JFR_ONLY(product(ccstr, StartFlightRecording, NULL,                       \
           "Start flight recording with options"))                           \
                                                                             \
+  experimental(bool, UseFastSerializer, false,                              \
+          "Cache-based serialization.It is extremely fast, but it can only" \
+          "be effective in certain scenarios.")                             \
+                                                                            \
   experimental(bool, UseFastUnorderedTimeStamps, false,                     \
           "Use platform unstable time where supported for timestamps only")
 
