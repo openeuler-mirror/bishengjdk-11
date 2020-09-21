@@ -303,12 +303,30 @@ public:
   template<typename Fn> void iterate(Fn fn);
 
 private:
+  DEFINE_PAD_MINUS_SIZE(0, DEFAULT_CACHE_LINE_SIZE, 0);
   // Element array.
   volatile E* _elems;
+
+  DEFINE_PAD_MINUS_SIZE(1, DEFAULT_CACHE_LINE_SIZE, sizeof(E*));
+  // Queue owner local variables. Not to be accessed by other threads.
+
+  static const uint InvalidQueueId = uint(-1);
+  uint _last_stolen_queue_id; // The id of the queue we last stole from
+
+  int _seed; // Current random seed used for selecting a random queue during stealing.
+
+  DEFINE_PAD_MINUS_SIZE(2, DEFAULT_CACHE_LINE_SIZE, sizeof(uint) + sizeof(int));
+public:
+  int next_random_queue_id();
+
+  void set_last_stolen_queue_id(uint id)     { _last_stolen_queue_id = id; }
+  uint last_stolen_queue_id() const          { return _last_stolen_queue_id; }
+  bool is_last_stolen_queue_id_valid() const { return _last_stolen_queue_id != InvalidQueueId; }
+  void invalidate_last_stolen_queue_id()     { _last_stolen_queue_id = InvalidQueueId; }
 };
 
 template<class E, MEMFLAGS F, unsigned int N>
-GenericTaskQueue<E, F, N>::GenericTaskQueue() {
+GenericTaskQueue<E, F, N>::GenericTaskQueue() : _last_stolen_queue_id(InvalidQueueId), _seed(17 /* random number */) {
   assert(sizeof(Age) == sizeof(size_t), "Depends on this.");
 }
 
@@ -353,11 +371,11 @@ private:
 };
 
 class TaskQueueSetSuper {
-protected:
-  static int randomParkAndMiller(int* seed0);
 public:
   // Returns "true" if some TaskQueue in the set contains a task.
   virtual bool peek() = 0;
+  // Tasks in queue
+  virtual uint tasks() const = 0;
 };
 
 template <MEMFLAGS F> class TaskQueueSetSuperImpl: public CHeapObj<F>, public TaskQueueSetSuper {
@@ -372,23 +390,21 @@ private:
 public:
   typedef typename T::element_type E;
 
-  GenericTaskQueueSet(int n);
+  GenericTaskQueueSet(uint n);
   ~GenericTaskQueueSet();
 
-  bool steal_best_of_2(uint queue_num, int* seed, E& t);
+  bool steal_best_of_2(uint queue_num, E& t);
 
   void register_queue(uint i, T* q);
 
   T* queue(uint n);
 
-  // The thread with queue number "queue_num" (and whose random number seed is
-  // at "seed") is trying to steal a task from some other queue.  (It may try
-  // several queues, according to some configuration parameter.)  If some steal
-  // succeeds, returns "true" and sets "t" to the stolen task, otherwise returns
-  // false.
-  bool steal(uint queue_num, int* seed, E& t);
+  // Try to steal a task from some other queue than queue_num. It may perform several attempts at doing so.
+  // Returns if stealing succeeds, and sets "t" to the stolen task.
+  bool steal(uint queue_num, E& t);
 
   bool peek();
+  uint tasks() const;
 
   uint size() const { return _n; }
 };
@@ -414,6 +430,15 @@ bool GenericTaskQueueSet<T, F>::peek() {
   return false;
 }
 
+template<class T, MEMFLAGS F>
+uint GenericTaskQueueSet<T, F>::tasks() const {
+  uint n = 0;
+  for (uint j = 0; j < _n; j++) {
+    n += _queues[j]->size();
+  }
+  return n;
+}
+
 // When to terminate from the termination protocol.
 class TerminatorTerminator: public CHeapObj<mtInternal> {
 public:
@@ -425,8 +450,8 @@ public:
 
 #undef TRACESPINNING
 
-class ParallelTaskTerminator: public StackObj {
-private:
+class ParallelTaskTerminator: public CHeapObj<mtGC> {
+protected:
   uint _n_threads;
   TaskQueueSetSuper* _queue_set;
 
@@ -462,7 +487,7 @@ public:
   // As above, but it also terminates if the should_exit_termination()
   // method of the terminator parameter returns true. If terminator is
   // NULL, then it is ignored.
-  bool offer_termination(TerminatorTerminator* terminator);
+  virtual bool offer_termination(TerminatorTerminator* terminator);
 
   // Reset the terminator, so that it may be reused again.
   // The caller is responsible for ensuring that this is done
@@ -480,6 +505,38 @@ public:
   static void print_termination_counts();
 #endif
 };
+
+#ifdef _MSC_VER
+#pragma warning(push)
+// warning C4521: multiple copy constructors specified
+#pragma warning(disable:4521)
+// warning C4522: multiple assignment operators specified
+#pragma warning(disable:4522)
+#endif
+
+class TaskTerminator : public StackObj {
+private:
+  ParallelTaskTerminator*  _terminator;
+
+  // Disable following copy constructors and assignment operator
+  TaskTerminator(TaskTerminator& o) { }
+  TaskTerminator(const TaskTerminator& o) { }
+  TaskTerminator& operator=(TaskTerminator& o) { return *this; }
+public:
+  TaskTerminator(uint n_threads, TaskQueueSetSuper* queue_set);
+  ~TaskTerminator();
+
+  // Move assignment
+  TaskTerminator& operator=(const TaskTerminator& o);
+
+  ParallelTaskTerminator* terminator() const {
+    return _terminator;
+  }
+};
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 
 typedef GenericTaskQueue<oop, mtGC>             OopTaskQueue;
 typedef GenericTaskQueueSet<OopTaskQueue, mtGC> OopTaskQueueSet;
