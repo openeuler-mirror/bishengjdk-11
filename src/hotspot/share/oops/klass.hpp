@@ -165,6 +165,8 @@ class Klass : public Metadata {
   // vtable length
   int _vtable_len;
 
+  bool _is_gc_leaf;
+
 private:
   // This is an index into FileMapHeader::_shared_path_table[], to
   // associate this class with the JAR file where it's loaded from during
@@ -602,6 +604,9 @@ protected:
                                                     layout_helper_is_typeArray(layout_helper()),
                                                     is_typeArray_klass_slow()); }
   #undef assert_same_query
+
+  void set_oop_is_gc_leaf(bool is_gc_leaf)        { _is_gc_leaf = is_gc_leaf; }
+  inline bool oop_is_gc_leaf()              const { return _is_gc_leaf; }
 
   // Access flags
   AccessFlags access_flags() const         { return _access_flags;  }

@@ -462,6 +462,7 @@ public:
   Node *_head;                  // Head of loop
   Node *_tail;                  // Tail of loop
   inline Node *tail();          // Handle lazy update of _tail field
+  inline Node *head();          // Handle lazy update of _head field
   PhaseIdealLoop* _phase;
   int _local_loop_unroll_limit;
   int _local_loop_unroll_factor;
@@ -747,13 +748,13 @@ private:
 #ifdef ASSERT
   void ensure_zero_trip_guard_proj(Node* node, bool is_main_loop);
 #endif
-  void copy_skeleton_predicates_to_main_loop_helper(Node* predicate, Node* start, Node* end, IdealLoopTree* outer_loop, LoopNode* outer_main_head,
+  void copy_skeleton_predicates_to_main_loop_helper(Node* predicate, Node* init, Node* stride, IdealLoopTree* outer_loop, LoopNode* outer_main_head,
                                                     uint dd_main_head, const uint idx_before_pre_post, const uint idx_after_post_before_pre,
                                                     Node* zero_trip_guard_proj_main, Node* zero_trip_guard_proj_post, const Node_List &old_new);
-  void copy_skeleton_predicates_to_main_loop(CountedLoopNode* pre_head, Node* start, Node* end, IdealLoopTree* outer_loop, LoopNode* outer_main_head,
+  void copy_skeleton_predicates_to_main_loop(CountedLoopNode* pre_head, Node* init, Node* stride, IdealLoopTree* outer_loop, LoopNode* outer_main_head,
                                              uint dd_main_head, const uint idx_before_pre_post, const uint idx_after_post_before_pre,
                                              Node* zero_trip_guard_proj_main, Node* zero_trip_guard_proj_post, const Node_List &old_new);
-  Node* clone_skeleton_predicate(Node* iff, Node* value, Node* predicate, Node* uncommon_proj,
+  Node* clone_skeleton_predicate(Node* iff, Node* new_init, Node* new_stride, Node* predicate, Node* uncommon_proj,
                                  Node* current_proj, IdealLoopTree* outer_loop, Node* prev_proj);
   bool skeleton_predicate_has_opaque(IfNode* iff);
   void update_main_loop_skeleton_predicates(Node* ctrl, CountedLoopNode* loop_head, Node* init, int stride_con);
@@ -1175,9 +1176,9 @@ public:
   // always holds true.  That is, either increase the number of iterations in
   // the pre-loop or the post-loop until the condition holds true in the main
   // loop.  Scale_con, offset and limit are all loop invariant.
-  void add_constraint( int stride_con, int scale_con, Node *offset, Node *low_limit, Node *upper_limit, Node *pre_ctrl, Node **pre_limit, Node **main_limit );
+  void add_constraint(jlong stride_con, jlong scale_con, Node* offset, Node* low_limit, Node* upper_limit, Node* pre_ctrl, Node** pre_limit, Node** main_limit);
   // Helper function for add_constraint().
-  Node* adjust_limit(int stride_con, Node * scale, Node *offset, Node *rc_limit, Node *loop_limit, Node *pre_ctrl, bool round_up);
+  Node* adjust_limit(bool reduce, Node* scale, Node* offset, Node* rc_limit, Node* old_limit, Node* pre_ctrl, bool round);
 
   // Partially peel loop up through last_peel node.
   bool partial_peel( IdealLoopTree *loop, Node_List &old_new );
@@ -1285,8 +1286,10 @@ private:
   Node *place_near_use( Node *useblock ) const;
   Node* try_move_store_before_loop(Node* n, Node *n_ctrl);
   void try_move_store_after_loop(Node* n);
+SHENANDOAHGC_ONLY(public:)
   bool identical_backtoback_ifs(Node *n);
   bool can_split_if(Node *n_ctrl);
+SHENANDOAHGC_ONLY(private:)
 
   // Clone loop predicates to slow and fast loop when unswitching a loop
   Node* clone_loop_predicates(Node* old_entry, Node* new_entry, bool clone_limit_check, bool is_slow_loop,
@@ -1310,7 +1313,6 @@ public:
 #ifndef PRODUCT
   void dump( ) const;
   void dump( IdealLoopTree *loop, uint rpo_idx, Node_List &rpo_list ) const;
-  void rpo( Node *start, Node_Stack &stk, VectorSet &visited, Node_List &rpo_list ) const;
   void verify() const;          // Major slow  :-)
   void verify_compare( Node *n, const PhaseIdealLoop *loop_verify, VectorSet &visited ) const;
   IdealLoopTree *get_loop_idx(Node* n) const {
@@ -1321,6 +1323,12 @@ public:
   static void print_statistics();
   static int _loop_invokes;     // Count of PhaseIdealLoop invokes
   static int _loop_work;        // Sum of PhaseIdealLoop x _unique
+#endif
+#if !defined(PRODUCT) || INCLUDE_SHENANDOAHGC
+  void rpo( Node *start, Node_Stack &stk, VectorSet &visited, Node_List &rpo_list ) const;
+#endif
+#if INCLUDE_SHENANDOAHGC
+  PhaseIterGVN& igvn() { return _igvn; }
 #endif
 };
 
@@ -1397,6 +1405,13 @@ inline Node* IdealLoopTree::tail() {
   return n;
 }
 
+inline Node* IdealLoopTree::head() {
+  // Handle lazy update of _head field.
+  if (_head->in(0) == NULL) {
+    _head = _phase->get_ctrl(_head);
+  }
+  return _head;
+}
 
 // Iterate over the loop tree using a preorder, left-to-right traversal.
 //

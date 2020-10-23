@@ -120,7 +120,9 @@ bool ZDirector::rule_allocation_rate() const {
   // the allocation rate variance, which means the probability is 1 in 1000
   // that a sample is outside of the confidence interval.
   const double max_alloc_rate = (ZStatAllocRate::avg() * ZAllocationSpikeTolerance) + (ZStatAllocRate::avg_sd() * one_in_1000);
-  const double time_until_oom = free / (max_alloc_rate + 1.0); // Plus 1.0B/s to avoid division by zero
+
+  // Plus 1.0B/s to avoid division by zero. Small or medium page allow 12.5% waste, so 87.5% used.
+  const double time_until_oom = (0.875 * free) / (max_alloc_rate + 1.0);
 
   // Calculate max duration of a GC cycle. The duration of GC is a moving
   // average, we add ~3.3 sigma to account for the GC duration variance.

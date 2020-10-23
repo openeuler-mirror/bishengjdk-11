@@ -2963,6 +2963,7 @@ void TemplateTable::fast_storefield(TosState state)
   // access constant pool cache
   __ get_cache_and_index_at_bcp(r2, r1, 1);
 
+  // Must prevent reordering of the following cp cache loads with bytecode load
   __ membar(MacroAssembler::LoadLoad);
 
   // test for volatile with r3
@@ -3058,6 +3059,7 @@ void TemplateTable::fast_accessfield(TosState state)
   // access constant pool cache
   __ get_cache_and_index_at_bcp(r2, r1, 1);
 
+  // Must prevent reordering of the following cp cache loads with bytecode load
   __ membar(MacroAssembler::LoadLoad);
 
   __ ldr(r1, Address(r2, in_bytes(ConstantPoolCache::base_offset() +
