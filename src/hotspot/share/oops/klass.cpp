@@ -202,6 +202,8 @@ Klass::Klass(KlassID id) : _id(id),
   CDS_JAVA_HEAP_ONLY(_archived_mirror = 0;)
   _primary_supers[0] = this;
   set_super_check_offset(in_bytes(primary_supers_offset()));
+
+  set_oop_is_gc_leaf(false);
 }
 
 jint Klass::array_layout_helper(BasicType etype) {

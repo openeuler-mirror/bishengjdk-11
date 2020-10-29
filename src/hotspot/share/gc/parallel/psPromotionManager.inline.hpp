@@ -59,7 +59,12 @@ inline void PSPromotionManager::claim_or_forward_internal_depth(T* p) {
       }
       RawAccess<IS_NOT_NULL>::oop_store(p, o);
     } else {
-      push_depth(p);
+      //leaf object copy in advanced, reduce cost of push and pop
+      if (!o->klass()->oop_is_gc_leaf()) {
+        push_depth(p);
+      } else {
+        copy_and_push_safe_barrier<T, false>(p);
+      }
     }
   }
 }
@@ -214,7 +219,7 @@ inline oop PSPromotionManager::copy_to_survivor_space(oop o) {
 
     // Now we have to CAS in the header.
     // Make copy visible to threads reading the forwardee.
-    if (o->cas_forward_to(new_obj, test_mark, memory_order_release)) {
+    if (o->cas_forward_to(new_obj, test_mark, o->klass()->oop_is_gc_leaf()? memory_order_relaxed : memory_order_release)) {
       // We won any races, we "own" this object.
       assert(new_obj == o->forwardee(), "Sanity");
 
@@ -238,8 +243,11 @@ inline oop PSPromotionManager::copy_to_survivor_space(oop o) {
         push_depth(masked_o);
         TASKQUEUE_STATS_ONLY(++_arrays_chunked; ++_masked_pushes);
       } else {
-        // we'll just push its contents
-        push_contents(new_obj);
+        //leaf object don't have contents, never need push_contents
+        if (!o->klass()->oop_is_gc_leaf()) {
+          // we'll just push its contents
+          push_contents(new_obj);
+        }
       }
     }  else {
       // We lost, someone else "owns" this object
