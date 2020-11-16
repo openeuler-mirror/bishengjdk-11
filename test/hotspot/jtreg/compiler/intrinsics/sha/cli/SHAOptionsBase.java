@@ -75,7 +75,7 @@ public class SHAOptionsBase extends CommandLineOptionTest {
      */
     public static String getWarningForUnsupportedCPU(String optionName) {
         if (Platform.isAArch64() || Platform.isS390x() || Platform.isSparc()
-            || Platform.isX64() || Platform.isX86() || Platform.isPPC()) {
+            || Platform.isX64() || Platform.isX86() || Platform.isPPC() || Platform.isRiscv64()) {
             switch (optionName) {
             case SHAOptionsBase.USE_SHA_OPTION:
                 return SHAOptionsBase.SHA_INSTRUCTIONS_ARE_NOT_AVAILABLE;
@@ -89,7 +89,7 @@ public class SHAOptionsBase extends CommandLineOptionTest {
                 throw new Error("Unexpected option " + optionName);
             }
         } else {
-            throw new Error("Support for CPUs different from AARCH64, S390x,"
+            throw new Error("Support for CPUs different from AARCH64, Riscv64, S390x,"
                             + " SPARC, X86, and PPC is not implemented");
         }
     }

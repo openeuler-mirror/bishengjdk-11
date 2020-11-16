@@ -99,8 +99,13 @@ bool Abstract_VM_Version::_parallel_worker_threads_initialized = false;
   #ifdef ZERO
     #define VMTYPE "Zero"
   #else // ZERO
-     #define VMTYPE COMPILER1_PRESENT("Client")   \
-                    COMPILER2_PRESENT("Server")
+     #ifdef COMPILER2
+        #define VMTYPE "Server"
+     #elif defined(COMPILER1)
+        #define VMTYPE "Client"
+     #else
+        #define VMTYPE "Core"
+     #endif // COMPILER2
   #endif // ZERO
   #endif // TIERED
 #endif
@@ -197,7 +202,8 @@ const char* Abstract_VM_Version::jre_release_version() {
                  IA32_ONLY("x86")                \
                  IA64_ONLY("ia64")               \
                  S390_ONLY("s390")               \
-                 SPARC_ONLY("sparc")
+                 SPARC_ONLY("sparc")             \
+		 RISCV64_ONLY("riscv64")
 #endif // !ZERO
 #endif // !CPU
 
