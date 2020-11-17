@@ -1,21 +1,38 @@
-## 毕昇JDK 11
+## BishengJDK 11 RISC-V port
 
-毕昇JDK是华为内部OpenJDK定制版Huawei JDK的开源版本，是一个高性能、可用于生产环境的OpenJDK发行版。Huawei JDK运行在华为内部500多个产品上，积累了大量使用场景和java开发者反馈的问题和诉求，解决了业务>实际运行中遇到的多个问题，并在ARM架构上进行了性能优化，毕昇JDK运行在大数据等场景下可以获得更好的性能。毕昇JDK 11目前仅支持Linux/AArch64平台。毕昇JDK同时是OpenJDK的下游，现在和未来也会持续稳定为OpenJDK社区做出贡献。
+BishengJDK 11 now brings the template interpreter and backends of C1/C2 compiler to the RISC-V world. We supports RV64G (G used to be represent the IMAFD base and extensions of RISC-V ISA) with BV (bit-manipulation and vector extensions) on the way, and the compressed instructions are out of plan. 
 
-二进制可以从[这里](https://mirrors.huaweicloud.com/kunpeng/archive/compiler/bisheng_jdk/)下载。
+## How to configure and build the JDK on RISCV64?
 
-## 平台支持
-
-毕昇JDK 当前支持 `Linux/AArch64` 一种平台。
+Please refer to [the building suggestions](./BUILDING.md).
 
 ## License
 
-毕昇JDK 使用 GPLv2 with Classpath Exception协议，请见 [License](https://gitee.com/openeuler/bishengjdk-11/blob/master/LICENSE)。
+BishengJDK follows GPLv2 with Classpath Exception，see [License](https://gitee.com/openeuler/bishengjdk-11/blob/master/LICENSE)。
 
-## 安装指导
+## State of Project
 
-请见 [安装指南](https://gitee.com/openeuler/bishengjdk-11/wikis/%E6%AF%95%E6%98%87JDK%2011%20%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97?sort_id=2891160)。
+- Features:
+  - We almost cover all components of jdk11, except AOT/Graal and Shenandoah GC. The Shenandoah GC will comming soon in the near future, and AOT and Graal is depending. Note that the OpenJDK community has disabled the features in Oracle builds in [JDK16](https://github.com/openjdk/jdk/pull/960).
 
-## 如何提交贡献
+  - B/V extensions
+    - The both two extensions of ISA are currently draft versions and not released yet. V is close to stable, and so we will introduces the vector instructions to the C2 backends and intrinsics soon.
 
-我们非常欢迎开发者提交贡献, 如果您发现了一个bug或者有一些想法想要交流，欢迎[发邮件到dev列表](https://openeuler.org/zh/community/mailing-list) 或者 [提交一个issue](https://gitee.com/openeuler/bishengjdk-11/issues) 。
+  - Intrinsics
+    - Lots of intrinsics depends on the B extension and will be dedicate if wrote by the B/V instructions, and other intrinsics of few methods of String and Arrays are now available.
+
+- Considerations:
+  - Frame layout
+    - Java frames are organized as other platforms, following the fp links, but native frames are arranged as the riscv style, of which the fp pointing to the sender sp. 
+ 
+  - Cross-modifying code
+    - We believe that the same story happened on the riscv machines. Details of the issue see https://bugs.openjdk.java.net/browse/JDK-8223613. We followed the conservative solution as same as the Aarch64 port, deoptimization when patching in C1. And the rest of risky may be addressed by [the invoke bindings JEP](https://openjdk.java.net/jeps/8221828).
+
+  - Comparing to other architecutures, more efforts were paid in the code genaration for addressing the short offset of branch instructions, the no-flag-register architecture, the simplest addressing mode and so on.
+
+- Tests
+  - We have passed 17000+ jtreg test cases, cross-compiled on x86 machines and ran on the user mode of QEMU RISCV64. And we hope to promote more tests and benchmarks on the real riscv machine in the future if possible.
+
+## By the way, Who is Bisheng?
+
+[Bi Sheng (990–1051 AD) was the Chinese inventor of the first known movable type technology. Bi Sheng's system was made of Chinese porcelain and was invented between 1041 and 1048 during the Song dynasty](http://www.edubilla.com/inventor/bi-sheng/).
