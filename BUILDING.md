@@ -78,9 +78,11 @@ To build the whole JDK riscv port, extra libraries of riscv version are required
   - libXtst
   - libXrandr
 
+For the infomation of the cross-compilation of dependencies above, please refer to [the compilation tips](./DEPENDENCY_BUILD.md).
+
 ## QEMU
 
-We can build QEMU from the source code:
+We can build QEMU from the source code, and it's highly recommended to use the lasted version:
 
 ```
 # keep source tree clean, and build in a new directory
