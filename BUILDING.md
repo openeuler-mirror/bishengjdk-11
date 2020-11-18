@@ -23,7 +23,7 @@ $ git submodule update --init --recursive
 Note that no extra work is required when building with gcc 9.2.0, and there may be some compilation problems with other compilers.
 
 ```shell
-$ cd ricsv-gcc
+$ cd riscv-gcc
 $ git checkout riscv-gcc-9.2.0
 ```
 
