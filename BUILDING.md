@@ -88,7 +88,7 @@ We can build QEMU from the source code, and it's highly recommended to use the l
 # keep source tree clean, and build in a new directory
 $ mkdir build && cd build
 # set riscv64 target
-$ bash ./configure --prefix=$PWD/riscv-qemu --disable-git-update --target-list=riscv64-linux-user,riscv64-softmmu
+$ bash ../configure --prefix=$PWD/riscv-qemu --disable-git-update --target-list=riscv64-linux-user,riscv64-softmmu
 $ make && make install
 ```
 
@@ -168,7 +168,7 @@ Note:
 Build binutils from the source code:
 
 ```shell
-$ cd build && make linux-riscv64 && cd linux-riscv64
+$ cd build && mkdir linux-riscv64 && cd linux-riscv64
 $ export PATH=/path/to/riscv/toolchain/bin:$PATH
 $ CFLAGS = '-fPIC -O' ../binutils-version/configure --disable-nls --host=riscv64-unknown-linux-gnu
 $ make
@@ -178,7 +178,7 @@ Build hsdis-riscv64:
 
 ```shell
 # PWD is src/utils/hsdis
-$ make demo BINUTILSDIR=build/binutils-2.35.1 ARCH=riscv64 CC=riscv-unknown-linxu-gnu-gcc
+$ make demo BINUTILSDIR=build/binutils-2.35.1 ARCH=riscv64 CC=riscv64-unknown-linux-gnu-gcc
 ```
 
 Test 'hsdis-riscv64' by 'hisdis-demo' on QEMU user mode:
