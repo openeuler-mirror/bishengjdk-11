@@ -265,6 +265,7 @@ bool os::is_first_C_frame(frame* fr) {
   return false;
 }
 
+#ifndef ZERO
 int os::get_native_stack(address* stack, int frames, int toSkip) {
   int frame_idx = 0;
   int num_of_frames = 0;  // number of frames captured
@@ -293,6 +294,7 @@ int os::get_native_stack(address* stack, int frames, int toSkip) {
 
   return num_of_frames;
 }
+#endif
 
 // Utility functions
 extern "C" JNIEXPORT int
