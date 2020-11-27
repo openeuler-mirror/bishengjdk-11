@@ -117,7 +117,7 @@ void os::check_dump_limit(char* buffer, size_t bufferSize) {
   VMError::record_coredump_status(buffer, success);
 }
 
-#ifndef RISCV64
+#if !defined(RISCV64) || defined(ZERO)
 int os::get_native_stack(address* stack, int frames, int toSkip) {
   int frame_idx = 0;
   int num_of_frames;  // number of frames captured
