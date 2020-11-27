@@ -69,7 +69,7 @@ $ make && make install
 #### cups
 
 ```shell
-$ ./configure --host=riscv64-unknown-linux-gnu --disable-ssl --disable-gssapi --disable-avahi --disable-libsub --disable-dbus --disable-systemd
+$ ./configure --host=riscv64-unknown-linux-gnu --disable-ssl --disable-gssapi --disable-avahi --disable-libusb --disable-dbus --disable-systemd
 $ make && make install DSTROOT=$sysroot
 ```
 
