@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1997, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2016 SAP SE. All rights reserved.
  * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
