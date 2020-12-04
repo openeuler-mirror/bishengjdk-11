@@ -538,6 +538,19 @@ class MacroAssembler: public Assembler {
                     Assembler::Aqrl acquire, Assembler::Aqrl release,
                     Register result);
 
+  void cmpxchg_narrow_value(Register addr, Register expected,
+                            Register new_val,
+                            enum operand_size size,
+                            Assembler::Aqrl acquire, Assembler::Aqrl release,
+                            Register result, bool result_as_bool,
+			    Register tmp1, Register tmp2, Register tmp3);
+  void weak_cmpxchg_narrow_value(Register addr, Register expected,
+                                 Register new_val,
+                                 enum operand_size size,
+                                 Assembler::Aqrl acquire, Assembler::Aqrl release,
+                                 Register result,
+                                 Register tmp1, Register tmp2, Register tmp3);
+
   void atomic_add(Register prev, RegisterOrConstant incr, Register addr);
   void atomic_addw(Register prev, RegisterOrConstant incr, Register addr);
   void atomic_addal(Register prev, RegisterOrConstant incr, Register addr);

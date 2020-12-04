@@ -2217,14 +2217,6 @@ void MacroAssembler::load_reserved(Register addr,
       lr_w(t0, addr, acquire);
       clear_upper_bits(t0, 32);
       break;
-    case int16:
-      lr_w(t1, addr, acquire);
-      sign_ext(t0, t1, 48);
-      break;
-    case int8:
-      lr_w(t1, addr, acquire);
-      sign_ext(t0, t1, 56);
-      break;
     default:
       ShouldNotReachHere();
   }
@@ -2242,28 +2234,133 @@ void MacroAssembler::store_conditional(Register addr,
     case uint32:
       sc_w(t0, new_val, addr, release);
       break;
-    case int16:
-      srli(t1, t1, 16);
-      slli(t1, t1, 16);
-      orr(t1, t1, new_val);
-      sc_w(t0, t1, addr, release);
-      break;
-    case int8:
-      andi(t1, t1, -256);
-      orr(t1, t1, new_val);
-      sc_w(t0, t1, addr, release);
-      break;
     default:
       ShouldNotReachHere();
   }
 }
 
+// cmpxchg narrow value will kill t0, t1, expected, new_val and tmps
+void MacroAssembler::cmpxchg_narrow_value(Register addr, Register expected,
+		                          Register new_val,
+					  enum operand_size size,
+					  Assembler::Aqrl acquire, Assembler::Aqrl release,
+					  Register result, bool result_as_bool,
+					  Register tmp1, Register tmp2, Register tmp3) {
+  assert(size == int8 || size == int16, "unsupported operand size");
+
+  Register aligned_addr = t1, shift = tmp1, mask = tmp2, not_mask = tmp3, old = result, tmp = t0;
+  assert_different_registers(addr, old, mask, not_mask, new_val, expected, shift, tmp);
+
+  andi(shift, addr, 3);
+  slli(shift, shift, 3);
+
+  andi(aligned_addr, addr, ~3);
+
+  if (size == int8) {
+    addi(mask, zr, 0xff);
+  } else {
+    addi(mask, zr, -1);
+    zero_ext(mask, mask, registerSize - 16);
+  }
+  sll(mask, mask, shift);
+
+  xori(not_mask, mask, -1);
+
+  sll(expected, expected, shift);
+  andr(expected, expected, mask);
+
+  sll(new_val, new_val, shift);
+  andr(new_val, new_val, mask);
+
+  Label retry, fail, done;
+
+  bind(retry);
+  lr_w(old, aligned_addr, acquire);
+  andr(tmp, old, mask);
+  bne(tmp, expected, fail);
+
+  andr(tmp, old, not_mask);
+  orr(tmp, tmp, new_val);
+  sc_w(tmp, tmp, aligned_addr, release);
+  bnez(tmp, retry);
+
+  if (result_as_bool) {
+    addi(result, zr, 1);
+    j(done);
+
+    bind(fail);
+    mv(result, zr);
+
+    bind(done);
+  } else {
+    andr(tmp, old, mask);
+
+    bind(fail);
+    srl(result, tmp, shift);
+  }
+}
+
+// cmpxchg narrow value will kill t0, t1, expected, new_val and tmps
+void MacroAssembler::weak_cmpxchg_narrow_value(Register addr, Register expected,
+                                          Register new_val,
+                                          enum operand_size size,
+                                          Assembler::Aqrl acquire, Assembler::Aqrl release,
+                                          Register result,
+                                          Register tmp1, Register tmp2, Register tmp3) {
+  assert(size == int8 || size == int16, "unsupported operand size");
+
+  Register aligned_addr = t1, shift = tmp1, mask = tmp2, not_mask = tmp3, old = result, tmp = t0;
+  assert_different_registers(addr, old, mask, not_mask, new_val, expected, shift, tmp);
+
+  andi(shift, addr, 3);
+  slli(shift, shift, 3);
+
+  andi(aligned_addr, addr, ~3);
+
+  if (size == int8) {
+    addi(mask, zr, 0xff);
+  } else {
+    addi(mask, zr, -1);
+    zero_ext(mask, mask, registerSize - 16);
+  }
+  sll(mask, mask, shift);
+
+  xori(not_mask, mask, -1);
+
+  sll(expected, expected, shift);
+  andr(expected, expected, mask);
+
+  sll(new_val, new_val, shift);
+  andr(new_val, new_val, mask);
+
+  Label succ, fail, done;
+
+  lr_w(old, aligned_addr, acquire);
+  andr(tmp, old, mask);
+  bne(tmp, expected, fail);
+
+  andr(tmp, old, not_mask);
+  orr(tmp, tmp, new_val);
+  sc_w(tmp, tmp, aligned_addr, release);
+  beqz(tmp, succ);
+
+  bind(fail);
+  addi(result, zr, 1);
+  j(done);
+
+  bind(succ);
+  mv(result, zr);
+
+  bind(done);
+}
 
 void MacroAssembler::cmpxchg(Register addr, Register expected,
                              Register new_val,
                              enum operand_size size,
                              Assembler::Aqrl acquire, Assembler::Aqrl release,
                              Register result, bool result_as_bool) {
+  assert(size != int8 && size != int16, "unsupported operand size");
+
   Label retry_load, done, ne_done;
   bind(retry_load);
   load_reserved(addr, size, acquire);
@@ -2295,6 +2392,8 @@ void MacroAssembler::cmpxchg_weak(Register addr, Register expected,
                                   enum operand_size size,
                                   Assembler::Aqrl acquire, Assembler::Aqrl release,
                                   Register result) {
+  assert(size != int8 && size != int16, "unsupported operand size");
+
   Label fail, done, sc_done;
   load_reserved(addr, size, acquire);
   bne(t0, expected, fail);
