@@ -355,7 +355,7 @@ void TemplateTable::ldc(bool wide)
   // ftos
   __ slli(x11, x11, 3);
   __ add(x11, x12, x11);
-  __ fld(f10, Address(x11, base_offset));
+  __ flw(f10, Address(x11, base_offset));
   __ push_f(f10);
   __ j(Done);
 
@@ -663,9 +663,7 @@ void TemplateTable::fload()
 {
   transition(vtos, ftos);
   locals_index(x11);
-  // n.b. we use fld here because this is a 64 bit slot
-  // this is comparable to the iload case
-  __ fld(f10, faddress(x11, t0, _masm));
+  __ flw(f10, faddress(x11, t0, _masm));
 }
 
 void TemplateTable::dload()
@@ -711,9 +709,7 @@ void TemplateTable::wide_fload()
 {
   transition(vtos, ftos);
   locals_index_wide(x11);
-  // n.b. we use fld here because this is a 64 bit slot
-  // this is comparable to the iload case
-  __ fld(f10, faddress(x11, t0, _masm));
+  __ flw(f10, faddress(x11, t0, _masm));
 }
 
 void TemplateTable::wide_dload()
