@@ -109,6 +109,7 @@ define_pd_global(intx, InlineSmallCode,          1000);
           range(1, max_jint)                                            \
   product(bool, TraceTraps, false, "Trace all traps the signal handler")\
   product(bool, UseConservativeFence, true,                             \
-          "Extend i for r and o for w in the pred/succ flags of fence") \
+          "Extend i for r and o for w in the pred/succ flags of fence;" \
+          "Extend fence.i to fence.i + fence.")                         \
 
 #endif // CPU_RISCV64_VM_GLOBALS_RISCV64_HPP
