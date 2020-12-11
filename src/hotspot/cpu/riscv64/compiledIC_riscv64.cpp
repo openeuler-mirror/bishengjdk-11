@@ -67,8 +67,8 @@ address CompiledStaticCall::emit_to_interp_stub(CodeBuffer &cbuf, address mark) 
 #undef __
 
 int CompiledStaticCall::to_interp_stub_size() {
-  // fence_i + fence + (lui, addi, slli, addi, slli, addi) + (lui, addi, slli, addi, slli) + jalr
-  return 14 * NativeInstruction::instruction_size;
+  // fence_i + (lui, addi, slli, addi, slli, addi) + (lui, addi, slli, addi, slli) + jalr
+  return NativeFenceI::instruction_size() + 12 * NativeInstruction::instruction_size;
 }
 
 int CompiledStaticCall::to_trampoline_stub_size() {
@@ -96,7 +96,7 @@ void CompiledDirectStaticCall::set_to_interpreted(const methodHandle& callee, ad
 
   // Creation also verifies the object.
   NativeMovConstReg* method_holder
-    = nativeMovConstReg_at(stub + 2 * NativeInstruction::instruction_size); // fence_i + membar(fence)
+    = nativeMovConstReg_at(stub + NativeFenceI::instruction_size());
 #ifndef PRODUCT
   NativeGeneralJump* jump = nativeGeneralJump_at(method_holder->next_instruction_address());
 
@@ -122,7 +122,7 @@ void CompiledDirectStaticCall::set_stub_to_clean(static_stub_Relocation* static_
   assert(stub != NULL, "stub not found");
   // Creation also verifies the object.
   NativeMovConstReg* method_holder
-    = nativeMovConstReg_at(stub + 2 * NativeInstruction::instruction_size); // fence_i + membar(fence)
+    = nativeMovConstReg_at(stub + NativeFenceI::instruction_size());
   method_holder->set_data(0);
 }
 
@@ -142,7 +142,7 @@ void CompiledDirectStaticCall::verify() {
   assert(stub != NULL, "no stub found for static call");
   // Creation also verifies the object.
   NativeMovConstReg* method_holder
-    = nativeMovConstReg_at(stub + 2 * NativeInstruction::instruction_size); // fence_i + membar(fence)
+    = nativeMovConstReg_at(stub + NativeFenceI::instruction_size());
   NativeJump* jump = nativeJump_at(method_holder->next_instruction_address());
 
   // Verify state.
