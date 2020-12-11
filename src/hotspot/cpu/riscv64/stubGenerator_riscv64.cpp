@@ -924,7 +924,7 @@ class StubGenerator: public StubCodeGenerator {
       __ addi(dst, dst, step);
     }
     __ addi(cnt, cnt, -granularity);
-    __ bgtz(cnt, done);
+    __ bgtz(cnt, copy_small);
 
     __ bind(done);
   }
