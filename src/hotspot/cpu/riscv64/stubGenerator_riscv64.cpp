@@ -789,103 +789,6 @@ class StubGenerator: public StubCodeGenerator {
     __ ret();
   }
 
-  // Small copy: less than 16 bytes.
-  //
-  // NB: Ignores all of the bits of count which represent more than 15
-  // bytes, so a caller doesn't have to mask them.
-
-  void copy_memory_small(Register s, Register d, Register count, Register tmp, int step) {
-    bool is_backwards = step < 0;
-    size_t granularity = uabs(step);
-    int direction = is_backwards ? -1 : 1;
-    int unit = wordSize * direction;
-
-    Label Lpair, Lword, Lint, Lshort, Lbyte;
-
-    assert(granularity &&
-           granularity <= sizeof (jlong), "Impossible granularity in copy_memory_small");
-
-    const Register tmp0 = x13, tmp1 = x14, tmp2 = x15, tmp3 = x16;
-
-    if (is_backwards) {
-       __ andi(t0, count, 8 / granularity);
-       __ beqz(t0, Lword);
-       __ addi(s, s, unit);
-       __ ld(tmp, Address(s, 0));
-       __ addi(d, d, unit);
-       __ sd(tmp, Address(d, 0));
-       __ bind(Lword);
-
-       if (granularity <= sizeof (jint)) {
-         __ andi(t0, count, 4 / granularity);
-         __ beqz(t0, Lint);
-         __ addi(s, s, sizeof (jint) * direction);
-         __ lwu(tmp, Address(s, 0));
-         __ addi(d, d, sizeof (jint) * direction);
-         __ sw(tmp, Address(d, 0));
-         __ bind(Lint);
-       }
-
-       if (granularity <= sizeof (jshort)) {
-         __ andi(t0, count, 2 / granularity);
-         __ beqz(t0, Lshort);
-         __ addi(s, s, sizeof (jshort) * direction);
-         __ lhu(tmp, Address(s, 0));
-         __ addi(d, d, sizeof (jshort) * direction);
-         __ sh(tmp, Address(d, 0));
-         __ bind(Lshort);
-       }
-
-       if (granularity <= sizeof (jbyte)) {
-         __ andi(t0, count, 1);
-         __ beqz(t0, Lbyte);
-         __ addi(s, s, sizeof (jbyte) * direction);
-         __ lbu(tmp, Address(s, 0));
-         __ addi(d, d, sizeof (jbyte) * direction);
-         __ sb(tmp, Address(d, 0));
-         __ bind(Lbyte);
-       }
-    } else {
-      __ andi(t0, count, 8 / granularity);
-      __ beqz(t0, Lword);
-      __ ld(tmp, Address(s, 0));
-      __ addi(s, s, unit);
-      __ sd(tmp, Address(d, 0));
-      __ addi(d, d, unit);
-      __ bind(Lword);
-
-      if (granularity <= sizeof (jint)) {
-        __ andi(t0, count, 4 / granularity);
-        __ beqz(t0, Lint);
-        __ lwu(tmp, Address(s, 0));
-        __ addi(s, s, sizeof (jint) * direction);
-        __ sw(tmp, Address(d, 0));
-        __ addi(d, d, sizeof (jint) * direction);
-        __ bind(Lint);
-      }
-
-      if (granularity <= sizeof (jshort)) {
-        __ andi(t0, count, 2 / granularity);
-        __ beqz(t0, Lshort);
-        __ lhu(tmp, Address(s, 0));
-        __ addi(s, s, sizeof (jshort) * direction);
-        __ sh(tmp, Address(d, 0));
-        __ addi(d, d, sizeof (jshort) * direction);
-        __ bind(Lshort);
-      }
-
-      if (granularity <= sizeof (jbyte)) {
-        __ andi(t0, count, 1);
-        __ beqz(t0, Lbyte);
-        __ lbu(tmp, Address(s, 0));
-        __ addi(s, s, sizeof (jbyte) * direction);
-        __ sb(tmp, Address(d, 0));
-        __ addi(d, d, sizeof (jbyte) * direction);
-        __ bind(Lbyte);
-      }
-    }
-  }
-
   Label copy_f, copy_b;
 
   // All-singing all-dancing memory copy.
@@ -894,218 +797,136 @@ class StubGenerator: public StubCodeGenerator {
   // step, which can be positive or negative depending on the direction
   // of copy.  If is_aligned is false, we align the source address.
   //
+  //
+  // if (is_aligned) {
+  //   goto copy8;
+  // }
+  // bool is_backwards = step < 0;
+  // int granularity = uabs(step);
+  // count = count * granularity;
+
+  // if (is_backwards) {
+  //   s += count;
+  //   d += count;
+  // }
+  // if (count < 16) {
+  //   goto copy_small;
+  // }
+
+  // if ((dst % 8) == (src % 8)) {
+  //   aligned;
+  //   goto copy8;
+  // }
+  // copy_small:
+  //   load element one by one;
+  // done; 
+
+  typedef void (MacroAssembler::*copy_insn)(Register Rd, const Address &adr, Register temp);
 
   void copy_memory(bool is_aligned, Register s, Register d,
                    Register count, Register tmp, int step) {
-    copy_direction direction = step < 0 ? copy_backwards : copy_forwards;
     bool is_backwards = step < 0;
     int granularity = uabs(step);
-    const Register tmp0 = x13, tmp1 = x14;
 
-    // <= 96 bytes do inline. Direction doesn't matter because we always
-    // load all the data before writing anything
-    Label copy4, copy8, copy16, copy32, copy80, copy_big, finish;
-    const Register tmp2 = x15, tmp3 = x16, tmp4 = x17, tmp5 = t0;
-    const Register tmp6 = t1, tmp7 = t2, tmp8 = x28, tmp9 = x29;
-    const Register send = x30, dend = x31;
+    const Register src = x30, dst = x31, cnt = x15, tmp3 = x16, tmp4 = x17;
+   
+    Label same_aligned;
+    Label copy8, copy_small, done;
 
-    __ mv(tmp, 80 / granularity);
-    __ bgtu(count, tmp, copy_big);
-
-    __ slli(tmp, count, exact_log2(granularity));
-    __ add(send, s, tmp);
-    __ add(dend, d, tmp);
-
-    __ mv(tmp, 16 / granularity);
-    __ bleu(count, tmp, copy16);
-
-    __ mv(tmp, 64 / granularity);
-    __ bgtu(count, tmp, copy80);
-
-    __ mv(tmp, 32 / granularity);
-    __ bleu(count, tmp, copy32);
-
-    // 33..64 bytes
-    __ ld(tmp0, Address(s, 0));
-    __ ld(tmp1, Address(s, 8));
-    __ ld(tmp2, Address(s, 16));
-    __ ld(tmp3, Address(s, 24));
-    __ ld(tmp4, Address(send, -32));
-    __ ld(tmp5, Address(send, -24));
-    __ ld(tmp6, Address(send, -16));
-    __ ld(tmp7, Address(send, -8));
-
-    __ sd(tmp0, Address(d, 0));
-    __ sd(tmp1, Address(d, 8));
-    __ sd(tmp2, Address(d, 16));
-    __ sd(tmp3, Address(d, 24));
-    __ sd(tmp4, Address(dend, -32));
-    __ sd(tmp5, Address(dend, -24));
-    __ sd(tmp6, Address(dend, -16));
-    __ sd(tmp7, Address(dend, -8));
-
-    __ j(finish);
-
-    // 17..32 bytes
-    __ bind(copy32);
-    __ ld(tmp0, Address(s, 0));
-    __ ld(tmp1, Address(s, 8));
-    __ ld(tmp2, Address(send, -16));
-    __ ld(tmp3, Address(send, -8));
-
-    __ sd(tmp0, Address(d, 0));
-    __ sd(tmp1, Address(d, 8));
-    __ sd(tmp2, Address(dend, -16));
-    __ sd(tmp3, Address(dend, -8));
-
-    __ j(finish);
-
-    // 65..80/96 bytes
-    __ bind(copy80);
-
-    __ ld(tmp0, Address(s, 0));
-    __ ld(tmp1, Address(s, 8));
-    __ ld(tmp2, Address(s, 16));
-    __ ld(tmp3, Address(s, 24));
-    __ ld(tmp4, Address(s, 32));
-    __ ld(tmp5, Address(s, 40));
-    __ ld(tmp6, Address(s, 48));
-    __ ld(tmp7, Address(s, 56));
-    __ ld(tmp8, Address(send, -16));
-    __ ld(tmp9, Address(send, -8));
-
-
-    __ sd(tmp0, Address(d, 0));
-    __ sd(tmp1, Address(d, 8));
-    __ sd(tmp2, Address(d, 16));
-    __ sd(tmp3, Address(d, 24));
-    __ sd(tmp4, Address(d, 32));
-    __ sd(tmp5, Address(d, 40));
-    __ sd(tmp6, Address(d, 48));
-    __ sd(tmp7, Address(d, 56));
-    __ sd(tmp8, Address(dend, -16));
-    __ sd(tmp9, Address(dend, -8));
-
-    __ j(finish);
-
-    // 0..16 bytes
-    __ bind(copy16);
-
-    __ mv(tmp, 8 / granularity);
-    __ bltu(count, tmp, copy8);
-
-    // 8..16 bytes
-    __ ld(tmp0, Address(s, 0));
-    __ ld(tmp1, Address(send, -8));
-    __ sd(tmp0, Address(d, 0));
-    __ sd(tmp1, Address(dend, -8));
-    __ j(finish);
-
-    if (granularity < 8) {
-      // 4..7 bytes
-      __ bind(copy8);
-      __ li(t0, 4 / granularity);
-      __ bltu(count, t0, copy4);
-      __ lwu(tmp0, Address(s, 0));
-      __ lwu(tmp1, Address(send, -4));
-      __ sw(tmp0, Address(d, 0));
-      __ sw(tmp1, Address(dend, -4));
-      __ j(finish);
-      if (granularity < 4) {
-        // 0..3 bytes
-        __ bind(copy4);
-        __ beqz(count, finish); // get rid of 0 case
-        if (granularity == 2) {
-          __ lhu(tmp0, Address(s, 0));
-          __ sh(tmp0, Address(d, 0));
-        } else { // granularity == 1
-          // Now 1..3 bytes. Handle the 1 and 2 byte case by copying
-          // the first and last byte.
-          // Handle the 3 byte case by loading and storing base + count/2
-          // (count == 1 (s+0)->(d+0), count == 2,3 (s+1) -> (d+1))
-          // This does means in the 1 byte case we load/store the same
-          // byte 3 times.
-          __ srli(count, count, 1);
-          __ lbu(tmp0, Address(s, 0));
-          __ lbu(tmp1, Address(send, -1));
-          __ add(tmp2, s, count);
-          __ lbu(tmp2, Address(tmp2, 0));
-          __ sb(tmp0, Address(d, 0));
-          __ sb(tmp1, Address(dend, -1));
-          __ add(tmp, d, count);
-          __ sb(tmp2, Address(tmp, 0));
-        }
-        __ j(finish);
-      }
+    copy_insn ld_arr, st_arr;
+    switch (granularity) {
+      case 1 :
+        ld_arr = (copy_insn)&MacroAssembler::lbu;
+        st_arr = (copy_insn)&MacroAssembler::sb;
+        break;
+      case 2 :
+        ld_arr = (copy_insn)&MacroAssembler::lhu;
+        st_arr = (copy_insn)&MacroAssembler::sh;
+        break;
+      case 4 :
+        ld_arr = (copy_insn)&MacroAssembler::lwu;
+        st_arr = (copy_insn)&MacroAssembler::sw;
+        break;
+      case 8 :
+        ld_arr = (copy_insn)&MacroAssembler::ld;
+        st_arr = (copy_insn)&MacroAssembler::sd;
+        break;
+      default:
+        ShouldNotReachHere();
     }
 
-    __ bind(copy_big);
+    __ beqz(count, done);
+    __ slli(cnt, count, exact_log2(granularity));
     if (is_backwards) {
-      __ slli(tmp, count, exact_log2(-step));
-      __ add(s, s, tmp);
-      __ add(d, d, tmp);
+      __ add(src, s, cnt);
+      __ add(dst, d, cnt);
+    } else {
+      __ mv(src, s);
+      __ mv(dst, d);
     }
-    // Now we've got the small case out of the way we can align the
-    // source address on a 2-word boundary.
-
-    Label aligned;
 
     if (is_aligned) {
-      // We may have to adjust by 1 word to get s 2-word-aligned.
-      __ andi(t0, s, wordSize);
-      __ beqz(t0, aligned);
-      if (is_backwards) {
-        __ add(s, s, direction * wordSize);
-        __ add(d, d, direction * wordSize);
-        __ ld(tmp, Address(s, 0));
-        __ sd(tmp, Address(d, 0));
-      } else {
-        __ ld(tmp, Address(s, 0));
-        __ sd(tmp, Address(d, 0));
-        __ add(s, s, direction * wordSize);
-        __ add(d, d, direction * wordSize);
-      }
-      __ sub(count, count, wordSize / granularity);
-    } else {
-      if (is_backwards) {
-        __ andi(t1, s, 2 * wordSize - 1);
-      } else {
-        __ neg(t1, s);
-        __ andi(t1, t1, 2 * wordSize - 1);
-      }
-      // t1 is the byte adjustment needed to align s.
-      __ beqz(t1, aligned);
-      int shift = exact_log2(granularity);
-      if (shift != 0) {
-        __ srli(t1, t1, shift);
-      }
-      __ sub(count, count, t1);
-      copy_memory_small(s, d, t1, t0, step);
+      __ addi(tmp, cnt, -8);
+      __ bgez(tmp, copy8);
+      __ j(copy_small);
     }
 
-    __ bind(aligned);
+    __ mv(tmp, 16);
+    __ blt(cnt, tmp, copy_small);
 
-    // s is now 2-word-aligned.
+    __ xorr(tmp, src, dst);
+    __ andi(tmp, tmp, 0b111);
+    __ bnez(tmp, copy_small);
 
-    // We have a count of units and some trailing bytes.  Adjust the
-    // count and do a bulk copy of words.
-    __ srli(t1, count, exact_log2(wordSize / granularity));
-    if (direction == copy_forwards) {
-      __ jal(copy_f);
-    } else {
-      __ jal(copy_b);
+    __ bind(same_aligned);
+    __ andi(tmp, src, 0b111);
+    __ beqz(tmp, copy8);
+    if (is_backwards) {
+      __ addi(src, src, step);
+      __ addi(dst, dst, step);
     }
-
-    // And the tail.
-    copy_memory_small(s, d, count, tmp, step);
-
-    if (granularity >= 8) {
-      __ bind(copy8);
+    (_masm->*ld_arr)(tmp3, Address(src, 0), t0);
+    (_masm->*st_arr)(tmp3, Address(dst, 0), t0);
+    if (!is_backwards) {
+      __ addi(src, src, step);
+      __ addi(dst, dst, step);
     }
-    if (granularity >= 4) {
-      __ bind(copy4);
+    __ addi(cnt, cnt, -granularity);
+    __ beqz(cnt, done);
+    __ j(same_aligned);
+
+    __ bind(copy8);
+    if (is_backwards) {
+      __ addi(src, src, -wordSize);
+      __ addi(dst, dst, -wordSize);
     }
-    __ bind(finish);
+    __ ld(tmp3, Address(src, 0), t0);
+    __ sd(tmp3, Address(dst, 0), t0);
+    if (!is_backwards) {
+      __ addi(src, src, wordSize);
+      __ addi(dst, dst, wordSize);
+    }
+    __ addi(cnt, cnt, -wordSize);
+    __ addi(tmp4, cnt, -8);
+    __ bgez(tmp4, copy8);
+
+    __ beqz(cnt, done);    
+
+    __ bind(copy_small);
+    if (is_backwards) {
+      __ addi(src, src, step);
+      __ addi(dst, dst, step);
+    }
+    (_masm->*ld_arr)(tmp3, Address(src, 0), t0);
+    (_masm->*st_arr)(tmp3, Address(dst, 0), t0);
+    if (!is_backwards) {
+      __ addi(src, src, step);
+      __ addi(dst, dst, step);
+    }
+    __ addi(cnt, cnt, -granularity);
+    __ bgtz(cnt, done);
+
+    __ bind(done);
   }
 
   // Scan over array at a for count oops, verifying each one.
