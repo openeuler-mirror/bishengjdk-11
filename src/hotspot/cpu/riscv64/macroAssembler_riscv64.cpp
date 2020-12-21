@@ -2975,17 +2975,17 @@ void MacroAssembler::la_patchable(Register reg1, const Address &dest, int32_t &o
 
 void MacroAssembler::build_frame(int framesize) {
   assert(framesize > 0, "framesize must be > 0");
-  sd(fp, Address(sp, -2 * wordSize));
-  sd(lr, Address(sp, -wordSize));
-  if (PreserveFramePointer) { add(fp, sp, -2 * wordSize); }
   sub(sp, sp, framesize);
+  sd(fp, Address(sp, framesize - 2 * wordSize));
+  sd(lr, Address(sp, framesize - wordSize));
+  if (PreserveFramePointer) { add(fp, sp, framesize - 2 * wordSize); }
 }
 
 void MacroAssembler::remove_frame(int framesize) {
   assert(framesize > 0, "framesize must be > 0");
+  ld(fp, Address(sp, framesize - 2 * wordSize));
+  ld(lr, Address(sp, framesize - wordSize));
   add(sp, sp, framesize);
-  ld(fp, Address(sp, -2 * wordSize));
-  ld(lr, Address(sp, -wordSize));
 }
 
 void MacroAssembler::reserved_stack_check() {
