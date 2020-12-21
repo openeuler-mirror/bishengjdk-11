@@ -43,6 +43,7 @@
 #include "oops/objArrayKlass.hpp"
 #include "runtime/frame.inline.hpp"
 #include "runtime/sharedRuntime.hpp"
+#include "utilities/macros.hpp"
 #include "vmreg_riscv64.inline.hpp"
 
 #ifndef PRODUCT
@@ -1775,6 +1776,12 @@ void LIR_Assembler::negate(LIR_Opr left, LIR_Opr dest, LIR_Opr tmp) {
 
 
 void LIR_Assembler::leal(LIR_Opr addr, LIR_Opr dest, LIR_PatchCode patch_code, CodeEmitInfo* info) {
+#if INCLUDE_SHENANDOAHGC
+  if (UseShenandoahGC && patch_code != lir_patch_none) {
+    deoptimize_trap(info);
+    return;
+  }
+#endif
   assert(patch_code == lir_patch_none, "Patch code not supported");
   LIR_Address* adr = addr->as_address_ptr();
   Register dst = dest->as_register_lo();

@@ -848,6 +848,10 @@ bool is_CAS(int opcode, bool maybe_volatile)
   case Op_GetAndSetN:
   case Op_GetAndAddI:
   case Op_GetAndAddL:
+#if INCLUDE_SHENANDOAHGC
+  case Op_ShenandoahCompareAndSwapP:
+  case Op_ShenandoahCompareAndSwapN:
+#endif
     return true;
   case Op_CompareAndExchangeI:
   case Op_CompareAndExchangeN:
@@ -9326,6 +9330,30 @@ instruct cmovI_cmpI(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOp cop ) 
   ins_pipe(pipe_slow);
 %}
 
+instruct cmovI_cmpL(iRegINoSp dst, iRegI src, iRegL op1, iRegL op2, cmpOp cop ) %{
+  match(Set dst (CMoveI (Binary cop (CmpL op1 op2)) (Binary dst src)));
+  ins_cost(ALU_COST + BRANCH_COST);
+
+  format %{
+             "cmp$cop op1, op2\t#@cmpL\n\t"
+             "mv_t $dst, $src\t#@cmovI"
+         %}
+
+  ins_encode %{
+    Register op1 = as_Register($op1$$reg);
+    Register op2 = as_Register($op2$$reg);
+    Register dst = as_Register($dst$$reg);
+    Register src = as_Register($src$$reg);
+    int cmpFlag = $cop$$cmpcode;
+    Label L;
+    __ cmp_branch(cmpFlag ^ (1 << MacroAssembler::neg_cond_bits), op1, op2, L);
+    __ mv(dst, src);
+    __ bind(L);
+   %}
+
+  ins_pipe(pipe_slow);
+%}
+
 instruct cmovI_cmpU(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOpU cop ) %{
   match(Set dst (CMoveI (Binary cop (CmpU op1 op2)) (Binary dst src)));
   ins_cost(ALU_COST + BRANCH_COST);
@@ -9555,7 +9583,7 @@ instruct string_compareLU(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_
 instruct clearArray_reg_reg(iRegL_R29 cnt, iRegP_R28 base, Universe dummy, iRegL_R6 cr)
 %{
   match(Set dummy (ClearArray cnt base));
-  effect(USE_KILL cnt, USE_KILL base);
+  effect(USE_KILL cnt, USE_KILL base, KILL cr);
 
   ins_cost(4 * DEFAULT_COST);
   format %{ "ClearArray $cnt, $base\t#@clearArray_reg_reg" %}

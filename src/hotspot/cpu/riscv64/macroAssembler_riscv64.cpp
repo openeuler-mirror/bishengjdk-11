@@ -44,6 +44,7 @@
 #include "runtime/jniHandles.inline.hpp"
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/thread.hpp"
+#include "utilities/macros.hpp"
 #ifdef COMPILER2
 #include "opto/compile.hpp"
 #include "opto/intrinsicnode.hpp"
@@ -350,7 +351,7 @@ void MacroAssembler::verify_oop(Register reg, const char* s) {
 
   mv(c_rarg0, reg); // c_rarg0 : x10
   if(b != NULL) {
-    movptr(t0, (address)b);
+    movptr(t0, (uintptr_t)(address)b);
   } else {
     ShouldNotReachHere();
   }
@@ -397,7 +398,7 @@ void MacroAssembler::verify_oop_addr(Address addr, const char* s) {
     ld(x10, addr);
   }
   if(b != NULL) {
-    mv(t0, (address)b);
+    movptr(t0, (uintptr_t)(address)b);
   } else {
     ShouldNotReachHere();
   }
@@ -527,8 +528,8 @@ void MacroAssembler::stop(const char* msg) {
   address ip = pc();
   pusha();
   if(msg != NULL && ip != NULL) {
-    mv(c_rarg0, (address)msg);
-    mv(c_rarg1, (address)ip);
+    movptr(c_rarg0, (uintptr_t)(address)msg);
+    movptr(c_rarg1, (uintptr_t)(address)ip);
   } else {
     ShouldNotReachHere();
   }
@@ -4202,4 +4203,17 @@ void MacroAssembler::cmp_l2i(Register dst, Register src1, Register src2, Registe
   // dst = -1 if lt; else if eq , dst = 0
   neg(dst, dst);
   bind(done);
+}
+
+void MacroAssembler::load_constant_pool_cache(Register cpool, Register method)
+{
+  ld(cpool, Address(method, Method::const_offset()));
+  ld(cpool, Address(cpool, ConstMethod::constants_offset()));
+  ld(cpool, Address(cpool, ConstantPool::cache_offset_in_bytes()));
+}
+
+void MacroAssembler::load_max_stack(Register dst, Register method)
+{
+  ld(dst, Address(xmethod, Method::const_offset()));
+  lhu(dst, Address(dst, ConstMethod::max_stack_offset()));
 }

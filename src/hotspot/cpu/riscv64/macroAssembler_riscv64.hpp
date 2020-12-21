@@ -778,6 +778,10 @@ class MacroAssembler: public Assembler {
   // if [src1 < src2], dst = -1;
   void cmp_l2i(Register dst, Register src1, Register src2, Register tmp = t0);
 
+  void load_constant_pool_cache(Register cpool, Register method);
+
+  void load_max_stack(Register dst, Register method);
+
 private:
   void load_prototype_header(Register dst, Register src);
   void repne_scan(Register addr, Register value, Register count, Register temp);

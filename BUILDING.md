@@ -133,6 +133,7 @@ $ bash configure \
     --x-includes=/riscv/toolchain/sysroot/usr/include \
     --x-libraries=/riscv/toolchain/sysroot/usr/lib
     --with-boot-jdk=/path/to/boot/jdk
+    --with-jvm-features=shenandoahgc
 $ make images
 ```
 Before running the JDK, `LD_LIBRARY_PATH` may need to be set:
