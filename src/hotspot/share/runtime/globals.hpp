@@ -2677,6 +2677,11 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   JFR_ONLY(product(ccstr, StartFlightRecording, NULL,                       \
           "Start flight recording with options"))                           \
                                                                             \
+  experimental(bool, UseHashMapIntegerCache, false,                         \
+          "The integer cache is an array of references to objects of"       \
+          "the HashMap Value type, indexed by the unboxed int key value."   \
+          "faster in execution, higher in memory consumption.")             \
+                                                                            \
   experimental(bool, UseFastSerializer, false,                              \
           "Cache-based serialization.It is extremely fast, but it can only" \
           "be effective in certain scenarios.")                             \
