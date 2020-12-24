@@ -35,6 +35,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import jdk.internal.misc.SharedSecrets;
+import jdk.internal.misc.Unsafe;
 
 /**
  * Hash table based implementation of the {@code Map} interface.  This
@@ -273,6 +274,28 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     static final int MIN_TREEIFY_CAPACITY = 64;
 
     /**
+     * Used to get the commandline option: UseHashMapIntegerCache.
+     */
+    private static final Unsafe UNSAFE = Unsafe.getUnsafe();
+
+    /**
+     * Indicate integerCache can be performed. disable if HashMap.Node.setValue
+     * is directly used to update Node value.
+     */
+    private static boolean enableIntegerCache = UNSAFE.getUseHashMapIntegerCache();
+
+    /**
+     * The smallest table size for create integer cache.
+     */
+    private static final int MIN_INTEGER_CACHE = 2048;
+
+    /**
+     * The factor used in create integer cache to guarantee most Key are
+     * Integer and in range.
+     */
+    private static final float INTEGER_CACHE_FACTOR = 0.95f;
+
+    /**
      * Basic hash bin node, used for most entries.  (See below for
      * TreeNode subclass, and in LinkedHashMap for its Entry subclass.)
      */
@@ -298,6 +321,10 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         }
 
         public final V setValue(V newValue) {
+            // Disable integerCache in all HashMap instance.
+            if (key != null && key instanceof Integer) {
+                enableIntegerCache = false;
+            }
             V oldValue = value;
             value = newValue;
             return oldValue;
@@ -389,6 +416,12 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * bootstrapping mechanics that are currently not needed.)
      */
     transient Node<K,V>[] table;
+
+    /**
+     * Cache <Integer key -> Value> Map
+     * integerCache[key->intValue] = V
+     */
+    transient Object[] integerCache;
 
     /**
      * Holds cached entrySet(). Note that AbstractMap fields are used
@@ -547,7 +580,20 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      *
      * @see #put(Object, Object)
      */
+    @SuppressWarnings("unchecked")
     public V get(Object key) {
+        if (integerCache != null) {
+            if (enableIntegerCache == false) {
+                integerCache = null;
+            }
+            else if (key != null && key instanceof Integer) {
+                int val = ((Integer)key).intValue();
+                if (val >= 0 && val < integerCache.length) {
+                    return (V)integerCache[val];
+                }
+            }
+        }
+
         Node<K,V> e;
         return (e = getNode(hash(key), key)) == null ? null : e.value;
     }
@@ -588,6 +634,17 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * key.
      */
     public boolean containsKey(Object key) {
+        if (integerCache != null) {
+            if (enableIntegerCache == false) {
+                integerCache = null;
+            }
+            else if (key != null && key instanceof Integer) {
+                int val = ((Integer)key).intValue();
+                if (val >= 0 && val < integerCache.length && integerCache[val] != null) {
+                    return true;
+                }
+            }
+        }
         return getNode(hash(key), key) != null;
     }
 
@@ -620,6 +677,11 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
                    boolean evict) {
         Node<K,V>[] tab; Node<K,V> p; int n, i;
+
+        if (integerCache != null) {
+            updateIntegerCache(key, value, onlyIfAbsent);
+        }
+
         if ((tab = table) == null || (n = tab.length) == 0)
             n = (tab = resize()).length;
         if ((p = tab[i = (n - 1) & hash]) == null)
@@ -740,6 +802,8 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                 }
             }
         }
+
+        createIntegerCache();
         return newTab;
     }
 
@@ -839,6 +903,10 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                     p.next = node.next;
                 ++modCount;
                 --size;
+
+                if (integerCache != null) {
+                    updateIntegerCache(node.key, null, false);
+                }
                 afterNodeRemoval(node);
                 return node;
             }
@@ -858,6 +926,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             for (int i = 0; i < tab.length; ++i)
                 tab[i] = null;
         }
+        integerCache = null;
     }
 
     /**
@@ -880,6 +949,82 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             }
         }
         return false;
+    }
+
+    /**
+     * 1. iterator all Keys and statistic
+     *    Integer Key count, total count is size
+     *    Integer Key count in range [0, table.length], get Max value.
+     *
+     * 2. Create integer cache
+     */
+    @SuppressWarnings({"unchecked"})
+    private final void createIntegerCache() {
+        int n = table.length;
+        int intKeyCount = 0;
+        int intKeyCountInrange = 0;
+        int maxIntKey = 0;
+        if (n < MIN_INTEGER_CACHE || (enableIntegerCache == false)) {
+            integerCache = null;
+            return;
+        }
+        Iterator<K> it = this.keySet().iterator();
+        while (it.hasNext()) {
+            K key = it.next();
+            if (key != null && key instanceof Integer) {
+                intKeyCount++;
+                int val = ((Integer)key).intValue();
+                if (val >= 0 && val < n) {
+                    intKeyCountInrange++;
+                    if (val > maxIntKey)
+                        maxIntKey = val;
+                }
+            }
+        }
+        float keyIntRation = ((float)intKeyCount) / size;
+        float keyIntInRangeRation = ((float)intKeyCountInrange) / size;
+        if (keyIntRation >= INTEGER_CACHE_FACTOR &&
+                keyIntInRangeRation >= INTEGER_CACHE_FACTOR) {
+            // compute integerCache size
+            int cacheMapSize = n < (2 * maxIntKey) ? n : (2 * maxIntKey);
+            integerCache = new Object[cacheMapSize];
+            Iterator<Map.Entry<K,V>> entries = this.entrySet().iterator();
+            while (entries.hasNext()) {
+                Map.Entry<K,V> thisEntry = entries.next();
+                K key = thisEntry.getKey();
+                V value = thisEntry.getValue();
+                if (key != null && key instanceof Integer) {
+                    int val = ((Integer)key).intValue();
+                    if (val >= 0 && val < integerCache.length) {
+                        integerCache[val] = value;
+                    }
+                }
+            }
+        } else {
+            integerCache = null;
+        }
+    }
+
+    /**
+     * put if integerCache null check outside of this call
+     * JIT will not inline this method (not hot) when HashMap is not Integer Key intensive.
+     * Otherwise it will always inline updateIntegerCache method.
+     *
+     */
+    private final void updateIntegerCache(K key, V value, boolean onlyIfAbsent) {
+        if (enableIntegerCache == false) {
+            integerCache = null;
+            return;
+        }
+        if (key != null && key instanceof Integer) {
+            int val = ((Integer)key).intValue();
+            if (val >= 0 && val < integerCache.length) {
+                if (onlyIfAbsent && integerCache[val] != null) {
+                    return;
+                }
+                integerCache[val] = value;
+            }
+        }
     }
 
     /**
@@ -1047,7 +1192,19 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     // Overrides of JDK8 Map extension methods
 
     @Override
+    @SuppressWarnings("unchecked")
     public V getOrDefault(Object key, V defaultValue) {
+        if (integerCache != null) {
+            if (enableIntegerCache == false) {
+                integerCache = null;
+            } else if (key != null && key instanceof Integer) {
+                V value;
+                int val = ((Integer)key).intValue();
+                if (val >= 0 && val < integerCache.length && (value = (V)integerCache[val]) != null) {
+                    return value;
+                }
+            }
+        }
         Node<K,V> e;
         return (e = getNode(hash(key), key)) == null ? defaultValue : e.value;
     }
@@ -1068,6 +1225,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         if ((e = getNode(hash(key), key)) != null &&
             ((v = e.value) == oldValue || (v != null && v.equals(oldValue)))) {
             e.value = newValue;
+            if (integerCache != null) {
+                updateIntegerCache(key, newValue, false);
+            }
             afterNodeAccess(e);
             return true;
         }
@@ -1080,6 +1240,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         if ((e = getNode(hash(key), key)) != null) {
             V oldValue = e.value;
             e.value = value;
+            if (integerCache != null) {
+                updateIntegerCache(key, value, false);
+            }
             afterNodeAccess(e);
             return oldValue;
         }
@@ -1136,6 +1299,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             return null;
         } else if (old != null) {
             old.value = v;
+            if (integerCache != null) {
+                updateIntegerCache(key, v, false);
+            }
             afterNodeAccess(old);
             return v;
         }
@@ -1146,6 +1312,11 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             if (binCount >= TREEIFY_THRESHOLD - 1)
                 treeifyBin(tab, hash);
         }
+
+        if (integerCache != null) {
+            updateIntegerCache(key, v, false);
+        }
+
         modCount = mc + 1;
         ++size;
         afterNodeInsertion(true);
@@ -1176,6 +1347,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             if (mc != modCount) { throw new ConcurrentModificationException(); }
             if (v != null) {
                 e.value = v;
+                if (integerCache != null) {
+                    updateIntegerCache(key, v, false);
+                }
                 afterNodeAccess(e);
                 return v;
             }
@@ -1230,6 +1404,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         if (old != null) {
             if (v != null) {
                 old.value = v;
+                if (integerCache != null) {
+                    updateIntegerCache(key, v, false);
+                }
                 afterNodeAccess(old);
             }
             else
@@ -1242,6 +1419,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                 tab[i] = newNode(hash, key, v, first);
                 if (binCount >= TREEIFY_THRESHOLD - 1)
                     treeifyBin(tab, hash);
+            }
+            if (integerCache != null) {
+                updateIntegerCache(key, v, false);
             }
             modCount = mc + 1;
             ++size;
@@ -1303,6 +1483,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             }
             if (v != null) {
                 old.value = v;
+                if (integerCache != null) {
+                    updateIntegerCache(key, v, false);
+                }
                 afterNodeAccess(old);
             }
             else
@@ -1316,6 +1499,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                 tab[i] = newNode(hash, key, value, first);
                 if (binCount >= TREEIFY_THRESHOLD - 1)
                     treeifyBin(tab, hash);
+            }
+            if (integerCache != null) {
+                updateIntegerCache(key, value, false);
             }
             ++modCount;
             ++size;
@@ -1350,6 +1536,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             for (Node<K,V> e : tab) {
                 for (; e != null; e = e.next) {
                     e.value = function.apply(e.key, e.value);
+                    if (integerCache != null) {
+                        updateIntegerCache(e.key, e.value, false);
+                    }
                 }
             }
             if (modCount != mc)
@@ -1823,6 +2012,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         modCount = 0;
         threshold = 0;
         size = 0;
+        integerCache = null;
     }
 
     // Callbacks to allow LinkedHashMap post-actions
