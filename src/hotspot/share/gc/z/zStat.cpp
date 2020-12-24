@@ -1101,6 +1101,7 @@ void ZStatMark::print() {
 // Stat relocation
 //
 size_t ZStatRelocation::_relocating;
+size_t ZStatRelocation::_small_page_live_bytes;
 bool ZStatRelocation::_success;
 
 void ZStatRelocation::set_at_select_relocation_set(size_t relocating) {
@@ -1117,6 +1118,42 @@ void ZStatRelocation::print() {
   } else {
     log_info(gc, reloc)("Relocation: Incomplete");
   }
+}
+
+//
+// Stat relcoation rate
+//
+Ticks                       ZStatRelocationRate::_start_of_last;
+Ticks                       ZStatRelocationRate::_end_of_last;
+NumberSeq                   ZStatRelocationRate::_duration(0.3 /* alpha */);
+TruncatedSeq                ZStatRelocationRate::_small_rate;
+TruncatedSeq                ZStatRelocationRate::_small_rate_avg;
+
+void ZStatRelocationRate::at_start() {
+  _start_of_last = Ticks::now();
+}
+
+void ZStatRelocationRate::at_end() {
+  _end_of_last = Ticks::now();
+
+  const double duration = (_end_of_last - _start_of_last).seconds() + 1.0; // Add 1.0 to avoid the duration close zero
+  _duration.add(duration);
+
+  const double small_bytes_per_second = ZStatRelocation::_small_page_live_bytes / duration;
+  _small_rate.add(small_bytes_per_second);
+  _small_rate_avg.add(_small_rate.avg());
+}
+
+const AbsSeq& ZStatRelocationRate::duration() {
+  return _duration;
+}
+
+double ZStatRelocationRate::small_avg() {
+  return _small_rate.avg();
+}
+
+double ZStatRelocationRate::small_avg_sd() {
+  return _small_rate_avg.sd();
 }
 
 //

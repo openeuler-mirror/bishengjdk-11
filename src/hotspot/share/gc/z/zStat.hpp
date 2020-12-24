@@ -392,10 +392,31 @@ private:
   static bool   _success;
 
 public:
+  static size_t _small_page_live_bytes;
   static void set_at_select_relocation_set(size_t relocating);
   static void set_at_relocate_end(bool success);
-
   static void print();
+};
+
+//
+// Stat relocation rate
+//
+class ZStatRelocationRate : public AllStatic {
+private:
+  static Ticks                       _start_of_last;
+  static Ticks                       _end_of_last;
+  static NumberSeq                   _duration;
+  static TruncatedSeq                _small_rate;     // B/s
+  static TruncatedSeq                _small_rate_avg; // B/s
+
+public:
+  static void   at_start();
+  static void   at_end();
+
+  static const AbsSeq& duration();
+
+  static double small_avg();
+  static double small_avg_sd();
 };
 
 //
