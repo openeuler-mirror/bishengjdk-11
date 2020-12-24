@@ -324,6 +324,17 @@ public:
   }
 };
 
+class ZDriverRelocationScopeHelper : public StackObj {
+public:
+  ZDriverRelocationScopeHelper() {
+    ZStatRelocationRate::at_start();
+  }
+
+  ~ZDriverRelocationScopeHelper() {
+    ZStatRelocationRate::at_end();
+  }
+};
+
 void ZDriver::run_gc_cycle(GCCause::Cause cause) {
   ZDriverCycleScope scope(cause);
 
@@ -381,12 +392,12 @@ void ZDriver::run_gc_cycle(GCCause::Cause cause) {
 
   // Phase 9: Pause Relocate Start
   {
+    ZDriverRelocationScopeHelper scope_helper();
     ZRelocateStartClosure cl;
     vm_operation(&cl);
-  }
 
-  // Phase 10: Concurrent Relocate
-  {
+    // Phase 10: Concurrent Relocate
+
     ZStatTimer timer(ZPhaseConcurrentRelocated);
     ZHeap::heap()->relocate();
   }

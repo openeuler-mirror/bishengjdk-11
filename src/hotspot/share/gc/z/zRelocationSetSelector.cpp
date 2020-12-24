@@ -26,9 +26,13 @@
 #include "gc/z/zPage.inline.hpp"
 #include "gc/z/zRelocationSet.hpp"
 #include "gc/z/zRelocationSetSelector.hpp"
+#include "gc/z/zStat.hpp"
 #include "logging/log.hpp"
 #include "runtime/globals.hpp"
 #include "utilities/debug.hpp"
+
+// means the probability is 1 in 1000 that a sample is outside of the confidence interval.
+const double ZRelocationSetSelectorGroup::one_in_1000 = 3.290527;
 
 ZRelocationSetSelectorGroup::ZRelocationSetSelectorGroup(const char* name,
                                                          size_t page_size,
@@ -36,15 +40,36 @@ ZRelocationSetSelectorGroup::ZRelocationSetSelectorGroup(const char* name,
     _name(name),
     _page_size(page_size),
     _object_size_limit(object_size_limit),
-    _fragmentation_limit(page_size * (ZFragmentationLimit / 100)),
+    _fragmentation_limit(ZAdatpivePageRelcaim ? (page_size * (ZPageMinWastePercent / 100)) :
+                                                (page_size * (ZFragmentationLimit / 100))),
+    _predication_relocation_size(0),
     _registered_pages(),
     _sorted_pages(NULL),
     _nselected(0),
     _relocating(0),
-    _fragmentation(0) {}
+    _fragmentation(0) {
+    if (is_fragment_limit_adatpive() && page_size == ZPageSizeSmall) {
+      // Predicate the relocation rate
+      double max_relocation_rate = 0.0;
+      max_relocation_rate = (ZStatRelocationRate::small_avg() * ZAllocationSpikeTolerance) +
+                            (ZStatRelocationRate::small_avg_sd() * one_in_1000);
+
+      // The decay average time
+      const AbsSeq& duration_of_relocation = ZStatRelocationRate::duration();
+      const double max_duration_of_relocation =
+              duration_of_relocation.davg() + (duration_of_relocation.dsd() * one_in_1000);
+
+      _predication_relocation_size = (size_t)max_relocation_rate * max_duration_of_relocation;
+      log_info(gc, reloc)("Predication Relocation size: " SIZE_FORMAT, _predication_relocation_size);
+    }
+}
 
 ZRelocationSetSelectorGroup::~ZRelocationSetSelectorGroup() {
   FREE_C_HEAP_ARRAY(const ZPage*, _sorted_pages);
+}
+
+bool ZRelocationSetSelectorGroup::is_fragment_limit_adatpive() {
+  return ZAdatpivePageRelcaim && ZStatCycle::ncycles() >= 3; // warm up needs 2 cycles
 }
 
 void ZRelocationSetSelectorGroup::register_live_page(const ZPage* page, size_t garbage) {
@@ -104,12 +129,25 @@ void ZRelocationSetSelectorGroup::select() {
   size_t selected_from = 0;
   size_t selected_to = 0;
   size_t from_size = 0;
+  bool   is_abortable_selection = false;
+  size_t cur_page_live_bytes = 0;
+  double page_min_live_percent = 100 - ZPageMaxWastePercent;
 
   semi_sort();
 
   for (size_t from = 1; from <= npages; from++) {
     // Add page to the candidate relocation set
-    from_size += _sorted_pages[from - 1]->live_bytes();
+    cur_page_live_bytes = _sorted_pages[from - 1]->live_bytes();
+    from_size += cur_page_live_bytes;
+    // Abortable selection for relocation
+    if (is_fragment_limit_adatpive() &&  _page_size == ZPageSizeSmall &&
+      from_size >= _predication_relocation_size &&
+      percent_of(cur_page_live_bytes, ZPageSizeSmall) > page_min_live_percent) {
+      // Get really relocation bytes
+      from_size -= cur_page_live_bytes;
+      is_abortable_selection = true;
+      break;
+    }
 
     // Calculate the maximum number of pages needed by the candidate relocation set.
     // By subtracting the object size limit from the pages size we get the maximum
@@ -130,8 +168,13 @@ void ZRelocationSetSelectorGroup::select() {
     }
 
     log_trace(gc, reloc)("Candidate Relocation Set (%s Pages): "
-                         SIZE_FORMAT "->" SIZE_FORMAT ", %.1f%% relative defragmentation, %s",
-                         _name, from, to, diff_reclaimable, (selected_from == from) ? "Selected" : "Rejected");
+                        SIZE_FORMAT "->" SIZE_FORMAT ", %.1f%% relative defragmentation, %s",
+                        _name, from, to, diff_reclaimable, (selected_from == from) ? "Selected" : "Rejected");
+  }
+
+  if (is_abortable_selection) {
+    log_info(gc, reloc)("Abortable selection for Small Page really relocation byte is: " SIZE_FORMAT
+		               ", predication relocation byte is: " SIZE_FORMAT, from_size, _predication_relocation_size);
   }
 
   // Finalize selection
@@ -146,6 +189,22 @@ void ZRelocationSetSelectorGroup::select() {
 
   log_debug(gc, reloc)("Relocation Set (%s Pages): " SIZE_FORMAT "->" SIZE_FORMAT ", " SIZE_FORMAT " skipped",
                        _name, selected_from, selected_to, npages - _nselected);
+
+  calculate_live_bytes();
+}
+
+void ZRelocationSetSelectorGroup::calculate_live_bytes() {
+  if (_page_size != ZPageSizeSmall) {
+    return;
+  }
+
+  if ((!ZAdatpivePageRelcaim) && (ZStatCycle::ncycles() >= 3)) {
+    return;
+  }
+
+  for (size_t from = 0; from < _nselected; from++) {
+    ZStatRelocation::_small_page_live_bytes += _sorted_pages[from]->live_bytes();
+  }
 }
 
 const ZPage* const* ZRelocationSetSelectorGroup::selected() const {

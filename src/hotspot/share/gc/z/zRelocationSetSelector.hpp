@@ -32,10 +32,13 @@ class ZRelocationSet;
 
 class ZRelocationSetSelectorGroup {
 private:
+  static const double one_in_1000;
+
   const char* const    _name;
   const size_t         _page_size;
   const size_t         _object_size_limit;
   const size_t         _fragmentation_limit;
+  size_t               _predication_relocation_size;
 
   ZArray<const ZPage*> _registered_pages;
   const ZPage**        _sorted_pages;
@@ -43,6 +46,7 @@ private:
   size_t               _relocating;
   size_t               _fragmentation;
 
+  bool is_fragment_limit_adatpive();
   void semi_sort();
 
 public:
@@ -53,6 +57,7 @@ public:
 
   void register_live_page(const ZPage* page, size_t garbage);
   void select();
+  void calculate_live_bytes();
 
   const ZPage* const* selected() const;
   size_t nselected() const;

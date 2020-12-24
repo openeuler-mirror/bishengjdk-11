@@ -5273,7 +5273,6 @@ void os::Linux::numa_init() {
           ls.print(" %d", node);
         }
       }
-      log_info(gc, heap)("UseNUMA enabled for G1");
     }
   }
 

@@ -49,6 +49,17 @@
   product(double, ZFragmentationLimit, 25.0,                                \
           "Maximum allowed heap fragmentation")                             \
                                                                             \
+  experimental(bool, ZAdatpivePageRelcaim, false,                           \
+          "Adapptive page relcaim at relcoation phase")                     \
+                                                                            \
+  develop(double, ZPageMinWastePercent, 5.0,                                \
+          "Amount of space, expressed as a percentage of the page size, "   \
+          "that ZGC is willing not to collect to avoid expensive GCs.")     \
+          range(0.0, 100.0)                                                 \
+                                                                            \
+  product(double, ZPageMaxWastePercent, 30.0, "Adaptive small page "        \
+          "seclect minmum pages percent.")range(0.0, 100.0)                 \
+                                                                            \
   product(bool, ZStallOnOutOfMemory, true,                                  \
           "Allow Java threads to stall and wait for GC to complete "        \
           "instead of immediately throwing an OutOfMemoryError")            \
