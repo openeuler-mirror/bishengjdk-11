@@ -98,42 +98,60 @@ class RegisterSaver {
     // Capture info about frame layout
   enum layout {
                 fpu_state_off = 0,
-                fpu_state_end = fpu_state_off+FPUStateSizeInWords-1,
+                fpu_state_end = fpu_state_off + FPUStateSizeInWords - 1,
                 // The frame sender code expects that rfp will be in
                 // the "natural" place and will override any oopMap
                 // setting for it. We must therefore force the layout
                 // so that it agrees with the frame sender code.
-                r0_off = fpu_state_off+FPUStateSizeInWords,
-                rfp_off = r0_off + 30 * 2,
-                return_off = rfp_off + 2,      // slot for return address
-                reg_save_size = return_off + 2};
+                r0_off = fpu_state_off + FPUStateSizeInWords,
+                rfp_off = r0_off + (RegisterImpl::number_of_registers - 2) * RegisterImpl::max_slots_per_register,
+                return_off = rfp_off + RegisterImpl::max_slots_per_register,      // slot for return address
+                reg_save_size = return_off + RegisterImpl::max_slots_per_register};
 
 };
 
 OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_frame_words, int* total_frame_words, bool save_vectors) {
+  bool use_sve = false;
+  int sve_vector_size_in_bytes = 0;
+  int sve_vector_size_in_slots = 0;
+
+#ifdef COMPILER2
+  use_sve = Matcher::supports_scalable_vector();
+  sve_vector_size_in_bytes = Matcher::scalable_vector_reg_size(T_BYTE);
+  sve_vector_size_in_slots = Matcher::scalable_vector_reg_size(T_FLOAT);
+#endif
+
 #if COMPILER2_OR_JVMCI
   if (save_vectors) {
+    int vect_words = 0;
+    int extra_save_slots_per_register = 0;
     // Save upper half of vector registers
-    int vect_words = 32 * 8 / wordSize;
+    if (use_sve) {
+      extra_save_slots_per_register = sve_vector_size_in_slots - FloatRegisterImpl::save_slots_per_register;
+    } else {
+      extra_save_slots_per_register = FloatRegisterImpl::extra_save_slots_per_neon_register;
+    }
+    vect_words = FloatRegisterImpl::number_of_registers * extra_save_slots_per_register /
+                 VMRegImpl::slots_per_word;
     additional_frame_words += vect_words;
   }
 #else
   assert(!save_vectors, "vectors are generated only by C2 and JVMCI");
 #endif
 
-  int frame_size_in_bytes = align_up(additional_frame_words*wordSize +
-                                     reg_save_size*BytesPerInt, 16);
+  int frame_size_in_bytes = align_up(additional_frame_words * wordSize +
+                                     reg_save_size * BytesPerInt, 16);
   // OopMap frame size is in compiler stack slots (jint's) not bytes or words
   int frame_size_in_slots = frame_size_in_bytes / BytesPerInt;
   // The caller will allocate additional_frame_words
-  int additional_frame_slots = additional_frame_words*wordSize / BytesPerInt;
+  int additional_frame_slots = additional_frame_words * wordSize / BytesPerInt;
   // CodeBlob frame size is in words.
   int frame_size_in_words = frame_size_in_bytes / wordSize;
   *total_frame_words = frame_size_in_words;
 
   // Save Integer and Float registers.
   __ enter();
-  __ push_CPU_state(save_vectors);
+  __ push_CPU_state(save_vectors, use_sve, sve_vector_size_in_bytes);
 
   // Set an oopmap for the call site.  This oopmap will map all
   // oop-registers and debug-info registers as callee-saved.  This
@@ -146,10 +164,10 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
   for (int i = 0; i < RegisterImpl::number_of_registers; i++) {
     Register r = as_Register(i);
     if (r < rheapbase && r != rscratch1 && r != rscratch2) {
-      int sp_offset = 2 * (i + 32); // SP offsets are in 4-byte words,
-                                    // register slots are 8 bytes
-                                    // wide, 32 floating-point
-                                    // registers
+      // SP offsets are in 4-byte words.
+      // Register slots are 8 bytes wide, 32 floating-point registers.
+      int sp_offset = RegisterImpl::max_slots_per_register * i +
+                      FloatRegisterImpl::save_slots_per_register * FloatRegisterImpl::number_of_registers;
       oop_map->set_callee_saved(VMRegImpl::stack2reg(sp_offset + additional_frame_slots),
                                 r->as_VMReg());
     }
@@ -157,7 +175,13 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
 
   for (int i = 0; i < FloatRegisterImpl::number_of_registers; i++) {
     FloatRegister r = as_FloatRegister(i);
-    int sp_offset = save_vectors ? (4 * i) : (2 * i);
+    int sp_offset = 0;
+    if (save_vectors) {
+      sp_offset = use_sve ? (sve_vector_size_in_slots * i) :
+                            (FloatRegisterImpl::slots_per_neon_register * i);
+    } else {
+      sp_offset = FloatRegisterImpl::save_slots_per_register * i;
+    }
     oop_map->set_callee_saved(VMRegImpl::stack2reg(sp_offset),
                               r->as_VMReg());
   }
@@ -166,10 +190,15 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
 }
 
 void RegisterSaver::restore_live_registers(MacroAssembler* masm, bool restore_vectors) {
-#ifndef COMPILER2
+#ifdef COMPILER2
+  __ pop_CPU_state(restore_vectors, Matcher::supports_scalable_vector(),
+                   Matcher::scalable_vector_reg_size(T_BYTE));
+#else
+#if !INCLUDE_JVMCI
   assert(!restore_vectors, "vectors are generated only by C2 and JVMCI");
 #endif
   __ pop_CPU_state(restore_vectors);
+#endif
   __ leave();
 }
 
@@ -1855,6 +1884,11 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
     __ strw(rscratch1, Address(rthread, JavaThread::thread_state_offset()));
   }
 
+  if (UseSVE > 0) {
+    // Make sure that jni code does not change SVE vector length.
+    __ verify_sve_vector_length();
+  }
+
   // check for safepoint operation in progress and/or pending suspend requests
   Label safepoint_in_progress, safepoint_in_progress_done;
   {
@@ -2784,6 +2818,12 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
 
   __ maybe_isb();
   __ membar(Assembler::LoadLoad | Assembler::LoadStore);
+
+  if (UseSVE > 0 && save_vectors) {
+    // Reinitialize the ptrue predicate register, in case the external runtime
+    // call clobbers ptrue reg, as we may return to SVE compiled code.
+    __ reinitialize_ptrue();
+  }
 
   __ ldr(rscratch1, Address(rthread, Thread::pending_exception_offset()));
   __ cbz(rscratch1, noException);

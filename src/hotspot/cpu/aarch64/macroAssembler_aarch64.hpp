@@ -862,8 +862,10 @@ public:
 
   DEBUG_ONLY(void verify_heapbase(const char* msg);)
 
-  void push_CPU_state(bool save_vectors = false);
-  void pop_CPU_state(bool restore_vectors = false) ;
+  void push_CPU_state(bool save_vectors = false, bool use_sve = false,
+                      int sve_vector_size_in_bytes = 0);
+  void pop_CPU_state(bool restore_vectors = false, bool use_sve = false,
+                      int sve_vector_size_in_bytes = 0);
 
   // Round up to a power of two
   void round_to(Register reg, int modulus);
@@ -938,6 +940,11 @@ public:
 
   Address argument_address(RegisterOrConstant arg_slot, int extra_slot_offset = 0);
 
+  void verify_sve_vector_length();
+  void reinitialize_ptrue() {
+    sve_ptrue(ptrue, B);
+  }
+  void verify_ptrue();
 
   // Debugging
 
@@ -1307,6 +1314,7 @@ private:
   // Returns an address on the stack which is reachable with a ldr/str of size
   // Uses rscratch2 if the address is not directly reachable
   Address spill_address(int size, int offset, Register tmp=rscratch2);
+  Address sve_spill_address(int sve_reg_size_in_bytes, int offset, Register tmp=rscratch2);
 
   bool merge_alignment_check(Register base, size_t size, long cur_offset, long prev_offset) const;
 
@@ -1330,6 +1338,9 @@ public:
   void spill(FloatRegister Vx, SIMD_RegVariant T, int offset) {
     str(Vx, T, spill_address(1 << (int)T, offset));
   }
+  void spill_sve_vector(FloatRegister Zx, int offset, int vector_reg_size_in_bytes) {
+    sve_str(Zx, sve_spill_address(vector_reg_size_in_bytes, offset));
+  }
   void unspill(Register Rx, bool is64, int offset) {
     if (is64) {
       ldr(Rx, spill_address(8, offset));
@@ -1339,6 +1350,9 @@ public:
   }
   void unspill(FloatRegister Vx, SIMD_RegVariant T, int offset) {
     ldr(Vx, T, spill_address(1 << (int)T, offset));
+  }
+  void unspill_sve_vector(FloatRegister Zx, int offset, int vector_reg_size_in_bytes) {
+    sve_ldr(Zx, sve_spill_address(vector_reg_size_in_bytes, offset));
   }
   void spill_copy128(int src_offset, int dst_offset,
                      Register tmp1=rscratch1, Register tmp2=rscratch2) {
@@ -1351,6 +1365,15 @@ public:
       spill(tmp1, true, dst_offset);
       unspill(tmp1, true, src_offset+8);
       spill(tmp1, true, dst_offset+8);
+    }
+  }
+  void spill_copy_sve_vector_stack_to_stack(int src_offset, int dst_offset,
+                                            int sve_vec_reg_size_in_bytes) {
+    assert(sve_vec_reg_size_in_bytes % 16 == 0, "unexpected sve vector reg size");
+    for (int i = 0; i < sve_vec_reg_size_in_bytes / 16; i++) {
+      spill_copy128(src_offset, dst_offset);
+      src_offset += 16;
+      dst_offset += 16;
     }
   }
 };
