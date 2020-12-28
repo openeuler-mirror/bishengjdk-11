@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+// Copyright (c) 2011, 2020, Oracle and/or its affiliates. All rights reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 //
 // This code is free software; you can redistribute it and/or modify it
@@ -1341,7 +1341,7 @@ const bool Matcher::match_rule_supported(int opcode) {
   return ret_value;  // Per default match rules are supported.
 }
 
-const bool Matcher::match_rule_supported_vector(int opcode, int vlen) {
+const bool Matcher::match_rule_supported_vector(int opcode, int vlen, BasicType bt) {
   // identify extra cases that we might want to provide match rules for
   // e.g. Op_ vector nodes and other intrinsics while guarding with vlen
   bool ret_value = match_rule_supported(opcode);
@@ -1466,6 +1466,14 @@ const int Matcher::min_vector_size(const BasicType bt) {
   // Min size which can be loaded into vector is 4 bytes.
   int size = (type2aelembytes(bt) == 1) ? 4 : 2;
   return MIN2(size,max_size);
+}
+
+const bool Matcher::supports_scalable_vector() {
+  return false;
+}
+
+const int Matcher::scalable_vector_reg_size(const BasicType bt) {
+  return -1;
 }
 
 // Vector ideal reg corresponding to specified size in bytes

@@ -1522,7 +1522,7 @@ const bool Matcher::match_rule_supported(int opcode) {
                 // BUT: make sure match rule is not disabled by a false predicate!
 }
 
-const bool Matcher::match_rule_supported_vector(int opcode, int vlen) {
+const bool Matcher::match_rule_supported_vector(int opcode, int vlen, BasicType bt) {
   // TODO
   // Identify extra cases that we might want to provide match rules for
   // e.g. Op_ vector nodes and other intrinsics while guarding with vlen.
@@ -1571,6 +1571,14 @@ const int Matcher::max_vector_size(const BasicType bt) {
 
 const int Matcher::min_vector_size(const BasicType bt) {
   return max_vector_size(bt); // Same as max.
+}
+
+const bool Matcher::supports_scalable_vector() {
+  return false;
+}
+
+const int Matcher::scalable_vector_reg_size(const BasicType bt) {
+  return -1;
 }
 
 const uint Matcher::vector_shift_count_ideal_reg(int size) {
