@@ -50,6 +50,7 @@
 #include "runtime/timer.hpp"
 #include "runtime/vframeArray.hpp"
 #include "utilities/debug.hpp"
+#include "utilities/macros.hpp"
 #include <sys/types.h>
 
 #ifndef PRODUCT
@@ -796,8 +797,6 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
     __ add(esp, sp, - 14 * wordSize);
     __ mv(xbcp, zr);
     __ add(sp, sp, - 14 * wordSize);
-    __ sd(zr, Address(sp, wordSize));
-    __ sd(esp, Address(sp, 0));
     // add 2 zero-initialized slots for native calls
     __ sd(zr, Address(sp, 13 * wordSize));
     __ sd(zr, Address(sp, 12 * wordSize));
@@ -806,9 +805,9 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
     __ ld(t0, Address(xmethod, Method::const_offset()));     // get ConstMethod
     __ add(xbcp, t0, in_bytes(ConstMethod::codes_offset())); // get codebase
     __ add(sp, sp, - 12 * wordSize);
-    __ sd(xbcp, Address(sp, wordSize));
-    __ sd(esp, Address(sp, 0));
   }
+  __ sd(xbcp, Address(sp, wordSize));
+  __ sd(esp, Address(sp, 0));
 
   if (ProfileInterpreter) {
     Label method_data_continue;
@@ -816,21 +815,25 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
     __ beqz(t0, method_data_continue);
     __ la(t0, Address(t0, in_bytes(MethodData::data_offset())));
     __ bind(method_data_continue);
-    __ sd(xmethod, Address(sp, 7 * wordSize));
-    __ sd(t0, Address(sp, 6 * wordSize));
-  } else {
-    __ sd(xmethod, Address(sp, 7 * wordSize));
-    __ sd(zr, Address(sp, 6 * wordSize));
   }
 
-  // Get mirror and store it in the frame as GC root for this Method*
-  __ load_mirror(t0, xmethod);
-  __ sd(zr, Address(sp, 5 * wordSize));
-  __ sd(t0, Address(sp, 4 * wordSize));
+  __ sd(xmethod, Address(sp, 7 * wordSize));
+  __ sd(ProfileInterpreter ? t0 : zr, Address(sp, 6 * wordSize));
 
-  __ ld(xcpool, Address(xmethod, Method::const_offset()));
-  __ ld(xcpool, Address(xcpool, ConstMethod::constants_offset()));
-  __ ld(xcpool, Address(xcpool, ConstantPool::cache_offset_in_bytes()));
+  // Get mirror and store it in the frame as GC root for this Method*
+#if INCLUDE_SHENANDOAHGC
+  if (UseShenandoahGC) {
+    __ load_mirror(x28, xmethod);
+    __ sd(x28, Address(sp, 4 * wordSize));
+  } else
+#endif
+  {
+    __ load_mirror(t0, xmethod);
+    __ sd(t0, Address(sp, 4 * wordSize));
+  }
+  __ sd(zr, Address(sp, 5 * wordSize));
+
+  __ load_constant_pool_cache(xcpool, xmethod);
   __ sd(xcpool, Address(sp, 3 * wordSize));
   __ sd(xlocals, Address(sp, 2 * wordSize));
 
@@ -845,8 +848,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
 
   // Move SP out of the way
   if (!native_call) {
-    __ ld(t0, Address(xmethod, Method::const_offset()));
-    __ lhu(t0, Address(t0, ConstMethod::max_stack_offset()));
+    __ load_max_stack(t0, xmethod);
     __ add(t0, t0, frame::interpreter_frame_monitor_size() + 2);
     __ slli(t0, t0, 3);
     __ sub(t0, sp, t0);
