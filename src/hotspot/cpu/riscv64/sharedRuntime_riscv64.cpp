@@ -580,8 +580,6 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
 
   __ sd(xmethod, Address(xthread, JavaThread::callee_target_offset()));
 
-  // FIXME: Why we have illegal instructions in icache here?
-  __ ifence();
   __ jr(t1);
 }
 
