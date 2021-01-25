@@ -934,16 +934,16 @@ class StubGenerator: public StubCodeGenerator {
   void verify_oop_array (size_t size, Register a, Register count, Register temp) {
     Label loop, end;
     __ mv(t1, zr);
+    __ slli(t0, count, exact_log2(size));
     __ bind(loop);
-    __ bgeu(t1, count, end);
+    __ bgeu(t1, t0, end);
 
-    __ slli(temp, t1, exact_log2(size));
-    __ add(t0, temp, a);
+    __ add(temp, a, t1);
     if (size == (size_t)wordSize) {
-      __ ld(temp, Address(t0, 0));
+      __ ld(temp, Address(temp, 0));
       __ verify_oop(temp);
     } else {
-      __ lwu(temp, Address(t0, 0));
+      __ lwu(temp, Address(temp, 0));
       __ decode_heap_oop(temp); // calls verify_oop
     }
     __ add(t1, t1, size);
