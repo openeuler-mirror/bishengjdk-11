@@ -146,15 +146,15 @@ ifeq ($(call check-jvm-feature, compiler2), true)
     )))
   endif
 
-  ifeq ($(call check-jvm-feature, shenandoahgc), true)
-    AD_SRC_FILES += $(call uniq, $(wildcard $(foreach d, $(AD_SRC_ROOTS), \
-        $d/cpu/$(HOTSPOT_TARGET_CPU_ARCH)/gc/shenandoah/shenandoah_$(HOTSPOT_TARGET_CPU).ad \
-      )))
-  endif
-
   ifeq ($(call check-jvm-feature, zgc), true)
     AD_SRC_FILES += $(call uniq, $(wildcard $(foreach d, $(AD_SRC_ROOTS), \
         $d/cpu/$(HOTSPOT_TARGET_CPU_ARCH)/gc/z/z_$(HOTSPOT_TARGET_CPU).ad \
+      )))
+  endif
+
+  ifeq ($(call check-jvm-feature, shenandoahgc), true)
+    AD_SRC_FILES += $(call uniq, $(wildcard $(foreach d, $(AD_SRC_ROOTS), \
+        $d/cpu/$(HOTSPOT_TARGET_CPU_ARCH)/gc/shenandoah/shenandoah_$(HOTSPOT_TARGET_CPU).ad \
       )))
   endif
 

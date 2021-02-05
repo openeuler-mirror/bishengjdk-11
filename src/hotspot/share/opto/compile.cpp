@@ -1993,11 +1993,11 @@ void Compile::remove_opaque4_nodes(PhaseIterGVN &igvn) {
     // leave the non constant test in instead to sanity check that it
     // never fails (if it does, that subgraph was constructed so, at
     // runtime, a Halt node is executed).
-    #ifdef ASSERT
+#ifdef ASSERT
     igvn.replace_node(opaq, opaq->in(1));
-    #else
+#else
     igvn.replace_node(opaq, opaq->in(2));
-    #endif
+#endif
   }
   assert(opaque4_count() == 0, "should be empty");
 }
