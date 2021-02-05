@@ -616,7 +616,7 @@ public:
     Bit_Node   = 0x00000000,
     Class_Node = 0x00000000,
     ClassMask_Node = 0xFFFFFFFF,
-    
+
     DEFINE_CLASS_ID(Multi, Node, 0)
       DEFINE_CLASS_ID(SafePoint, Multi, 0)
         DEFINE_CLASS_ID(Call,      SafePoint, 0)

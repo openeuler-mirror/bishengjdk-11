@@ -1102,6 +1102,7 @@ void PhaseIdealLoop::copy_skeleton_predicates_to_main_loop_helper(Node* predicat
     register_new_node(opaque_init, outer_main_head->in(LoopNode::EntryControl));
     Node* opaque_stride = new OpaqueLoopStrideNode(C, stride);
     register_new_node(opaque_stride, outer_main_head->in(LoopNode::EntryControl));
+
     while (predicate != NULL && predicate->is_Proj() && predicate->in(0)->is_If()) {
       iff = predicate->in(0)->as_If();
       uncommon_proj = iff->proj_out(1 - predicate->as_Proj()->_con);
@@ -1114,8 +1115,10 @@ void PhaseIdealLoop::copy_skeleton_predicates_to_main_loop_helper(Node* predicat
         // to be initialized when increasing the stride during loop unrolling.
         prev_proj = clone_skeleton_predicate(iff, opaque_init, NULL, predicate, uncommon_proj, current_proj, outer_loop, prev_proj);
         assert(skeleton_predicate_has_opaque(prev_proj->in(0)->as_If()), "");
+
         prev_proj = clone_skeleton_predicate(iff, init, stride, predicate, uncommon_proj, current_proj, outer_loop, prev_proj);
         assert(!skeleton_predicate_has_opaque(prev_proj->in(0)->as_If()), "");
+
         // Rewire any control inputs from the cloned skeleton predicates down to the main and post loop for data nodes that are part of the
         // main loop (and were cloned to the pre and post loop).
         for (DUIterator i = predicate->outs(); predicate->has_out(i); i++) {
@@ -1210,7 +1213,7 @@ Node* PhaseIdealLoop::clone_skeleton_predicate(Node* iff, Node* new_init, Node* 
     if (m->is_Opaque1()) {
       if (n->_idx < current) {
         n = n->clone();
-	register_new_node(n, current_proj);
+        register_new_node(n, current_proj);
       }
       if (op == Op_OpaqueLoopInit) {
         n->set_req(i, new_init);
@@ -1417,14 +1420,14 @@ void PhaseIdealLoop::insert_pre_post_loops( IdealLoopTree *loop, Node_List &old_
   Node_Stack clones(a, main_head->back_control()->outcnt());
   // Step B3: Make the fall-in values to the main-loop come from the
   // fall-out values of the pre-loop.
-  for (DUIterator_Fast i2max, i2 = main_head->fast_outs(i2max); i2 < i2max; i2++) {
-    Node* main_phi = main_head->fast_out(i2);
+  for (DUIterator i2 = main_head->outs(); main_head->has_out(i2); i2++) {
+    Node* main_phi = main_head->out(i2);
     if( main_phi->is_Phi() && main_phi->in(0) == main_head && main_phi->outcnt() > 0 ) {
-      Node *pre_phi = old_new[main_phi->_idx];
-      Node *fallpre  = clone_up_backedge_goo(pre_head->back_control(),
-                                             main_head->skip_strip_mined()->in(LoopNode::EntryControl),
-                                             pre_phi->in(LoopNode::LoopBackControl),
-                                             visited, clones);
+      Node* pre_phi = old_new[main_phi->_idx];
+      Node* fallpre = clone_up_backedge_goo(pre_head->back_control(),
+                                            main_head->skip_strip_mined()->in(LoopNode::EntryControl),
+                                            pre_phi->in(LoopNode::LoopBackControl),
+                                            visited, clones);
       _igvn.hash_delete(main_phi);
       main_phi->set_req( LoopNode::EntryControl, fallpre );
     }
@@ -1696,11 +1699,11 @@ Node *PhaseIdealLoop::insert_post_loop(IdealLoopTree *loop, Node_List &old_new,
   Node_Stack clones(a, main_head->back_control()->outcnt());
   // Step A3: Make the fall-in values to the post-loop come from the
   // fall-out values of the main-loop.
-  for (DUIterator_Fast imax, i = main_head->fast_outs(imax); i < imax; i++) {
-    Node* main_phi = main_head->fast_out(i);
-    if (main_phi->is_Phi() && main_phi->in(0) == main_head && main_phi->outcnt() >0) {
-      Node *cur_phi = old_new[main_phi->_idx];
-      Node *fallnew = clone_up_backedge_goo(main_head->back_control(),
+  for (DUIterator i = main_head->outs(); main_head->has_out(i); i++) {
+    Node* main_phi = main_head->out(i);
+    if (main_phi->is_Phi() && main_phi->in(0) == main_head && main_phi->outcnt() > 0) {
+      Node* cur_phi = old_new[main_phi->_idx];
+      Node* fallnew = clone_up_backedge_goo(main_head->back_control(),
                                             post_head->init_control(),
                                             main_phi->in(LoopNode::LoopBackControl),
                                             visited, clones);
@@ -1730,11 +1733,13 @@ void PhaseIdealLoop::update_main_loop_skeleton_predicates(Node* ctrl, CountedLoo
   Node* prev_proj = ctrl;
   LoopNode* outer_loop_head = loop_head->skip_strip_mined();
   IdealLoopTree* outer_loop = get_loop(outer_loop_head);
+
   // Compute the value of the loop induction variable at the end of the
   // first iteration of the unrolled loop: init + new_stride_con - init_inc
   int new_stride_con = stride_con * 2;
   Node* max_value = _igvn.intcon(new_stride_con);
   set_ctrl(max_value, C->root());
+
   while (entry != NULL && entry->is_Proj() && entry->in(0)->is_If()) {
     IfNode* iff = entry->in(0)->as_If();
     ProjNode* proj = iff->proj_out(1 - entry->as_Proj()->_con);
@@ -1750,7 +1755,7 @@ void PhaseIdealLoop::update_main_loop_skeleton_predicates(Node* ctrl, CountedLoo
         // tell. Kill it in any case.
         _igvn.replace_input_of(iff, 1, iff->in(1)->in(2));
       } else {
-        //Add back predicates updated for the new stride.
+        // Add back predicates updated for the new stride.
         prev_proj = clone_skeleton_predicate(iff, init, max_value, entry, proj, ctrl, outer_loop, prev_proj);
         assert(!skeleton_predicate_has_opaque(prev_proj->in(0)->as_If()), "unexpected");
       }
@@ -2552,12 +2557,15 @@ int PhaseIdealLoop::do_range_check( IdealLoopTree *loop, Node_List &old_new ) {
           Node* init = cl->init_trip();
           Node* opaque_init = new OpaqueLoopInitNode(C, init);
           register_new_node(opaque_init, predicate_proj);
+
           // predicate on first value of first iteration
           predicate_proj = add_range_check_predicate(loop, cl, predicate_proj, scale_con, int_offset, int_limit, stride_con, init);
           assert(!skeleton_predicate_has_opaque(predicate_proj->in(0)->as_If()), "unexpected");
+
           // template predicate so it can be updated on next unrolling
           predicate_proj = add_range_check_predicate(loop, cl, predicate_proj, scale_con, int_offset, int_limit, stride_con, opaque_init);
           assert(skeleton_predicate_has_opaque(predicate_proj->in(0)->as_If()), "unexpected");
+
           Node* opaque_stride = new OpaqueLoopStrideNode(C, cl->stride());
           register_new_node(opaque_stride, predicate_proj);
           Node* max_value = new SubINode(opaque_stride, cl->stride());
@@ -2566,6 +2574,7 @@ int PhaseIdealLoop::do_range_check( IdealLoopTree *loop, Node_List &old_new ) {
           register_new_node(max_value, predicate_proj);
           predicate_proj = add_range_check_predicate(loop, cl, predicate_proj, scale_con, int_offset, int_limit, stride_con, max_value);
           assert(skeleton_predicate_has_opaque(predicate_proj->in(0)->as_If()), "unexpected");
+
         } else {
           if (PrintOpto) {
             tty->print_cr("missed RCE opportunity");

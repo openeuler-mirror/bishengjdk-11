@@ -54,6 +54,7 @@ class Opaque1Node : public Node {
   virtual const Type *bottom_type() const { return TypeInt::INT; }
   virtual Node* Identity(PhaseGVN* phase);
 };
+
 // Opaque nodes specific to range check elimination handling
 class OpaqueLoopInitNode : public Opaque1Node {
   public:
