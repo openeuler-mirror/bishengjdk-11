@@ -24,7 +24,6 @@
  */
 
 #include "precompiled.hpp"
-#include "asm/macroAssembler.hpp"
 #include "runtime/icache.hpp"
 
 extern "C" void test_assembler_entry(CodeBuffer*);

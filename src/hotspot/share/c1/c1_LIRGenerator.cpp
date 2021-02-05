@@ -3027,15 +3027,15 @@ void LIRGenerator::do_getEventWriter(Intrinsic* x) {
 
   LIR_Address* jobj_addr = new LIR_Address(getThreadPointer(),
                                            in_bytes(THREAD_LOCAL_WRITER_OFFSET_JFR),
-                                           T_OBJECT);
+                                           T_ADDRESS);
   LIR_Opr result = rlock_result(x);
-  __ move_wide(jobj_addr, result);
-  __ cmp(lir_cond_equal, result, LIR_OprFact::oopConst(NULL));
-  __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(result) NO_FLAGREG_ONLY_ARG(LIR_OprFact::oopConst(NULL))
+  __ move(LIR_OprFact::oopConst(NULL), result);
+  LIR_Opr jobj = new_register(T_METADATA);
+  __ move_wide(jobj_addr, jobj);
+  __ cmp(lir_cond_equal, jobj, LIR_OprFact::metadataConst(0));
+  __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(jobj) NO_FLAGREG_ONLY_ARG(LIR_OprFact::metadataConst(0))
             T_OBJECT, L_end->label());
 
-  LIR_Opr jobj = new_register(T_OBJECT);
-  __ move(result, jobj);
   access_load(IN_NATIVE, T_OBJECT, LIR_OprFact::address(new LIR_Address(jobj, T_OBJECT)), result);
 
   __ branch_destination(L_end->label());

@@ -48,6 +48,18 @@ void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm
   assert_cond(masm != NULL);
   bool dest_uninitialized = (decorators & IS_DEST_UNINITIALIZED) != 0;
   if (!dest_uninitialized) {
+    Label done;
+    Address in_progress(xthread, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()));
+
+    // Is marking active?
+    if (in_bytes(SATBMarkQueue::byte_width_of_active()) == 4) {
+      __ lwu(t0, in_progress);
+    } else {
+      assert(in_bytes(SATBMarkQueue::byte_width_of_active()) == 1, "Assumption");
+      __ lbu(t0, in_progress);
+    }
+    __ beqz(t0, done);
+
     __ push_reg(saved_regs, sp);
     if (count == c_rarg0) {
       if (addr == c_rarg1) {
@@ -69,8 +81,9 @@ void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm
       __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_array_pre_oop_entry), 2);
     }
     __ pop_reg(saved_regs, sp);
-  }
 
+    __ bind(done);
+  }
 }
 
 void G1BarrierSetAssembler::gen_write_ref_array_post_barrier(MacroAssembler* masm, DecoratorSet decorators,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,8 +28,12 @@
 */
 
 #include <config.h> /* required by bfd.h */
+#include <errno.h>
+#include <inttypes.h>
+#include <string.h>
 #include <libiberty.h>
 #include <bfd.h>
+#include <bfdver.h>
 #include <dis-asm.h>
 #include <inttypes.h>
 #include <string.h>
@@ -544,7 +548,12 @@ static void init_disassemble_info_from_bfd(struct disassemble_info* dinfo,
   dinfo->arch = bfd_get_arch(abfd);
   dinfo->mach = bfd_get_mach(abfd);
   dinfo->disassembler_options = disassembler_options;
+#if BFD_VERSION >= 234000000
+  /* bfd_octets_per_byte() has 2 args since binutils 2.34 */
+  dinfo->octets_per_byte = bfd_octets_per_byte (abfd, NULL);
+#else
   dinfo->octets_per_byte = bfd_octets_per_byte (abfd);
+#endif
   dinfo->skip_zeroes = sizeof(void*) * 2;
   dinfo->skip_zeroes_at_end = sizeof(void*)-1;
   dinfo->disassembler_needs_relocs = FALSE;
