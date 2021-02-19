@@ -698,10 +698,27 @@ class MacroAssembler: public Assembler {
   void string_compare(Register str1, Register str2,
                       Register cnt1, Register cnt2, Register result,
                       Register tmp1, Register tmp2, Register tmp3, int ae);
+  void string_indexof(Register str1, Register str2,
+                      Register cnt1, Register cnt2,
+                      Register tmp1, Register tmp2,
+                      Register tmp3, Register tmp4,
+                      Register tmp5, Register tmp6,
+                      Register result, int ae);
+  void string_indexof_linearscan(Register str1, Register str2,
+                                 Register cnt1, Register cnt2,
+                                 Register tmp1, Register tmp2,
+                                 Register tmp3, Register tmp4,
+                                 int needle_con_cnt, Register result, int ae);
+  void compute_index(Register str1, Register tailing_zero, Register match_mask,
+                     Register result, Register char_tmp, Register tmp,
+                     bool haystack_isL);
+  void compute_match_mask(Register src, Register pattern, Register match_mask,
+                          Register mask1, Register mask2);
 #endif // COMPILER2
-  void zip1(Register Rd, Register Rs1, Register Rs2, Register Rtmp1 = t0, Register Rtmp2 = t1);
-  void zip2(Register Rd, Register Rs1, Register Rs2, Register Rtmp1 = t0, Register Rtmp2 = t1);
+  void inflate_lo32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
+  void inflate_hi32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
   void ctz(Register Rd, Register Rs, bool isLL = false, Register Rtmp1 = t0, Register Rtmp2 = t1);
+  void ctz_bit(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
   void zero_words(Register base, u_int64_t cnt);
   void zero_words(Register ptr, Register cnt);
   void fill_words(Register base, Register cnt, Register value);
