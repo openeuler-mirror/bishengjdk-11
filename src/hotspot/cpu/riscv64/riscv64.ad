@@ -2528,6 +2528,17 @@ operand immI0()
   interface(CONST_INTER);
 %}
 
+// 32 bit unit increment
+operand immI_1()
+%{
+  predicate(n->get_int() == 1);
+  match(ConI);
+
+  op_cost(0);
+  format %{ %}
+  interface(CONST_INTER);
+%}
+
 // 32 bit unit decrement
 operand immI_M1()
 %{
@@ -2543,6 +2554,16 @@ operand immI_M1()
 operand uimmI6_ge32() %{
   predicate(((unsigned int)(n->get_int()) < 64) && (n->get_int() >= 32));
   match(ConI);
+  op_cost(0);
+  format %{ %}
+  interface(CONST_INTER);
+%}
+
+operand immI_le_4()
+%{
+  predicate(n->get_int() <= 4);
+  match(ConI);
+
   op_cost(0);
   format %{ %}
   interface(CONST_INTER);
@@ -9575,6 +9596,132 @@ instruct string_compareLU(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_
                       $cnt1$$Register, $cnt2$$Register, $result$$Register,
                       $tmp1$$Register, $tmp2$$Register, $tmp3$$Register,
                       StrIntrinsicNode::LU);
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
+instruct string_indexofUU(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_R14 cnt2,
+       iRegI_R10 result, iRegINoSp tmp1, iRegINoSp tmp2, iRegINoSp tmp3,
+       iRegINoSp tmp4, iRegINoSp tmp5, iRegINoSp tmp6, iRegL_R6 tmp)
+%{
+  predicate(((StrIndexOfNode*)n)->encoding() == StrIntrinsicNode::UU);
+  match(Set result (StrIndexOf (Binary str1 cnt1) (Binary str2 cnt2)));
+  effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt1, USE_KILL cnt2, TEMP_DEF result,
+         TEMP tmp1, TEMP tmp2, TEMP tmp3, TEMP tmp4, TEMP tmp5, TEMP tmp6, KILL tmp);
+  format %{ "String IndexOf $str1,$cnt1,$str2,$cnt2 -> $result (UU)" %}
+
+  ins_encode %{
+    __ string_indexof($str1$$Register, $str2$$Register,
+                      $cnt1$$Register, $cnt2$$Register,
+                      $tmp1$$Register, $tmp2$$Register,
+                      $tmp3$$Register, $tmp4$$Register,
+                      $tmp5$$Register, $tmp6$$Register,
+                      $result$$Register, StrIntrinsicNode::UU);
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
+instruct string_indexofLL(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_R14 cnt2,
+       iRegI_R10 result, iRegINoSp tmp1, iRegINoSp tmp2, iRegINoSp tmp3,
+       iRegINoSp tmp4, iRegINoSp tmp5, iRegINoSp tmp6, iRegL_R6 tmp)
+%{
+  predicate(((StrIndexOfNode*)n)->encoding() == StrIntrinsicNode::LL);
+  match(Set result (StrIndexOf (Binary str1 cnt1) (Binary str2 cnt2)));
+  effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt1, USE_KILL cnt2, TEMP_DEF result,
+         TEMP tmp1, TEMP tmp2, TEMP tmp3, TEMP tmp4, TEMP tmp5, TEMP tmp6, KILL tmp);
+  format %{ "String IndexOf $str1,$cnt1,$str2,$cnt2 -> $result (LL)" %}
+
+  ins_encode %{
+    __ string_indexof($str1$$Register, $str2$$Register,
+                      $cnt1$$Register, $cnt2$$Register,
+                      $tmp1$$Register, $tmp2$$Register,
+                      $tmp3$$Register, $tmp4$$Register,
+                      $tmp5$$Register, $tmp6$$Register,
+                      $result$$Register, StrIntrinsicNode::LL);
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
+instruct string_indexofUL(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_R14 cnt2,
+       iRegI_R10 result, iRegINoSp tmp1, iRegINoSp tmp2, iRegINoSp tmp3,
+       iRegINoSp tmp4, iRegINoSp tmp5, iRegINoSp tmp6, iRegL_R6 tmp)
+%{
+  predicate(((StrIndexOfNode*)n)->encoding() == StrIntrinsicNode::UL);
+  match(Set result (StrIndexOf (Binary str1 cnt1) (Binary str2 cnt2)));
+  effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt1, USE_KILL cnt2, TEMP_DEF result,
+         TEMP tmp1, TEMP tmp2, TEMP tmp3, TEMP tmp4, TEMP tmp5, TEMP tmp6, KILL tmp);
+  format %{ "String IndexOf $str1,$cnt1,$str2,$cnt2 -> $result (UL)" %}
+
+  ins_encode %{
+    __ string_indexof($str1$$Register, $str2$$Register,
+                      $cnt1$$Register, $cnt2$$Register,
+                      $tmp1$$Register, $tmp2$$Register,
+                      $tmp3$$Register, $tmp4$$Register,
+                      $tmp5$$Register, $tmp6$$Register,
+                      $result$$Register, StrIntrinsicNode::UL);
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
+instruct string_indexof_conUU(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2,
+                 immI_le_4 int_cnt2, iRegI_R10 result, iRegINoSp tmp1, iRegINoSp tmp2,
+                 iRegINoSp tmp3, iRegINoSp tmp4, iRegL_R6 tmp)
+%{
+  predicate(((StrIndexOfNode*)n)->encoding() == StrIntrinsicNode::UU);
+  match(Set result (StrIndexOf (Binary str1 cnt1) (Binary str2 int_cnt2)));
+  effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt1, TEMP_DEF result,
+         TEMP tmp1, TEMP tmp2, TEMP tmp3, TEMP tmp4, KILL tmp);
+  format %{ "String IndexOf $str1,$cnt1,$str2,$int_cnt2 -> $result (UU)" %}
+
+  ins_encode %{
+    int icnt2 = (int)$int_cnt2$$constant;
+    __ string_indexof_linearscan($str1$$Register, $str2$$Register,
+                                 $cnt1$$Register, zr,
+                                 $tmp1$$Register, $tmp2$$Register,
+                                 $tmp3$$Register, $tmp4$$Register,
+                                 icnt2, $result$$Register, StrIntrinsicNode::UU);
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
+instruct string_indexof_conLL(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2,
+                 immI_le_4 int_cnt2, iRegI_R10 result, iRegINoSp tmp1, iRegINoSp tmp2,
+                 iRegINoSp tmp3, iRegINoSp tmp4, iRegL_R6 tmp)
+%{
+  predicate(((StrIndexOfNode*)n)->encoding() == StrIntrinsicNode::LL);
+  match(Set result (StrIndexOf (Binary str1 cnt1) (Binary str2 int_cnt2)));
+  effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt1, TEMP_DEF result,
+         TEMP tmp1, TEMP tmp2, TEMP tmp3, TEMP tmp4, KILL tmp);
+  format %{ "String IndexOf $str1,$cnt1,$str2,$int_cnt2 -> $result (LL)" %}
+
+  ins_encode %{
+    int icnt2 = (int)$int_cnt2$$constant;
+    __ string_indexof_linearscan($str1$$Register, $str2$$Register,
+                                 $cnt1$$Register, zr,
+                                 $tmp1$$Register, $tmp2$$Register,
+                                 $tmp3$$Register, $tmp4$$Register,
+                                 icnt2, $result$$Register, StrIntrinsicNode::LL);
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
+instruct string_indexof_conUL(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2,
+                 immI_1 int_cnt2, iRegI_R10 result, iRegINoSp tmp1, iRegINoSp tmp2,
+                 iRegINoSp tmp3, iRegINoSp tmp4, iRegL_R6 tmp)
+%{
+  predicate(((StrIndexOfNode*)n)->encoding() == StrIntrinsicNode::UL);
+  match(Set result (StrIndexOf (Binary str1 cnt1) (Binary str2 int_cnt2)));
+  effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt1, TEMP_DEF result,
+         TEMP tmp1, TEMP tmp2, TEMP tmp3, TEMP tmp4, KILL tmp);
+  format %{ "String IndexOf $str1,$cnt1,$str2,$int_cnt2 -> $result (UL)" %}
+
+  ins_encode %{
+    int icnt2 = (int)$int_cnt2$$constant;
+    __ string_indexof_linearscan($str1$$Register, $str2$$Register,
+                                 $cnt1$$Register, zr,
+                                 $tmp1$$Register, $tmp2$$Register,
+                                 $tmp3$$Register, $tmp4$$Register,
+                                 icnt2, $result$$Register, StrIntrinsicNode::UL);
   %}
   ins_pipe(pipe_class_memory);
 %}

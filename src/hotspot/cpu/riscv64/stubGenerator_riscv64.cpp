@@ -833,7 +833,7 @@ class StubGenerator: public StubCodeGenerator {
     Label same_aligned;
     Label copy8, copy_small, done;
 
-    copy_insn ld_arr, st_arr;
+    copy_insn ld_arr = NULL, st_arr = NULL;
     switch (granularity) {
       case 1 :
         ld_arr = (copy_insn)&MacroAssembler::lbu;
@@ -2304,7 +2304,7 @@ class StubGenerator: public StubCodeGenerator {
     __ addi(tmp2, tmp2, 8);
     __ ld(tmpU, Address(cnt1));
     __ addi(cnt1, cnt1, 8);
-    __ zip1(tmp3, tmpL, zr);
+    __ inflate_lo32(tmp3, tmpL);
     __ mv(t0, tmp3);
     // now we have 32 bytes of characters
     __ xorr(tmp3, tmp4, t0);
@@ -2312,7 +2312,7 @@ class StubGenerator: public StubCodeGenerator {
 
     __ ld(tmp4, Address(cnt1));
     __ addi(cnt1, cnt1, 8);
-    __ zip2(tmp3, tmpL, zr);
+    __ inflate_hi32(tmp3, tmpL);
     __ mv(t0, tmp3);
     __ xorr(tmp3, tmpU, t0);
     __ bnez(tmp3, DIFF1);
@@ -2321,14 +2321,14 @@ class StubGenerator: public StubCodeGenerator {
     __ addi(tmp2, tmp2, 8);
     __ ld(tmpU, Address(cnt1));
     __ addi(cnt1, cnt1, 8);
-    __ zip1(tmp3, tmpL, zr);
+    __ inflate_lo32(tmp3, tmpL);
     __ mv(t0, tmp3);
     __ xorr(tmp3, tmp4, t0);
     __ bnez(tmp3, DIFF2);
 
     __ ld(tmp4, Address(cnt1));
     __ addi(cnt1, cnt1, 8);
-    __ zip2(tmp3, tmpL, zr);
+    __ inflate_hi32(tmp3, tmpL);
     __ mv(t0, tmp3);
     __ xorr(tmp3, tmpU, t0);
     __ bnez(tmp3, DIFF1);
@@ -2354,7 +2354,7 @@ class StubGenerator: public StubCodeGenerator {
 
     // cnt2 == amount of characters left to compare
     // Check already loaded first 4 symbols
-    __ zip1(tmp3, isLU ? tmp1 : tmp2, zr);
+    __ inflate_lo32(tmp3, isLU ? tmp1 : tmp2);
     __ mv(isLU ? tmp1 : tmp2, tmp3);
     __ addi(str1, str1, isLU ? wordSize / 2 : wordSize);
     __ addi(str2, str2, isLU ? wordSize : wordSize / 2);
@@ -2411,7 +2411,7 @@ class StubGenerator: public StubCodeGenerator {
       // No need to load it again
       __ mv(tmpU, tmp4);
       __ ld(tmpL, Address(strL));
-      __ zip1(tmp3, tmpL, zr);
+      __ inflate_lo32(tmp3, tmpL);
       __ mv(tmpL, tmp3);
       __ xorr(tmp3, tmpU, tmpL);
       __ beqz(tmp3, DONE);
@@ -2531,6 +2531,240 @@ class StubGenerator: public StubCodeGenerator {
     StubRoutines::riscv64::_compare_long_string_UU = generate_compare_long_string_same_encoding(false);
     StubRoutines::riscv64::_compare_long_string_LU = generate_compare_long_string_different_encoding(true);
     StubRoutines::riscv64::_compare_long_string_UL = generate_compare_long_string_different_encoding(false);
+  }
+
+  // x10 result
+  // x11 src
+  // x12 src count
+  // x13 pattern
+  // x14 pattern count
+  address generate_string_indexof_linear(bool needle_isL, bool haystack_isL)
+  {
+    const char* stubName = needle_isL
+           ? (haystack_isL ? "indexof_linear_ll" : "indexof_linear_ul")
+           : "indexof_linear_uu";
+    __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", stubName);
+    address entry = __ pc();
+
+    int needle_chr_size = needle_isL ? 1 : 2;
+    int haystack_chr_size = haystack_isL ? 1 : 2;
+    int needle_chr_shift = needle_isL ? 0 : 1;
+    int haystack_chr_shift = haystack_isL ? 0 : 1;
+    bool isL = needle_isL && haystack_isL;
+    // parameters
+    Register result = x10, haystack = x11, haystack_len = x12, needle = x13, needle_len = x14;
+    // temporary registers
+    Register mask1 = x20, match_mask = x21, first = x22, tailing_zero = x23, mask2 = x24, tmp = x25;
+    RegSet spilled_regs = RegSet::range(x20, x25);
+    // redefinitions
+    Register ch1 = t0, ch2 = t1;
+
+    __ push_reg(spilled_regs, sp);
+
+    Label L_LOOP, L_LOOP_PROCEED, L_SMALL, L_HAS_ZERO,
+          L_HAS_ZERO_LOOP, L_CMP_LOOP, L_CMP_LOOP_NOMATCH, L_SMALL_PROCEED,
+          L_SMALL_HAS_ZERO_LOOP, L_SMALL_CMP_LOOP_NOMATCH, L_SMALL_CMP_LOOP,
+          L_POST_LOOP, L_CMP_LOOP_LAST_CMP, L_HAS_ZERO_LOOP_NOMATCH,
+          L_SMALL_CMP_LOOP_LAST_CMP, L_SMALL_CMP_LOOP_LAST_CMP2,
+          L_CMP_LOOP_LAST_CMP2, DONE, NOMATCH;
+
+    __ ld(ch1, Address(needle));
+    __ ld(ch2, Address(haystack));
+    // src.length - pattern.length
+    __ sub(haystack_len, haystack_len, needle_len);
+    
+    // first is needle[0]
+    __ andi(first, ch1, needle_isL ? 0xFF : 0xFFFF, first);
+    __ mv(mask1, haystack_isL ? 0x0101010101010101 : 0x0001000100010001);
+    __ mul(first, first, mask1);
+    __ mv(mask2, haystack_isL ? 0x7f7f7f7f7f7f7f7f : 0x7fff7fff7fff7fff);
+    if (needle_isL != haystack_isL) {
+      __ mv(tmp, ch1);
+    }
+    __ sub(haystack_len, haystack_len, wordSize / haystack_chr_size - 1);
+    __ blez(haystack_len, L_SMALL);
+
+    if (needle_isL != haystack_isL) {
+      __ inflate_lo32(ch1, tmp, match_mask, tailing_zero);
+    }
+    // xorr, sub, orr, notr, andr 
+    // compare and set match_mask[i] with 0x80/0x8000 (Latin1/UTF16) if ch2[i] == first[i]
+    // eg:
+    // first:        aa aa aa aa aa aa aa aa
+    // ch2:          aa aa li nx jd ka aa aa
+    // match_mask:   80 80 00 00 00 00 80 80
+    __ compute_match_mask(ch2, first, match_mask, mask1, mask2);
+
+    // search first char of needle, if success, goto L_HAS_ZERO;
+    __ bnez(match_mask, L_HAS_ZERO);
+    __ sub(haystack_len, haystack_len, wordSize / haystack_chr_size);
+    __ add(result, result, wordSize / haystack_chr_size);
+    __ add(haystack, haystack, wordSize);
+    __ bltz(haystack_len, L_POST_LOOP);
+
+    __ bind(L_LOOP);
+    __ ld(ch2, Address(haystack));
+    __ compute_match_mask(ch2, first, match_mask, mask1, mask2);
+    __ bnez(match_mask, L_HAS_ZERO);
+
+    __ bind(L_LOOP_PROCEED);
+    __ sub(haystack_len, haystack_len, wordSize / haystack_chr_size);
+    __ add(haystack, haystack, wordSize);
+    __ add(result, result, wordSize / haystack_chr_size);
+    __ bgez(haystack_len, L_LOOP);
+
+    __ bind(L_POST_LOOP);
+    __ mv(ch2, -wordSize / haystack_chr_size);
+    __ ble(haystack_len, ch2, NOMATCH); // no extra characters to check
+    __ ld(ch2, Address(haystack));                                                               
+    __ slli(haystack_len, haystack_len, LogBitsPerByte + haystack_chr_shift);
+    __ neg(haystack_len, haystack_len);
+    __ xorr(ch2, first, ch2);
+    __ sub(match_mask, ch2, mask1);
+    __ orr(ch2, ch2, mask2);
+    __ mv(tailing_zero, -1); // all bits set
+    __ j(L_SMALL_PROCEED);
+
+    __ align(OptoLoopAlignment);
+    __ bind(L_SMALL);
+    __ slli(haystack_len, haystack_len, LogBitsPerByte + haystack_chr_shift);
+    __ neg(haystack_len, haystack_len);
+    if (needle_isL != haystack_isL) {
+      __ inflate_lo32(ch1, tmp, match_mask, tailing_zero);
+    }
+    __ xorr(ch2, first, ch2);
+    __ sub(match_mask, ch2, mask1);
+    __ orr(ch2, ch2, mask2);
+    __ mv(tailing_zero, -1); // all bits set
+
+    __ bind(L_SMALL_PROCEED);
+    __ srl(tailing_zero, tailing_zero, haystack_len); // mask. zeroes on useless bits.
+    __ notr(ch2, ch2);
+    __ andr(match_mask, match_mask, ch2);
+    __ andr(ch2, match_mask, tailing_zero); // clear useless bits and check
+    __ beqz(ch2, NOMATCH);
+
+    __ bind(L_SMALL_HAS_ZERO_LOOP);
+    __ ctz_bit(tailing_zero, match_mask, ch2, tmp); // count tailing zeros
+    __ mv(ch2, wordSize / haystack_chr_size);
+    __ ble(needle_len, ch2, L_SMALL_CMP_LOOP_LAST_CMP2);
+    __ compute_index(haystack, tailing_zero, match_mask, result, ch2, tmp, haystack_isL);
+    __ mv(tailing_zero, wordSize / haystack_chr_size);
+    __ bne(ch1, ch2, L_SMALL_CMP_LOOP_NOMATCH);
+
+    __ bind(L_SMALL_CMP_LOOP);
+    __ slli(first, tailing_zero, needle_chr_shift);
+    __ add(first, needle, first);
+    __ slli(ch2, tailing_zero, haystack_chr_shift);
+    __ add(ch2, haystack, ch2);
+    needle_isL ? __ lbu(first, Address(first)) : __ lhu(first, Address(first));
+    haystack_isL ? __ lbu(ch2, Address(ch2)) : __ lhu(ch2, Address(ch2));
+    __ add(tailing_zero, tailing_zero, 1);
+    __ bge(tailing_zero, needle_len, L_SMALL_CMP_LOOP_LAST_CMP);
+    __ beq(first, ch2, L_SMALL_CMP_LOOP);
+
+    __ bind(L_SMALL_CMP_LOOP_NOMATCH);
+    __ beqz(match_mask, NOMATCH);
+    __ ctz_bit(tailing_zero, match_mask, tmp, ch2);
+    __ add(result, result, 1);
+    __ add(haystack, haystack, haystack_chr_size);
+    __ j(L_SMALL_HAS_ZERO_LOOP);
+
+    __ align(OptoLoopAlignment);
+    __ bind(L_SMALL_CMP_LOOP_LAST_CMP);
+    __ bne(first, ch2, L_SMALL_CMP_LOOP_NOMATCH);
+    __ j(DONE);
+
+    __ align(OptoLoopAlignment);
+    __ bind(L_SMALL_CMP_LOOP_LAST_CMP2);
+    __ compute_index(haystack, tailing_zero, match_mask, result, ch2, tmp, haystack_isL);
+    __ bne(ch1, ch2, L_SMALL_CMP_LOOP_NOMATCH);
+    __ j(DONE);
+
+    __ align(OptoLoopAlignment);
+    __ bind(L_HAS_ZERO);
+    __ ctz_bit(tailing_zero, match_mask, tmp, ch2);
+    __ slli(needle_len, needle_len, BitsPerByte * wordSize / 2);
+    __ orr(haystack_len, haystack_len, needle_len); // restore needle_len(32bits)
+    __ sub(result, result, 1); // array index from 0, so result -= 1
+
+    __ bind(L_HAS_ZERO_LOOP);
+    __ mv(needle_len, wordSize / haystack_chr_size);
+    __ srli(ch2, haystack_len, BitsPerByte * wordSize / 2);
+    __ bge(needle_len, ch2, L_CMP_LOOP_LAST_CMP2);
+    // load next 8 bytes from haystack, and increase result index
+    __ compute_index(haystack, tailing_zero, match_mask, result, ch2, tmp, haystack_isL);
+    __ add(result, result, 1);
+    __ mv(tailing_zero, wordSize / haystack_chr_size);
+    __ bne(ch1, ch2, L_CMP_LOOP_NOMATCH);
+
+    // compare one char
+    __ bind(L_CMP_LOOP);
+    __ slli(needle_len, tailing_zero, needle_chr_shift);
+    __ add(needle_len, needle, needle_len);
+    needle_isL ? __ lbu(needle_len, Address(needle_len)) : __ lhu(needle_len, Address(needle_len));
+    __ slli(ch2, tailing_zero, haystack_chr_shift);
+    __ add(ch2, haystack, ch2);
+    haystack_isL ? __ lbu(ch2, Address(ch2)) : __ lhu(ch2, Address(ch2));
+    __ add(tailing_zero, tailing_zero, 1); // next char index
+    __ srli(tmp, haystack_len, BitsPerByte * wordSize / 2);
+    __ bge(tailing_zero, tmp, L_CMP_LOOP_LAST_CMP);
+    __ beq(needle_len, ch2, L_CMP_LOOP);
+
+    __ bind(L_CMP_LOOP_NOMATCH);
+    __ beqz(match_mask, L_HAS_ZERO_LOOP_NOMATCH);
+    __ ctz_bit(tailing_zero, match_mask, needle_len, ch2); // find next "first" char index
+    __ add(haystack, haystack, haystack_chr_size);
+    __ j(L_HAS_ZERO_LOOP);
+
+    __ align(OptoLoopAlignment);
+    __ bind(L_CMP_LOOP_LAST_CMP);
+    __ bne(needle_len, ch2, L_CMP_LOOP_NOMATCH);
+    __ j(DONE);
+
+    __ align(OptoLoopAlignment);
+    __ bind(L_CMP_LOOP_LAST_CMP2);
+    __ compute_index(haystack, tailing_zero, match_mask, result, ch2, tmp, haystack_isL);
+    __ add(result, result, 1);
+    __ bne(ch1, ch2, L_CMP_LOOP_NOMATCH);
+    __ j(DONE);
+
+    __ align(OptoLoopAlignment);
+    __ bind(L_HAS_ZERO_LOOP_NOMATCH);
+    // 1) Restore "result" index. Index was wordSize/str2_chr_size * N until
+    // L_HAS_ZERO block. Byte octet was analyzed in L_HAS_ZERO_LOOP,
+    // so, result was increased at max by wordSize/str2_chr_size - 1, so,
+    // respective high bit wasn't changed. L_LOOP_PROCEED will increase
+    // result by analyzed characters value, so, we can just reset lower bits
+    // in result here. Clear 2 lower bits for UU/UL and 3 bits for LL
+    // 2) restore needle_len and haystack_len values from "compressed" haystack_len
+    // 3) advance haystack value to represent next haystack octet. result & 7/3 is
+    // index of last analyzed substring inside current octet. So, haystack in at
+    // respective start address. We need to advance it to next octet
+    __ andi(match_mask, result, wordSize / haystack_chr_size - 1);
+    __ srli(needle_len, haystack_len, BitsPerByte * wordSize / 2);
+    __ andi(result, result, haystack_isL ? -8 : -4);
+    __ slli(tmp, match_mask, haystack_chr_shift);
+    __ sub(haystack, haystack, tmp);
+    __ addw(haystack_len, haystack_len, zr);
+    __ j(L_LOOP_PROCEED);
+
+    __ align(OptoLoopAlignment);
+    __ bind(NOMATCH);
+    __ mv(result, -1);
+
+    __ bind(DONE);
+    __ pop_reg(spilled_regs, sp);
+    __ ret();
+    return entry;
+  }
+
+  void generate_string_indexof_stubs()
+  {
+    StubRoutines::riscv64::_string_indexof_linear_ll = generate_string_indexof_linear(true, true);
+    StubRoutines::riscv64::_string_indexof_linear_uu = generate_string_indexof_linear(false, false);
+    StubRoutines::riscv64::_string_indexof_linear_ul = generate_string_indexof_linear(true, false);
   }
 
   // Continuation point for throwing of implicit exceptions that are
@@ -2704,6 +2938,7 @@ class StubGenerator: public StubCodeGenerator {
 
     generate_compare_long_strings();
 
+    generate_string_indexof_stubs();
     // Safefetch stubs.
     generate_safefetch("SafeFetch32", sizeof(int),     &StubRoutines::_safefetch32_entry,
                                                        &StubRoutines::_safefetch32_fault_pc,

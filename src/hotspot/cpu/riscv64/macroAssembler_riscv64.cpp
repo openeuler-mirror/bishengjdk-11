@@ -3609,7 +3609,7 @@ void MacroAssembler::string_compare(Register str1, Register str2,
       sub(cnt1, zr, cnt2);
       slli(cnt2, cnt2, 1);
       add(str2, str2, cnt2);
-      zip1(tmp3, tmp1, zr);
+      inflate_lo32(tmp3, tmp1);
       mv(tmp1, tmp3);
       sub(cnt2, zr, cnt2);
       addi(cnt1, cnt1, 4);
@@ -3623,7 +3623,7 @@ void MacroAssembler::string_compare(Register str1, Register str2,
       sub(cnt1, zr, t0);
       add(str1, str1, t0);
       add(str2, str2, cnt2);
-      zip1(tmp3, tmp2, zr);
+      inflate_lo32(tmp3, tmp2);
       mv(tmp2, tmp3);
       sub(cnt2, zr, cnt2);
       addi(cnt1, cnt1, 8);
@@ -3647,7 +3647,7 @@ void MacroAssembler::string_compare(Register str1, Register str2,
       add(t0, str2, cnt2);
       ld(tmp2, Address(t0));
       addi(cnt1, cnt1, 4);
-      zip1(tmp3, tmp1, zr);
+      inflate_lo32(tmp3, tmp1);
       mv(tmp1, tmp3);
       addi(cnt2, cnt2, 8);
     } else { // UL case
@@ -3655,7 +3655,7 @@ void MacroAssembler::string_compare(Register str1, Register str2,
       lwu(tmp2, Address(t0));
       add(t0, str1, cnt1);
       ld(tmp1, Address(t0));
-      zip1(tmp3, tmp2, zr);
+      inflate_lo32(tmp3, tmp2);
       mv(tmp2, tmp3);
       addi(cnt1, cnt1, 8);
       addi(cnt2, cnt2, 4);
@@ -3677,12 +3677,12 @@ void MacroAssembler::string_compare(Register str1, Register str2,
     } else if (isLU) { // LU case
       lwu(tmp1, Address(str1));
       ld(tmp2, Address(str2));
-      zip1(tmp3, tmp1, zr);
+      inflate_lo32(tmp3, tmp1);
       mv(tmp1, tmp3);
     } else { // UL case
       lwu(tmp2, Address(str2));
       ld(tmp1, Address(str1));
-      zip1(tmp3, tmp2, zr);
+      inflate_lo32(tmp3, tmp2);
       mv(tmp2, tmp3);
     }
     bind(TAIL_CHECK);
@@ -3780,6 +3780,582 @@ void MacroAssembler::string_compare(Register str1, Register str2,
 }
 #endif // COMPILER2
 
+// Search for needle in haystack and return index or -1
+// x10: result
+// x11: haystack
+// x12: haystack_len
+// x13: needle
+// x14: needle_len
+void MacroAssembler::string_indexof(Register haystack, Register needle,
+                                    Register haystack_len, Register needle_len,
+                                    Register tmp1, Register tmp2,
+                                    Register tmp3, Register tmp4,
+                                    Register tmp5, Register tmp6,
+                                    Register result, int ae)
+{
+  assert(ae != StrIntrinsicNode::LU, "Invalid encoding");
+
+  Label LINEARSEARCH, LINEARSTUB, DONE, NOMATCH;
+
+  Register ch1 = t0;
+  Register ch2 = t1;
+  Register nlen_tmp = tmp1; // needle len tmp
+  Register hlen_tmp = tmp2; // haystack len tmp
+  Register result_tmp = tmp4;
+
+  bool isLL = ae == StrIntrinsicNode::LL;
+
+  bool needle_isL = ae == StrIntrinsicNode::LL || ae == StrIntrinsicNode::UL;
+  bool haystack_isL = ae == StrIntrinsicNode::LL || ae == StrIntrinsicNode::LU;
+  int needle_chr_shift = needle_isL ? 0 : 1;
+  int haystack_chr_shift = haystack_isL ? 0 : 1;
+  int needle_chr_size = needle_isL ? 1 : 2;
+  int haystack_chr_size = haystack_isL ? 1 : 2;
+  chr_insn needle_load_1chr = needle_isL ? (chr_insn)&MacroAssembler::lbu :
+                              (chr_insn)&MacroAssembler::lhu;
+  chr_insn haystack_load_1chr = haystack_isL ? (chr_insn)&MacroAssembler::lbu :
+                                (chr_insn)&MacroAssembler::lhu;
+
+  BLOCK_COMMENT("string_indexof {");
+
+  // Note, inline_string_indexOf() generates checks:
+  // if (pattern.count > src.count) return -1;
+  // if (pattern.count == 0) return 0;
+
+  // We have two strings, a source string in haystack, haystack_len and a pattern string
+  // in needle, needle_len. Find the first occurence of pattern in source or return -1.
+
+  // For larger pattern and source we use a simplified Boyer Moore algorithm.
+  // With a small pattern and source we use linear scan.
+
+  // needle_len >=8 && needle_len < 256 && needle_len < haystack_len/4, use bmh algorithm.
+  sub(result_tmp, haystack_len, needle_len);
+  // needle_len < 8, use linear scan
+  sub(t0, needle_len, 8);
+  bltz(t0, LINEARSEARCH);
+  // needle_len >= 256, use linear scan
+  sub(t0, needle_len, 256);
+  bgez(t0, LINEARSTUB);
+  // needle_len >= haystack_len/4, use linear scan
+  srli(t0, haystack_len, 2);
+  bge(needle_len, t0, LINEARSTUB);
+
+  // Boyer-Moore-Horspool introduction:
+  // The Boyer Moore alogorithm is based on the description here:-
+  //
+  // http://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string_search_algorithm
+  //
+  // This describes and algorithm with 2 shift rules. The 'Bad Character' rule
+  // and the 'Good Suffix' rule.
+  //
+  // These rules are essentially heuristics for how far we can shift the
+  // pattern along the search string.
+  //
+  // The implementation here uses the 'Bad Character' rule only because of the
+  // complexity of initialisation for the 'Good Suffix' rule.
+  //
+  // This is also known as the Boyer-Moore-Horspool algorithm:
+  //
+  // http://en.wikipedia.org/wiki/Boyer-Moore-Horspool_algorithm
+  //
+  // #define ASIZE 256
+  //
+  //    int bm(unsigned char *pattern, int m, unsigned char *src, int n) {
+  //      int i, j;
+  //      unsigned c;
+  //      unsigned char bc[ASIZE];
+  //
+  //      /* Preprocessing */
+  //      for (i = 0; i < ASIZE; ++i)
+  //        bc[i] = m;
+  //      for (i = 0; i < m - 1; ) {
+  //        c = pattern[i];
+  //        ++i;
+  //        // c < 256 for Latin1 string, so, no need for branch
+  //        #ifdef PATTERN_STRING_IS_LATIN1
+  //        bc[c] = m - i;
+  //        #else
+  //        if (c < ASIZE) bc[c] = m - i;
+  //        #endif
+  //      }
+  //
+  //      /* Searching */
+  //      j = 0;
+  //      while (j <= n - m) {
+  //        c = src[i+j];
+  //        if (pattern[m-1] == c)
+  //          int k;
+  //          for (k = m - 2; k >= 0 && pattern[k] == src[k + j]; --k);
+  //          if (k < 0) return j;
+  //          // c < 256 for Latin1 string, so, no need for branch
+  //          #ifdef SOURCE_STRING_IS_LATIN1_AND_PATTERN_STRING_IS_LATIN1
+  //          // LL case: (c< 256) always true. Remove branch
+  //          j += bc[pattern[j+m-1]];
+  //          #endif
+  //          #ifdef SOURCE_STRING_IS_UTF_AND_PATTERN_STRING_IS_UTF
+  //          // UU case: need if (c<ASIZE) check. Skip 1 character if not.
+  //          if (c < ASIZE)
+  //            j += bc[pattern[j+m-1]];
+  //          else
+  //            j += 1
+  //          #endif
+  //          #ifdef SOURCE_IS_UTF_AND_PATTERN_IS_LATIN1
+  //          // UL case: need if (c<ASIZE) check. Skip <pattern length> if not.
+  //          if (c < ASIZE)
+  //            j += bc[pattern[j+m-1]];
+  //          else
+  //            j += m
+  //          #endif
+  //      }
+  //      return -1;
+  //    }
+
+  // temp register:t0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, result
+  Label BCLOOP, BCSKIP, BMLOOPSTR2, BMLOOPSTR1, BMSKIP, BMADV, BMMATCH,
+        BMLOOPSTR1_LASTCMP, BMLOOPSTR1_CMP, BMLOOPSTR1_AFTER_LOAD, BM_INIT_LOOP;
+
+  Register haystack_end = haystack_len;
+  Register skipch = tmp2;
+
+  // pattern length is >=8, so, we can read at least 1 register for cases when
+  // UTF->Latin1 conversion is not needed(8 LL or 4UU) and half register for
+  // UL case. We'll re-read last character in inner pre-loop code to have
+  // single outer pre-loop load
+  const int firstStep = isLL ? 7 : 3;
+
+  const int ASIZE = 256;
+  const int STORE_BYTES = 8; // 8 bytes stored per instruction(sd)
+
+  sub(sp, sp, ASIZE);
+
+  // init BC offset table with default value: needle_len
+  slli(t0, needle_len, 8);
+  orr(t0, t0, needle_len); // [63...16][needle_len][needle_len]
+  slli(tmp1, t0, 16);
+  orr(t0, tmp1, t0); // [63...32][needle_len][needle_len][needle_len][needle_len]
+  slli(tmp1, t0, 32);
+  orr(tmp5, tmp1, t0); // tmp5: 8 elements [needle_len]
+
+  mv(ch1, sp);  // ch1 is t0
+  mv(tmp6, ASIZE / STORE_BYTES); // loop iterations
+
+  bind(BM_INIT_LOOP);
+  // for (i = 0; i < ASIZE; ++i)
+  //   bc[i] = m;
+  for (int i = 0; i < 4; i++) {
+    sd(tmp5, Address(ch1, i * wordSize));
+  }
+  add(ch1, ch1, 32);
+  sub(tmp6, tmp6, 4);
+  bgtz(tmp6, BM_INIT_LOOP);
+
+  sub(nlen_tmp, needle_len, 1); // m - 1, index of the last element in pattern
+  Register orig_haystack = tmp5;
+  mv(orig_haystack, haystack);
+  slli(haystack_end, result_tmp, haystack_chr_shift); // result_tmp = tmp4
+  add(haystack_end, haystack, haystack_end);
+  sub(ch2, needle_len, 1); // bc offset init value, ch2 is t1
+  mv(tmp3, needle);
+
+  //  for (i = 0; i < m - 1; ) {
+  //    c = pattern[i];
+  //    ++i;
+  //    // c < 256 for Latin1 string, so, no need for branch
+  //    #ifdef PATTERN_STRING_IS_LATIN1
+  //    bc[c] = m - i;
+  //    #else
+  //    if (c < ASIZE) bc[c] = m - i;
+  //    #endif
+  //  }
+  bind(BCLOOP);
+  (this->*needle_load_1chr)(ch1, Address(tmp3), noreg);
+  add(tmp3, tmp3, needle_chr_size);
+  if (!needle_isL) {
+    // ae == StrIntrinsicNode::UU
+    mv(tmp6, ASIZE);
+    bgeu(ch1, tmp6, BCSKIP);
+  }
+  add(tmp4, sp, ch1);
+  sb(ch2, Address(tmp4)); // store skip offset to BC offset table
+
+  bind(BCSKIP);
+  sub(ch2, ch2, 1); // for next pattern element, skip distance -1
+  bgtz(ch2, BCLOOP);
+
+  slli(tmp6, needle_len, needle_chr_shift);
+  add(tmp6, tmp6, needle); // tmp6: pattern end, address after needle
+  if (needle_isL == haystack_isL) {
+    // load last 8 bytes (8LL/4UU symbols)
+    ld(tmp6, Address(tmp6, -wordSize));
+  } else {
+    // UL: from UTF-16(source) search Latin1(pattern)
+    lwu(tmp6, Address(tmp6, -wordSize / 2)); // load last 4 bytes(4 symbols)
+    // convert Latin1 to UTF. eg: 0x0000abcd -> 0x0a0b0c0d
+    // We'll have to wait until load completed, but it's still faster than per-character loads+checks
+    srli(tmp3, tmp6, BitsPerByte * (wordSize / 2 - needle_chr_size)); // pattern[m-1], eg:0x0000000a
+    slli(ch2, tmp6, registerSize - 24);
+    srli(ch2, ch2, registerSize - 8); // pattern[m-2], 0x0000000b
+    slli(ch1, tmp6, registerSize - 16);
+    srli(ch1, ch1, registerSize - 8); // pattern[m-3], 0x0000000c
+    andi(tmp6, tmp6, 0xff); // pattern[m-4], 0x0000000d
+    slli(ch2, ch2, 16);
+    orr(ch2, ch2, ch1); // 0x00000b0c
+    slli(result, tmp3, 48); // use result as temp register
+    orr(tmp6, tmp6, result); // 0x0a00000d
+    slli(result, ch2, 16);
+    orr(tmp6, tmp6, result); // UTF-16:0x0a0b0c0d
+  }
+
+  // i = m - 1;
+  // skipch = j + i;
+  // if (skipch == pattern[m - 1]
+  //   for (k = m - 2; k >= 0 && pattern[k] == src[k + j]; --k);
+  // else
+  //   move j with bad char offset table
+  bind(BMLOOPSTR2);
+  // compare pattern to source string backward
+  slli(result, nlen_tmp, haystack_chr_shift);
+  add(result, haystack, result);
+  (this->*haystack_load_1chr)(skipch, Address(result), noreg);
+  sub(nlen_tmp, nlen_tmp, firstStep); // nlen_tmp is positive here, because needle_len >= 8
+  if (needle_isL == haystack_isL) {
+    // re-init tmp3. It's for free because it's executed in parallel with
+    // load above. Alternative is to initialize it before loop, but it'll
+    // affect performance on in-order systems with 2 or more ld/st pipelines
+    srli(tmp3, tmp6, BitsPerByte * (wordSize - needle_chr_size)); // UU/LL: pattern[m-1]
+  }
+  if (!isLL) { // UU/UL case
+    slli(ch2, nlen_tmp, 1); // offsets in bytes
+  }
+  bne(tmp3, skipch, BMSKIP); // if not equal, skipch is bad char
+  add(result, haystack, isLL ? nlen_tmp : ch2);
+  ld(ch2, Address(result)); // load 8 bytes from source string
+  mv(ch1, tmp6);
+  if (isLL) {
+    j(BMLOOPSTR1_AFTER_LOAD);
+  } else {
+    sub(nlen_tmp, nlen_tmp, 1); // no need to branch for UU/UL case. cnt1 >= 8
+    j(BMLOOPSTR1_CMP);
+  }
+
+  bind(BMLOOPSTR1);
+  slli(ch1, nlen_tmp, needle_chr_shift);
+  add(ch1, ch1, needle);
+  (this->*needle_load_1chr)(ch1, Address(ch1), noreg);
+  slli(ch2, nlen_tmp, haystack_chr_shift);
+  add(ch2, haystack, ch2);
+  (this->*haystack_load_1chr)(ch2, Address(ch2), noreg);
+
+  bind(BMLOOPSTR1_AFTER_LOAD);
+  sub(nlen_tmp, nlen_tmp, 1);
+  bltz(nlen_tmp, BMLOOPSTR1_LASTCMP);
+
+  bind(BMLOOPSTR1_CMP);
+  beq(ch1, ch2, BMLOOPSTR1);
+
+  bind(BMSKIP);
+  if (!isLL) {
+    // if we've met UTF symbol while searching Latin1 pattern, then we can
+    // skip needle_len symbols
+    if (needle_isL != haystack_isL) {
+      mv(result_tmp, needle_len);
+    } else {
+      mv(result_tmp, 1);
+    }
+    mv(t0, ASIZE);
+    bgeu(skipch, t0, BMADV);
+  }
+  add(result_tmp, sp, skipch);
+  lbu(result_tmp, Address(result_tmp)); // load skip offset
+
+  bind(BMADV);
+  sub(nlen_tmp, needle_len, 1);
+  slli(result, result_tmp, haystack_chr_shift);
+  add(haystack, haystack, result); // move haystack after bad char skip offset
+  ble(haystack, haystack_end, BMLOOPSTR2);
+  add(sp, sp, ASIZE);
+  j(NOMATCH);
+
+  bind(BMLOOPSTR1_LASTCMP);
+  bne(ch1, ch2, BMSKIP);
+
+  bind(BMMATCH);
+  sub(result, haystack, orig_haystack);
+  if (!haystack_isL) {
+    srli(result, result, 1);
+  }
+  add(sp, sp, ASIZE);
+  j(DONE);
+
+  bind(LINEARSTUB);
+  sub(t0, needle_len, 16); // small patterns still should be handled by simple algorithm
+  bltz(t0, LINEARSEARCH);
+  mv(result, zr);
+  RuntimeAddress stub = NULL;
+  if (isLL) {
+    stub = RuntimeAddress(StubRoutines::riscv64::string_indexof_linear_ll());
+    assert(stub.target() != NULL, "string_indexof_linear_ll stub has not been generated");
+  } else if (needle_isL) {
+    stub = RuntimeAddress(StubRoutines::riscv64::string_indexof_linear_ul());
+    assert(stub.target() != NULL, "string_indexof_linear_ul stub has not been generated");
+  } else {
+    stub = RuntimeAddress(StubRoutines::riscv64::string_indexof_linear_uu());
+    assert(stub.target() != NULL, "string_indexof_linear_uu stub has not been generated");
+  }
+  trampoline_call(stub);
+  j(DONE);
+
+  bind(NOMATCH);
+  mv(result, -1);
+  j(DONE);
+
+  bind(LINEARSEARCH);
+  string_indexof_linearscan(haystack, needle, haystack_len, needle_len, tmp1, tmp2, tmp3, tmp4, -1, result, ae);
+
+  bind(DONE);
+  BLOCK_COMMENT("} string_indexof");
+}
+
+// string_indexof
+// result: x10
+// src: x11
+// src_count: x12
+// pattern: x13
+// pattern_count: x14 or 1/2/3/4
+void MacroAssembler::string_indexof_linearscan(Register haystack, Register needle,
+                                               Register haystack_len, Register needle_len,
+                                               Register tmp1, Register tmp2,
+                                               Register tmp3, Register tmp4,
+                                               int needle_con_cnt, Register result, int ae)
+{
+  // Note:
+  // needle_con_cnt > 0 means needle_len register is invalid, needle length is constant
+  // for UU/LL: needle_con_cnt[1, 4], UL: needle_con_cnt = 1
+  assert(needle_con_cnt <= 4, "Invalid needle constant count");
+  assert(ae != StrIntrinsicNode::LU, "Invalid encoding");
+
+  Register ch1 = t0;
+  Register ch2 = t1;
+  Register hlen_neg = haystack_len, nlen_neg = needle_len;
+  Register nlen_tmp = tmp1, hlen_tmp = tmp2, result_tmp = tmp4;
+  
+  bool isLL = ae == StrIntrinsicNode::LL;
+
+  bool needle_isL = ae == StrIntrinsicNode::LL || ae == StrIntrinsicNode::UL;
+  bool haystack_isL = ae == StrIntrinsicNode::LL || ae == StrIntrinsicNode::LU;
+  int needle_chr_shift = needle_isL ? 0 : 1;
+  int haystack_chr_shift = haystack_isL ? 0 : 1;
+  int needle_chr_size = needle_isL ? 1 : 2;
+  int haystack_chr_size = haystack_isL ? 1 : 2;
+
+  chr_insn needle_load_1chr = needle_isL ? (chr_insn)&MacroAssembler::lbu :
+                              (chr_insn)&MacroAssembler::lhu;
+  chr_insn haystack_load_1chr = haystack_isL ? (chr_insn)&MacroAssembler::lbu :
+                                (chr_insn)&MacroAssembler::lhu;
+  chr_insn load_2chr = isLL ? (chr_insn)&MacroAssembler::lhu : (chr_insn)&MacroAssembler::lwu;
+  chr_insn load_4chr = isLL ? (chr_insn)&MacroAssembler::lwu : (chr_insn)&MacroAssembler::ld;
+
+  Label DO1, DO2, DO3, MATCH, NOMATCH, DONE;
+  
+  Register first = tmp3;
+
+  if (needle_con_cnt == -1) {
+    Label DOSHORT, FIRST_LOOP, STR2_NEXT, STR1_LOOP, STR1_NEXT;
+
+    sub(t0, needle_len, needle_isL == haystack_isL ? 4 : 2);
+    bltz(t0, DOSHORT);
+
+    (this->*needle_load_1chr)(first, Address(needle), noreg);
+    slli(t0, needle_len, needle_chr_shift);
+    add(needle, needle, t0);
+    neg(nlen_neg, t0);
+    slli(t0, result_tmp, haystack_chr_shift);
+    add(haystack, haystack, t0);
+    neg(hlen_neg, t0);
+
+    bind(FIRST_LOOP);
+    add(t0, haystack, hlen_neg);
+    (this->*haystack_load_1chr)(ch2, Address(t0), noreg);
+    beq(first, ch2, STR1_LOOP);
+
+    bind(STR2_NEXT);
+    add(hlen_neg, hlen_neg, haystack_chr_size);
+    blez(hlen_neg, FIRST_LOOP);
+    j(NOMATCH);
+
+    bind(STR1_LOOP);
+    add(nlen_tmp, nlen_neg, needle_chr_size);
+    add(hlen_tmp, hlen_neg, haystack_chr_size);
+    bgez(nlen_tmp, MATCH);
+
+    bind(STR1_NEXT);
+    add(ch1, needle, nlen_tmp);
+    (this->*needle_load_1chr)(ch1, Address(ch1), noreg);
+    add(ch2, haystack, hlen_tmp);
+    (this->*haystack_load_1chr)(ch2, Address(ch2), noreg);
+    bne(ch1, ch2, STR2_NEXT);
+    add(nlen_tmp, nlen_tmp, needle_chr_size);
+    add(hlen_tmp, hlen_tmp, haystack_chr_size);
+    bltz(nlen_tmp, STR1_NEXT);
+    j(MATCH);
+
+    bind(DOSHORT);
+    if (needle_isL == haystack_isL) {
+      sub(t0, needle_len, 2);
+      bltz(t0, DO1);
+      bgtz(t0, DO3);
+    }
+  }
+
+  if (needle_con_cnt == 4) {
+    Label CH1_LOOP;
+    (this->*load_4chr)(ch1, Address(needle), noreg);
+    sub(result_tmp, haystack_len, 4);
+    slli(tmp3, result_tmp, haystack_chr_shift); // result as tmp
+    add(haystack, haystack, tmp3);
+    neg(hlen_neg, tmp3);
+
+    bind(CH1_LOOP);
+    add(ch2, haystack, hlen_neg);
+    (this->*load_4chr)(ch2, Address(ch2), noreg);
+    beq(ch1, ch2, MATCH);
+    add(hlen_neg, hlen_neg, haystack_chr_size);
+    blez(hlen_neg, CH1_LOOP);
+    j(NOMATCH);
+  }
+
+  if ((needle_con_cnt == -1 && needle_isL == haystack_isL) || needle_con_cnt == 2) {
+    Label CH1_LOOP;
+    BLOCK_COMMENT("string_indexof DO2{");
+    bind(DO2);
+    (this->*load_2chr)(ch1, Address(needle), noreg);
+    if (needle_con_cnt == 2) {
+      sub(result_tmp, haystack_len, 2);
+    }
+    slli(tmp3, result_tmp, haystack_chr_shift);
+    add(haystack, haystack, tmp3);
+    neg(hlen_neg, tmp3);
+
+    bind(CH1_LOOP);
+    add(tmp3, haystack, hlen_neg);
+    (this->*load_2chr)(ch2, Address(tmp3), noreg);
+    beq(ch1, ch2, MATCH);
+    add(hlen_neg, hlen_neg, haystack_chr_size);
+    blez(hlen_neg, CH1_LOOP);
+    j(NOMATCH);
+    BLOCK_COMMENT("} string_indexof DO2");
+  }
+
+  if ((needle_con_cnt == -1 && needle_isL == haystack_isL) || needle_con_cnt == 3) {
+    Label FIRST_LOOP, STR2_NEXT, STR1_LOOP;
+    BLOCK_COMMENT("string_indexof DO3{");
+    
+    bind(DO3);
+    (this->*load_2chr)(first, Address(needle), noreg);
+    (this->*needle_load_1chr)(ch1, Address(needle, 2 * needle_chr_size), noreg);
+    if (needle_con_cnt == 3) {
+      sub(result_tmp, haystack_len, 3);
+    }
+    slli(hlen_tmp, result_tmp, haystack_chr_shift);
+    add(haystack, haystack, hlen_tmp);
+    neg(hlen_neg, hlen_tmp);
+
+    bind(FIRST_LOOP);
+    add(ch2, haystack, hlen_neg);
+    (this->*load_2chr)(ch2, Address(ch2), noreg);
+    beq(first, ch2, STR1_LOOP);
+
+    bind(STR2_NEXT);
+    add(hlen_neg, hlen_neg, haystack_chr_size);
+    blez(hlen_neg, FIRST_LOOP);
+    j(NOMATCH);
+
+    bind(STR1_LOOP);
+    add(hlen_tmp, hlen_neg, 2 * haystack_chr_size);
+    add(ch2, haystack, hlen_tmp);
+    (this->*haystack_load_1chr)(ch2, Address(ch2), noreg);
+    bne(ch1, ch2, STR2_NEXT);
+    j(MATCH);
+    BLOCK_COMMENT("} string_indexof DO3");
+  }
+
+  if (needle_con_cnt == -1 || needle_con_cnt == 1) {
+    Label DO1_LOOP;
+
+    BLOCK_COMMENT("string_indexof DO1{");
+    bind(DO1);
+    (this->*needle_load_1chr)(ch1, Address(needle), noreg);
+    sub(result_tmp, haystack_len, 1);
+    mv(tmp3, result_tmp);
+    if (haystack_chr_shift) {
+      slli(tmp3, result_tmp, haystack_chr_shift);
+    }
+    add(haystack, haystack, tmp3);
+    neg(hlen_neg, tmp3);
+
+    bind(DO1_LOOP);
+    add(tmp3, haystack, hlen_neg);
+    (this->*haystack_load_1chr)(ch2, Address(tmp3), noreg);
+    beq(ch1, ch2, MATCH);
+    add(hlen_neg, hlen_neg, haystack_chr_size);
+    blez(hlen_neg, DO1_LOOP);
+    BLOCK_COMMENT("} string_indexof DO1");
+  }
+
+  bind(NOMATCH);
+  mv(result, -1);
+  j(DONE);
+
+  bind(MATCH);
+  srai(t0, hlen_neg, haystack_chr_shift);
+  add(result, result_tmp, t0);
+
+  bind(DONE);
+}
+// string indexof
+// compute index by tailing zeros
+void MacroAssembler::compute_index(Register haystack, Register tailing_zero,
+                                   Register match_mask, Register result,
+                                   Register ch2, Register tmp,
+                                   bool haystack_isL)
+{
+  int haystack_chr_shift = haystack_isL ? 0 : 1;
+  srl(match_mask, match_mask, tailing_zero);
+  srli(match_mask, match_mask, 1);
+  srli(tmp, tailing_zero, LogBitsPerByte);
+  if (!haystack_isL) andi(tmp, tmp, 0xE);
+  add(haystack, haystack, tmp);
+  ld(ch2, Address(haystack));
+  if (!haystack_isL) srli(tmp, tmp, haystack_chr_shift);
+  add(result, result, tmp);
+}
+
+// string indexof
+// find pattern element in src, compute match mask
+void MacroAssembler::compute_match_mask(Register src, Register pattern, Register match_mask,
+                                        Register mask1, Register mask2)
+{
+  xorr(src, pattern, src);
+  sub(match_mask, src, mask1);
+  orr(src, src, mask2);
+  notr(src, src);
+  andr(match_mask, match_mask, src);
+}
+void MacroAssembler::ctz_bit(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
+{
+  assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
+  Label Loop;
+  int step = 1;
+  li(Rd, -1);
+  mv(Rtmp2, Rs);
+
+  bind(Loop);
+  addi(Rd, Rd, 1);
+  andi(Rtmp1, Rtmp2, ((1 << step) - 1));
+  srli(Rtmp2, Rtmp2, 1);
+  beqz(Rtmp1, Loop);
+}
+
 // This instruction counts zero bits from lsb to msb until first non-zero element.
 // For LL case, one byte for one element, so shift 8 bits once, and for other case,
 // shift 16 bits once.
@@ -3798,38 +4374,18 @@ void MacroAssembler::ctz(Register Rd, Register Rs, bool isLL, Register Rtmp1, Re
   beqz(Rtmp1, Loop);
 }
 
-// This instruction reads adjacent elements from the lower half of two source registers as pairs,
-// interleaves the pairs and places them into a register, for example:
-// Rs1: A7A6A5A4A3A2A1A0, Rs2: B7B6B5B4B3B2B1B0
-// Rd: B3A3B2A2B1A1B0A0
-void MacroAssembler::zip1(Register Rd, Register Rs1, Register Rs2, Register Rtmp1, Register Rtmp2)
+// This instruction reads adjacent 4 bytes from the lower half of source register,
+// inflate into a register, for example:
+// Rs: A7A6A5A4A3A2A1A0
+// Rd: 00A300A200A100A0
+void MacroAssembler::inflate_lo32(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
 {
-  assert_different_registers(Rd, Rs1, Rs2, Rtmp1, Rtmp2);
+  assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
   li(Rtmp1, 0xFF);
   mv(Rd, zr);
-  Label Zero, Done;
-  beqz(Rs2, Zero);
-
   for (int i = 0; i <= 3; i++)
   {
-    andr(Rtmp2, Rs1, Rtmp1);
-    if (i) {
-      slli(Rtmp2, Rtmp2, i * 8);
-    }
-    orr(Rd, Rd, Rtmp2);
-    andr(Rtmp2, Rs2, Rtmp1);
-    slli(Rtmp2, Rtmp2, (i + 1) * 8);
-    orr(Rd, Rd, Rtmp2);
-    if (i != 3) {
-      slli(Rtmp1, Rtmp1, 8);
-    }
-  }
-  j(Done);
-
-  bind(Zero);
-  for (int i = 0; i <= 3; i++)
-  {
-    andr(Rtmp2, Rs1, Rtmp1);
+    andr(Rtmp2, Rs, Rtmp1);
     if (i) {
       slli(Rtmp2, Rtmp2, i * 8);
     }
@@ -3838,45 +4394,26 @@ void MacroAssembler::zip1(Register Rd, Register Rs1, Register Rs2, Register Rtmp
       slli(Rtmp1, Rtmp1, 8);
     }
   }
-  bind(Done);
 }
 
-// This instruction reads adjacent elements from the upper half of two source registers as pairs,
-// interleaves the pairs and places them into a register, for example:
-// Rs1: A7A6A5A4A3A2A1A0, Rs2: B7B6B5B4B3B2B1B0
-// Rd: B7A7B6A6B5A5B4A4
-void MacroAssembler::zip2(Register Rd, Register Rs1, Register Rs2, Register Rtmp1, Register Rtmp2)
+// This instruction reads adjacent 4 bytes from the upper half of source register,
+// inflate into a register, for example:
+// Rs: A7A6A5A4A3A2A1A0
+// Rd: 00A700A600A500A4
+void MacroAssembler::inflate_hi32(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
 {
-  assert_different_registers(Rd, Rs1, Rs2, Rtmp1, Rtmp2);
+  assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
   li(Rtmp1, 0xFF00000000);
   mv(Rd, zr);
-  Label Zero, Done;
-  beqz(Rs2, Zero);
-
   for (int i = 0; i <= 3; i++)
   {
-    andr(Rtmp2, Rs1, Rtmp1);
-    orr(Rd, Rd, Rtmp2);
-    srli(Rd, Rd, 8);
-    andr(Rtmp2, Rs2, Rtmp1);
-    orr(Rd, Rd, Rtmp2);
-    if (i != 3) {
-      slli(Rtmp1, Rtmp1, 8);
-    }
-  }
-  j(Done);
-
-  bind(Zero);
-  for (int i = 0; i <= 3; i++)
-  {
-    andr(Rtmp2, Rs1, Rtmp1);
+    andr(Rtmp2, Rs, Rtmp1);
     orr(Rd, Rd, Rtmp2);
     srli(Rd, Rd, 8);
     if (i != 3) {
       slli(Rtmp1, Rtmp1, 8);
     }
   }
-  bind(Done);
 }
 
 // The size of the blocks erased by the zero_blocks stub.  We must
