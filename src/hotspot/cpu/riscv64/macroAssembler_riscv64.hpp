@@ -684,8 +684,8 @@ class MacroAssembler: public Assembler {
   address read_polling_page(Register r, int32_t offset, relocInfo::relocType rtype);
   address trampoline_call(Address entry, CodeBuffer *cbuf = NULL);
   address ic_call(address entry, jint method_index = 0);
-  void add_memory_int64(const Address dst, int32_t imm);
-  void add_memory_int32(const Address dst, int64_t imm);
+  void add_memory_int64(const Address dst, int64_t imm);
+  void add_memory_int32(const Address dst, int32_t imm);
   void cmpptr(Register src1, Address src2, Label& equal);
   void oop_equal(Register obj1, Register obj2, Label& equal, bool is_far = false); // cmpoop
   void oop_nequal(Register obj1, Register obj2, Label& nequal, bool is_far = false);

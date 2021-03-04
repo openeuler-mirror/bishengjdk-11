@@ -3168,7 +3168,7 @@ address MacroAssembler::emit_trampoline_stub(int insts_call_instruction_offset,
   return stub_start_addr;
 }
 
-void MacroAssembler::add_memory_int64(const Address dst, int32_t imm) {
+void MacroAssembler::add_memory_int64(const Address dst, int64_t imm) {
   Address adr;
   switch (dst.getMode()) {
     case Address::base_plus_offset:
@@ -3186,7 +3186,7 @@ void MacroAssembler::add_memory_int64(const Address dst, int32_t imm) {
   sd(t0, adr);
 }
 
-void MacroAssembler::add_memory_int32(const Address dst, int64_t imm) {
+void MacroAssembler::add_memory_int32(const Address dst, int32_t imm) {
   Address adr;
   switch (dst.getMode()) {
     case Address::base_plus_offset:
@@ -3226,7 +3226,7 @@ void MacroAssembler::oop_nequal(Register obj1, Register obj2, Label& nequal, boo
 void MacroAssembler::arrays_equals(Register a1, Register a2, Register tmp3,
                                    Register tmp4, Register tmp5, Register tmp6, Register result,
                                    Register cnt1, int elem_size) {
-  Label DONE, SAME;
+  Label DONE, SAME, NEXT_DWORD, SHORT, TAIL, TAIL2, IS_TMP5_ZR;
   Register tmp1 = t0;
   Register tmp2 = t1;
   Register cnt2 = tmp2;  // cnt2 only used in array length compare
@@ -3234,10 +3234,9 @@ void MacroAssembler::arrays_equals(Register a1, Register a2, Register tmp3,
   int log_elem_size = exact_log2(elem_size);
   int length_offset = arrayOopDesc::length_offset_in_bytes();
   int base_offset   = arrayOopDesc::base_offset_in_bytes(elem_size == 2 ? T_CHAR : T_BYTE);
-  int stubBytesThreshold = 3 * 64 + 16;
 
   assert(elem_size == 1 || elem_size == 2, "must be char or byte");
-  assert_different_registers(a1, a2, result, cnt1, t0, t1, t2);
+  assert_different_registers(a1, a2, result, cnt1, t0, t1, tmp3, tmp4, tmp5, tmp6);
   li(elem_per_word, wordSize / elem_size);
 
 #ifndef PRODUCT
@@ -3252,172 +3251,53 @@ void MacroAssembler::arrays_equals(Register a1, Register a2, Register tmp3,
   // if (a1 == a2), return true
   oop_equal(a1, a2, SAME);
 
-  if (UseSimpleArrayEquals) {
-    Label NEXT_WORD, SHORT, TAIL03, TAIL01;
-    // if (a1 == null || a2 == null), return false
-    // a1 & a2 == 0 means (some-pointer is null) or
-    // (very-rare-or-even-probably-impossible-pointer-values)
-    // so, we can save one branch in most cases
-    mv(result, false);
-    // in case both a1 and a2 are not-null, proceed with loads
-    andr(cnt1, a1, a2);
-    beqz(cnt1, DONE);
-    // if (a1.length != a2.length), return false
-    lwu(cnt1, Address(a1, length_offset));
-    lwu(cnt2, Address(a2, length_offset));
-    xorrw(tmp5, cnt1, cnt2);
-    bnez(tmp5, DONE);
-    la(a1, Address(a1, base_offset));
-    la(a2, Address(a2, base_offset));
-    // Check for short strings, i.e. smaller than wordSize.
-    sub(cnt1, cnt1, elem_per_word);
-    bltz(cnt1, SHORT);
-    // Main 8 byte comparison loop.
-    bind(NEXT_WORD); {
-      ld(tmp1, Address(a1, 0));
-      ld(tmp2, Address(a2, 0));
-      xorr(tmp5, tmp1, tmp2);
-      bnez(tmp5, DONE);
-      add(a1, a1, wordSize);
-      add(a2, a2, wordSize);
-      sub(cnt1, cnt1, elem_per_word);
-    } bgtz(cnt1, NEXT_WORD); // loop to next_word
-    // Last longword.  In the case where length == 4 we compare the
-    // same longword twice, but that's still faster than another
-    // conditional branch.
-    // cnt1 could be 0, -1, -2, -3, -4 for chars; -4 only happens when
-    // length == 4.
-    if (log_elem_size > 0) {
-      slli(cnt1, cnt1, log_elem_size);
-    }
-    add(tmp3, a1, cnt1);
-    ld(tmp3, Address(tmp3, 0));
-    add(tmp4, a2, cnt1);
-    ld(tmp4, Address(tmp4, 0));
-    xorr(tmp5, tmp3, tmp4);
-    bnez(tmp5, DONE);
-    j(SAME);
-    bind(SHORT);
+  mv(result, false);
+  beqz(a1, DONE);
+  beqz(a2, DONE);
+  lwu(cnt1, Address(a1, length_offset));
+  lwu(cnt2, Address(a2, length_offset));
+  bne(cnt2, cnt1, DONE);
+  beqz(cnt1, SAME);
 
-    // 0-7 bytes left.
-    li(t0, 4 / elem_size);
-    bltu(cnt1, t0, TAIL03);
-    {
-      lwu(tmp1, Address(a1, 0));
-      add(a1, a1, 4);
-      lwu(tmp2, Address(a2, 0));
-      add(a2, a2, 4);
-      xorrw(tmp5, tmp1, tmp2);
-      bnez(tmp5, DONE);
-    }
-    bind(TAIL03);
-    // 0-3 bytes left.
-    li(t0, 2 / elem_size);
-    bltu(cnt1, t0, TAIL01);
-    {
-      lhu(tmp3, Address(a1, 0));
-      add(a1, a1, 2);
-      lhu(tmp4, Address(a2, 0));
-      add(a2, a2, 2);
-      xorrw(tmp5, tmp3, tmp4);
-      bnez(tmp5, DONE);
-    }
-    bind(TAIL01);
-    if (elem_size == 1) { // Only needed when comparing byte arrays.
-      // 0-1 bytes left.
-      beqz(cnt1, SAME);
-      {
-        lbu(tmp1, a1, 0);
-        lbu(tmp2, a2, 0);
-        xorrw(tmp5, tmp1, tmp2);
-        bnez(tmp5, DONE);
-      }
-    }
-  } else {
-    Label NEXT_DWORD, SHORT, TAIL, TAIL2, STUB, EARLY_OUT,
-          CSET_EQ, LAST_CHECK;
-    mv(result, false);
-    beqz(a1, DONE);
-    beqz(a2, DONE);
-    lwu(cnt1, Address(a1, length_offset));
-    lwu(cnt2, Address(a2, length_offset));
+  slli(tmp5, cnt1, 3 + log_elem_size);
+  sub(tmp5, zr, tmp5);
+  add(a1, a1, base_offset);
+  add(a2, a2, base_offset);
+  ld(tmp3, Address(a1, 0));
+  ld(tmp4, Address(a2, 0));
+  ble(cnt1, elem_per_word, SHORT); // short or same
 
-    ble(cnt1, elem_per_word, SHORT); // short or same
-    add(a1, a1, base_offset);
-    ld(tmp3, Address(a1, 0));
-    mv(tmp4, stubBytesThreshold);
-    bge(cnt1, tmp4, STUB);
-    add(a2, a2, base_offset);
-    ld(tmp4, Address(a2, 0));
-    slli(tmp5, cnt1, 3 + log_elem_size);
-    sub(tmp5, zr, tmp5);
-    bne(cnt2, cnt1, DONE);
+  // Main 16 byte comparison loop with 2 exits
+  bind(NEXT_DWORD); {
+    ld(tmp1, Address(a1, wordSize));
+    ld(tmp2, Address(a2, wordSize));
+    sub(cnt1, cnt1, 2 * wordSize / elem_size);
+    blez(cnt1, TAIL);
+    bne(tmp3, tmp4, DONE);
+    ld(tmp3, Address(a1, 2 * wordSize));
+    ld(tmp4, Address(a2, 2 * wordSize));
+    add(a1, a1, 2 * wordSize);
+    add(a2, a2, 2 * wordSize);
+    ble(cnt1, elem_per_word, TAIL2);
+  } beq(tmp1, tmp2, NEXT_DWORD);
+  j(DONE);
 
-    // Main 16 byte comparison loop with 2 exits
-    bind(NEXT_DWORD); {
-      add(a1, a1, wordSize);
-      ld(tmp1, Address(a1, 0));
-      add(a2, a2, wordSize);
-      ld(tmp2, Address(a2, 0));
-      sub(cnt1, cnt1, 2 * wordSize / elem_size);
-      blez(cnt1, TAIL);
-      xorr(tmp4, tmp3, tmp4);
-      bnez(tmp4, DONE);
-      add(a1, a1, wordSize);
-      ld(tmp3, Address(a1, 0));
-      add(a2, a2, wordSize);
-      ld(tmp4, Address(a2, 0));
-      ble(cnt1, elem_per_word, TAIL2);
-    } beq(tmp1, tmp2, NEXT_DWORD);
-    j(DONE);
+  bind(TAIL);
+  xorr(tmp4, tmp3, tmp4);
+  xorr(tmp2, tmp1, tmp2);
+  sll(tmp2, tmp2, tmp5);
+  orr(tmp5, tmp4, tmp2);
+  j(IS_TMP5_ZR);
 
-    bind(TAIL);
-    xorr(tmp4, tmp3, tmp4);
-    xorr(tmp2, tmp1, tmp2);
-    sll(tmp2, tmp2, tmp5);
-    orr(tmp5, tmp4, tmp2);
-    j(CSET_EQ);
+  bind(TAIL2);
+  bne(tmp1, tmp2, DONE);
 
-    bind(TAIL2);
-    xorr(tmp2, tmp1, tmp2);
-    bnez(tmp2, DONE);
-    j(LAST_CHECK);
+  bind(SHORT);
+  xorr(tmp4, tmp3, tmp4);
+  sll(tmp5, tmp4, tmp5);
 
-    bind(STUB);
-    add(a2, a2, base_offset);
-    ld(tmp4, Address(a2, 0));
-    bne(cnt2, cnt1, DONE);
-    if (elem_size == 2) { // convert to byte counter
-      slli(cnt1, cnt1, 1);
-    }
-    xorr(tmp5, tmp3, tmp4);
-    bnez(tmp5, DONE);
-    RuntimeAddress stub = RuntimeAddress(StubRoutines::riscv64::large_array_equals());
-    assert(stub.target() != NULL, "array_equals_long stub has not been generated");
-    trampoline_call(stub);
-    j(DONE);
-
-    bind(EARLY_OUT);
-    // (a1 != null && a2 == null) || (a1 != null && a2 != null && a1 == a2)
-    // so, if a2 == null => return false(0), else return true, so we can return a2
-    mv(result, a2);
-    j(DONE);
-    bind(SHORT);
-    bne(cnt2, cnt1, DONE);
-    beqz(cnt1, SAME);
-    slli(tmp5, cnt1, 3 + log_elem_size);
-    sub(tmp5, zr, tmp5);
-    ld(tmp3, Address(a1, base_offset));
-    ld(tmp4, Address(a2, base_offset));
-    bind(LAST_CHECK);
-    xorr(tmp4, tmp3, tmp4);
-    sll(tmp5, tmp4, tmp5);
-    bind(CSET_EQ);
-    mv(result, 1);
-    beq(tmp5, zr, DONE);
-    mv(result, zr);
-    j(DONE);
-  }
+  bind(IS_TMP5_ZR);
+  bnez(tmp5, DONE);
 
   bind(SAME);
   mv(result, true);
@@ -3468,8 +3348,7 @@ void MacroAssembler::string_equals(Register a1, Register a2,
     ld(tmp2, Address(a2, 0));
     add(a2, a2, wordSize);
     sub(cnt1, cnt1, wordSize);
-    xorr(tmp1, tmp1, tmp2);
-    bnez(tmp1, DONE);
+    bne(tmp1, tmp2, DONE);
   } bgtz(cnt1, NEXT_WORD);
   // Last longword.  In the case where length == 4 we compare the
   // same longword twice, but that's still faster than another
@@ -3480,8 +3359,7 @@ void MacroAssembler::string_equals(Register a1, Register a2,
   ld(tmp1, Address(tmp1, 0));
   add(tmp2, a2, cnt1);
   ld(tmp2, Address(tmp2, 0));
-  xorr(tmp2, tmp1, tmp2);
-  bnez(tmp2, DONE);
+  bne(tmp1, tmp2, DONE);
   j(SAME);
 
   bind(SHORT);
@@ -3495,8 +3373,7 @@ void MacroAssembler::string_equals(Register a1, Register a2,
     add(a1, a1, 4);
     lwu(tmp2, Address(a2, 0));
     add(a2, a2, 4);
-    xorrw(tmp1, tmp1, tmp2);
-    bnez(tmp1, DONE);
+    bne(tmp1, tmp2, DONE);
   }
   bind(TAIL03);
   // 0-3 bytes left.
@@ -3507,8 +3384,7 @@ void MacroAssembler::string_equals(Register a1, Register a2,
     add(a1, a1, 2);
     lhu(tmp2, Address(a2, 0));
     add(a2, a2, 2);
-    xorrw(tmp1, tmp1, tmp2);
-    bnez(tmp1, DONE);
+    bne(tmp1, tmp2, DONE);
   }
   bind(TAIL01);
   if (elem_size == 1) { // Only needed when comparing 1-byte elements
@@ -3518,8 +3394,7 @@ void MacroAssembler::string_equals(Register a1, Register a2,
     {
       lbu(tmp1, a1, 0);
       lbu(tmp2, a2, 0);
-      xorrw(tmp1, tmp1, tmp2);
-      bnez(tmp1, DONE);
+      bne(tmp1, tmp2, DONE);
     }
   }
   // Arrays are equal.
