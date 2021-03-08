@@ -2278,6 +2278,7 @@ class StubGenerator: public StubCodeGenerator {
     return entry;
   }
 
+#ifdef COMPILER2
   // code for comparing 16 bytes of strings with same encoding
   void compare_string_16_bytes_same(Label &DIFF1, Label &DIFF2) {
     const Register result = x10, str1 = x11, cnt1 = x12, str2 = x13, tmp1 = x28, tmp2 = x29, tmp4 = x7, tmp5 = x31;
@@ -2766,6 +2767,7 @@ class StubGenerator: public StubCodeGenerator {
     StubRoutines::riscv64::_string_indexof_linear_uu = generate_string_indexof_linear(false, false);
     StubRoutines::riscv64::_string_indexof_linear_ul = generate_string_indexof_linear(true, false);
   }
+#endif // COMPILER2
 
   // Continuation point for throwing of implicit exceptions that are
   // not handled in the current activation. Fabricates an exception
@@ -2936,9 +2938,11 @@ class StubGenerator: public StubCodeGenerator {
       StubRoutines::riscv64::_large_array_equals = generate_large_array_equals();
     }
 
+#ifdef COMPILER2
     generate_compare_long_strings();
 
     generate_string_indexof_stubs();
+#endif // COMPILER2
     // Safefetch stubs.
     generate_safefetch("SafeFetch32", sizeof(int),     &StubRoutines::_safefetch32_entry,
                                                        &StubRoutines::_safefetch32_fault_pc,

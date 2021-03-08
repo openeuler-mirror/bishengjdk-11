@@ -3778,7 +3778,6 @@ void MacroAssembler::string_compare(Register str1, Register str2,
 
   BLOCK_COMMENT("} string_compare");
 }
-#endif // COMPILER2
 
 // Search for needle in haystack and return index or -1
 // x10: result
@@ -4312,6 +4311,7 @@ void MacroAssembler::string_indexof_linearscan(Register haystack, Register needl
 
   bind(DONE);
 }
+
 // string indexof
 // compute index by tailing zeros
 void MacroAssembler::compute_index(Register haystack, Register tailing_zero,
@@ -4341,6 +4341,8 @@ void MacroAssembler::compute_match_mask(Register src, Register pattern, Register
   notr(src, src);
   andr(match_mask, match_mask, src);
 }
+#endif // COMPILER2
+
 void MacroAssembler::ctz_bit(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
 {
   assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
