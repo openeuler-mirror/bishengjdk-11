@@ -909,7 +909,7 @@ class StubGenerator: public StubCodeGenerator {
     __ addi(tmp4, cnt, -8);
     __ bgez(tmp4, copy8);
 
-    __ beqz(cnt, done);    
+    __ beqz(cnt, done);
 
     __ bind(copy_small);
     if (is_backwards) {
@@ -2473,7 +2473,7 @@ class StubGenerator: public StubCodeGenerator {
     __ ld(ch2, Address(haystack));
     // src.length - pattern.length
     __ sub(haystack_len, haystack_len, needle_len);
-    
+
     // first is needle[0]
     __ andi(first, ch1, needle_isL ? 0xFF : 0xFFFF, first);
     __ mv(mask1, haystack_isL ? 0x0101010101010101 : 0x0001000100010001);
@@ -2488,7 +2488,7 @@ class StubGenerator: public StubCodeGenerator {
     if (needle_isL != haystack_isL) {
       __ inflate_lo32(ch1, tmp, match_mask, tailing_zero);
     }
-    // xorr, sub, orr, notr, andr 
+    // xorr, sub, orr, notr, andr
     // compare and set match_mask[i] with 0x80/0x8000 (Latin1/UTF16) if ch2[i] == first[i]
     // eg:
     // first:        aa aa aa aa aa aa aa aa
@@ -2517,7 +2517,7 @@ class StubGenerator: public StubCodeGenerator {
     __ bind(L_POST_LOOP);
     __ mv(ch2, -wordSize / haystack_chr_size);
     __ ble(haystack_len, ch2, NOMATCH); // no extra characters to check
-    __ ld(ch2, Address(haystack));                                                               
+    __ ld(ch2, Address(haystack));
     __ slli(haystack_len, haystack_len, LogBitsPerByte + haystack_chr_shift);
     __ neg(haystack_len, haystack_len);
     __ xorr(ch2, first, ch2);

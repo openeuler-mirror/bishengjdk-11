@@ -2240,13 +2240,15 @@ void MacroAssembler::store_conditional(Register addr,
   }
 }
 
-// cmpxchg narrow value will kill t0, t1, expected, new_val and tmps
+// cmpxchg narrow value will kill t0, t1, expected, new_val and tmps.
+// It's designed to implement compare and swap byte/boolean/char/short by lr.w/sc.w,
+// which are forced to work with 4-byte aligned address.
 void MacroAssembler::cmpxchg_narrow_value(Register addr, Register expected,
-		                          Register new_val,
-					  enum operand_size size,
-					  Assembler::Aqrl acquire, Assembler::Aqrl release,
-					  Register result, bool result_as_bool,
-					  Register tmp1, Register tmp2, Register tmp3) {
+                                          Register new_val,
+                                          enum operand_size size,
+                                          Assembler::Aqrl acquire, Assembler::Aqrl release,
+                                          Register result, bool result_as_bool,
+                                          Register tmp1, Register tmp2, Register tmp3) {
   assert(size == int8 || size == int16, "unsupported operand size");
 
   Register aligned_addr = t1, shift = tmp1, mask = tmp2, not_mask = tmp3, old = result, tmp = t0;
@@ -2301,13 +2303,16 @@ void MacroAssembler::cmpxchg_narrow_value(Register addr, Register expected,
   }
 }
 
-// cmpxchg narrow value will kill t0, t1, expected, new_val and tmps
+// weak cmpxchg narrow value will kill t0, t1, expected, new_val and tmps.
+// weak_cmpxchg_narrow_value is a weak version of cmpxchg_narrow_value, to implement
+// the weak CAS stuff. The major difference is that it just failed when store conditional
+// failed.
 void MacroAssembler::weak_cmpxchg_narrow_value(Register addr, Register expected,
-                                          Register new_val,
-                                          enum operand_size size,
-                                          Assembler::Aqrl acquire, Assembler::Aqrl release,
-                                          Register result,
-                                          Register tmp1, Register tmp2, Register tmp3) {
+                                               Register new_val,
+                                               enum operand_size size,
+                                               Assembler::Aqrl acquire, Assembler::Aqrl release,
+                                               Register result,
+                                               Register tmp1, Register tmp2, Register tmp3) {
   assert(size == int8 || size == int16, "unsupported operand size");
 
   Register aligned_addr = t1, shift = tmp1, mask = tmp2, not_mask = tmp3, old = result, tmp = t0;
@@ -4012,7 +4017,7 @@ void MacroAssembler::string_indexof_linearscan(Register haystack, Register needl
   Register ch2 = t1;
   Register hlen_neg = haystack_len, nlen_neg = needle_len;
   Register nlen_tmp = tmp1, hlen_tmp = tmp2, result_tmp = tmp4;
-  
+
   bool isLL = ae == StrIntrinsicNode::LL;
 
   bool needle_isL = ae == StrIntrinsicNode::LL || ae == StrIntrinsicNode::UL;
@@ -4030,7 +4035,7 @@ void MacroAssembler::string_indexof_linearscan(Register haystack, Register needl
   chr_insn load_4chr = isLL ? (chr_insn)&MacroAssembler::lwu : (chr_insn)&MacroAssembler::ld;
 
   Label DO1, DO2, DO3, MATCH, NOMATCH, DONE;
-  
+
   Register first = tmp3;
 
   if (needle_con_cnt == -1) {
@@ -4123,7 +4128,7 @@ void MacroAssembler::string_indexof_linearscan(Register haystack, Register needl
   if ((needle_con_cnt == -1 && needle_isL == haystack_isL) || needle_con_cnt == 3) {
     Label FIRST_LOOP, STR2_NEXT, STR1_LOOP;
     BLOCK_COMMENT("string_indexof DO3{");
-    
+
     bind(DO3);
     (this->*load_2chr)(first, Address(needle), noreg);
     (this->*needle_load_1chr)(ch1, Address(needle, 2 * needle_chr_size), noreg);
