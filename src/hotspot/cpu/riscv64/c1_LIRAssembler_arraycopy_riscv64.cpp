@@ -151,8 +151,7 @@ void LIR_Assembler::arraycopy_checkcast(Register src, Register src_pos, Register
     jint objArray_lh = Klass::array_layout_helper(T_OBJECT);
     __ lw(t0, klass_lh_addr);
     __ mvw(t1, objArray_lh);
-    __ xorr(t0, t0, t1);
-    __ bnez(t0, *stub->entry(), /* is_far */ true);
+    __ bne(t0, t1, *stub->entry(), /* is_far */ true);
   }
 
   // Spill because stubs can use any register they like and it's

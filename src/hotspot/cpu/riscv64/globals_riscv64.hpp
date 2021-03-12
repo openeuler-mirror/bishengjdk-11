@@ -98,10 +98,6 @@ define_pd_global(intx, InlineSmallCode,          1000);
           "Use memory barriers to implement volatile accesses")         \
   product(bool, UseCRC32, false,                                        \
           "Use CRC32 instructions for CRC32 computation")               \
-  product(bool, UseSimpleArrayEquals, false,                            \
-          "Use simpliest and shortest implementation for array equals") \
-  product(bool, AvoidUnalignedAccesses, false,                          \
-          "Avoid generating unaligned memory accesses")                 \
   product(bool, UseBlockZeroing, true,                                  \
           "Use DC ZVA for block zeroing")                               \
   product(intx, BlockZeroingLowLimit, 256,                              \

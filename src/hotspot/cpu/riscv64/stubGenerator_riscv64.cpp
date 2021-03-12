@@ -552,8 +552,7 @@ class StubGenerator: public StubCodeGenerator {
     __ mv(c_rarg3, (intptr_t) Universe::verify_oop_bits());
 
     // Compare c_rarg2 and c_rarg3
-    __ xorr(c_rarg2, c_rarg2, c_rarg3);
-    __ bnez(c_rarg2, error);
+    __ bne(c_rarg2, c_rarg3, error);
 
     // make sure klass is 'reasonable', which is not zero.
     __ load_klass(x10, x10);  // get klass
@@ -1664,13 +1663,11 @@ class StubGenerator: public StubCodeGenerator {
     const jint objArray_lh = Klass::array_layout_helper(T_OBJECT);
     __ lw(lh, Address(scratch_src_klass, lh_offset));
     __ mvw(t0, objArray_lh);
-    __ xorrw(t1, lh, t0);
-    __ beqz(t1, L_objArray);
+    __ beq(lh, t0, L_objArray);
 
     // if [src->klass() != dst->klass()] then return -1
     __ load_klass(t1, dst);
-    __ xorr(t1, t1, scratch_src_klass);
-    __ bnez(t1, L_failed);
+    __ bne(t1, scratch_src_klass, L_failed);
 
     // if [src->is_Array() != NULL] then return -1
     // i.e. (lh >= 0)
@@ -1802,8 +1799,7 @@ class StubGenerator: public StubCodeGenerator {
       // Before looking at dst.length, make sure dst is also an objArray.
       __ lwu(t0, Address(t2, lh_offset));
       __ mvw(t1, objArray_lh);
-      __ xorrw(t0, t0, t1);
-      __ bnez(t0, L_failed);
+      __ bne(t0, t1, L_failed);
 
       // It is safe to examine both src.length and dst.length.
       arraycopy_range_checks(src, src_pos, dst, dst_pos, scratch_length,
@@ -2181,103 +2177,6 @@ class StubGenerator: public StubCodeGenerator {
     __ ret();
   }
 
-  void generate_large_array_equals_loop(int loopThreshold,
-        bool usePrefetch, Label &NOT_EQUAL) {
-    const Register a1 = x11, a2 = x12, tmp1 = t0, tmp2 = t1, tmp3 = x13, cnt1 = x28;
-
-    Label LOOP; {
-      __ bind(LOOP);
-      __ ld(tmp1, Address(a1, 0));
-      __ add(a1, a1, wordSize);
-      __ ld(tmp2, Address(a2, 0));
-      __ add(a2, a2, wordSize);
-      __ xorr(tmp1, tmp1, tmp2);
-      __ bnez(tmp1, NOT_EQUAL);
-      __ sub(cnt1, cnt1, wordSize);
-      __ sub(tmp3, cnt1, loopThreshold);
-    } __ bgez(tmp3, LOOP);
-  }
-
-  // a1 = x11 - array1 address
-  // a2 = x12 - array2 address
-  // result = x10 - return value. Already contains "false"
-  // cnt1 = x28 - amount of elements left to check, reduced by wordSize
-  // x13-x15 are reserved temporary registers
-  address generate_large_array_equals() {
-    const Register a1 = x11, a2 = x12, result = x10, cnt1 = x28, tmp1 = t0,
-        tmp2 = t1, tmp3 = x13, tmp4 = x14, tmp5 = x15, tmp6 = x29,
-        tmp7 = x30, tmp8 = x31;
-    Label NOT_EQUAL, EQUAL, NOT_EQUAL_NO_POP, SMALL_LOOP, POST_LOOP;
-    const int PRE_LOOP_SIZE = 16;
-    const int nonPrefetchLoopThreshold = (64 + PRE_LOOP_SIZE);
-    RegSet spilled_regs = RegSet::range(tmp6, tmp8);
-    assert_different_registers(a1, a2, result, cnt1, tmp1, tmp2, tmp3, tmp4,
-        tmp5, tmp6, tmp7, tmp8);
-
-    __ align(CodeEntryAlignment);
-
-    StubCodeMark mark(this, "StubRoutines", "large_array_equals");
-
-    address entry = __ pc();
-    __ enter();
-    __ sub(cnt1, cnt1, wordSize);  // first 8 bytes were loaded outside of stub
-    // also advance pointers to use post-increment instead of pre-increment
-    __ add(a1, a1, wordSize);
-    __ add(a2, a2, wordSize);
-    if (AvoidUnalignedAccesses) {
-      // Arrays are 8-byte aligned currently, so, we can make additional 8-byte
-      // load if needed at least for 1st address and make if 16-byte aligned.
-      Label ALIGNED16;
-      __ andi(t0, a1, 8);
-      __ beqz(t0, ALIGNED16);
-      __ ld(tmp1, Address(a1, 0));
-      __ add(a1, a1, wordSize);
-      __ ld(tmp2, Address(a2, 0));
-      __ add(a2, a2, wordSize);
-      __ sub(cnt1, cnt1, wordSize);
-      __ xorr(tmp1, tmp1, tmp2);
-      __ bnez(cnt1, NOT_EQUAL_NO_POP);
-      __ bind(ALIGNED16);
-    }
-
-    {
-      __ push_reg(spilled_regs, sp);
-      generate_large_array_equals_loop(nonPrefetchLoopThreshold, /* prfm = */ false, NOT_EQUAL);
-    }
-    __ beqz(cnt1, EQUAL);
-    __ sub(cnt1, cnt1, wordSize);
-    __ blez(cnt1, POST_LOOP);
-
-    __ bind(SMALL_LOOP);
-      __ ld(tmp1, Address(a1, 0));
-      __ add(a1, a1, wordSize);
-      __ ld(tmp2, Address(a2, 0));
-      __ add(a2, a2, wordSize);
-      __ sub(cnt1, cnt1, wordSize);
-      __ xorr(tmp1, tmp1, tmp2);
-      __ bnez(tmp1, NOT_EQUAL);
-      __ bgtz(cnt1, SMALL_LOOP);
-
-    __ bind(POST_LOOP);
-      __ add(tmp1, a1, cnt1);
-      __ ld(tmp1, Address(tmp1, 0));
-      __ add(tmp2, a2, cnt1);
-      __ ld(tmp2, Address(tmp2, 0));
-      __ xorr(tmp1, tmp1, tmp2);
-      __ bnez(tmp1, NOT_EQUAL);
-
-    __ bind(EQUAL);
-      __ mv(result, true);
-
-    __ bind(NOT_EQUAL);
-    __ pop_reg(spilled_regs, sp);
-
-    __ bind(NOT_EQUAL_NO_POP);
-    __ leave();
-    __ ret();
-    return entry;
-  }
-
 #ifdef COMPILER2
   // code for comparing 16 bytes of strings with same encoding
   void compare_string_16_bytes_same(Label &DIFF1, Label &DIFF2) {
@@ -2408,7 +2307,7 @@ class StubGenerator: public StubCodeGenerator {
       __ mv(tmpL, t0);
       __ j(CALCULATE_DIFFERENCE);
     __ bind(LOAD_LAST);
-      // Last 4 UTF-16 characters are already pre-loaded into tmp3 by compare_string_16_x_LU.
+      // Last 4 UTF-16 characters are already pre-loaded into tmp4 by compare_string_16_x_LU.
       // No need to load it again
       __ mv(tmpU, tmp4);
       __ ld(tmpL, Address(strL));
@@ -2933,10 +2832,6 @@ class StubGenerator: public StubCodeGenerator {
     // arraycopy stubs used by compilers
     generate_arraycopy_stubs();
 
-    // array equals stub for large arrays.
-    if (!UseSimpleArrayEquals) {
-      StubRoutines::riscv64::_large_array_equals = generate_large_array_equals();
-    }
 
 #ifdef COMPILER2
     generate_compare_long_strings();

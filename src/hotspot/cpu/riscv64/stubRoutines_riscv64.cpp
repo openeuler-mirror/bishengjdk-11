@@ -48,7 +48,6 @@ address StubRoutines::riscv64::_double_sign_flip = NULL;
 address StubRoutines::riscv64::_zero_blocks = NULL;
 address StubRoutines::riscv64::_has_negatives = NULL;
 address StubRoutines::riscv64::_has_negatives_long = NULL;
-address StubRoutines::riscv64::_large_array_equals = NULL;
 address StubRoutines::riscv64::_compare_long_string_LL = NULL;
 address StubRoutines::riscv64::_compare_long_string_UU = NULL;
 address StubRoutines::riscv64::_compare_long_string_LU = NULL;

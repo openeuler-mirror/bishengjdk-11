@@ -2082,8 +2082,7 @@ void LIR_Assembler::check_exact_klass(Register tmp, ciKlass* exact_klass) {
   Label ok;
   __ load_klass(tmp, tmp);
   __ mov_metadata(t0, exact_klass->constant_encoding());
-  __ xorr(t0, tmp, t0);
-  __ beqz(t0, ok);
+  __ beq(tmp, t0, ok);
   __ stop("exact klass and actual klass differ");
   __ bind(ok);
 }
