@@ -48,6 +48,10 @@
 
 #include "childproc.h"
 
+#if defined(amd64)
+  __asm__(".symver posix_spawn,posix_spawn@GLIBC_2.2.5");
+#endif
+
 /*
  * There are 4 possible strategies we might use to "fork":
  *
