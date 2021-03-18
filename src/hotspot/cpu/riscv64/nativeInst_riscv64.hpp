@@ -545,8 +545,9 @@ inline NativeMembar *NativeMembar_at(address addr) {
 }
 
 class NativeFenceI : public NativeInstruction {
- public:
-  static int instruction_size() {
+public:
+  static inline int instruction_size() {
+    // 2 for fence.i + fence
     return (UseConservativeFence ? 2 : 1) * NativeInstruction::instruction_size;
   }
 };

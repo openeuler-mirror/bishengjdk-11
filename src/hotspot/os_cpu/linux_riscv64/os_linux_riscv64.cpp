@@ -581,7 +581,7 @@ void os::print_context(outputStream *st, const void *context) {
 
   intptr_t *frame_sp = (intptr_t *)os::Linux::ucontext_get_sp(uc);
   st->print_cr("Top of Stack: (sp=" PTR_FORMAT ")", p2i(frame_sp));
-  print_hex_dump(st, (address)frame_sp, (address)(frame_sp + 8 * sizeof(intptr_t)), sizeof(intptr_t));
+  print_hex_dump(st, (address)frame_sp, (address)(frame_sp + 64), sizeof(intptr_t));
   st->cr();
 
   // Note: it may be unsafe to inspect memory near pc. For example, pc may

@@ -243,7 +243,7 @@ void LIR_Assembler::arraycopy_type_check(Register src, Register src_pos, Registe
 }
 
 void LIR_Assembler::arraycopy_assert(Register src, Register dst, Register tmp, ciArrayKlass *default_type, int flags) {
-  BasicType basic_type = default_type != NULL ? default_type->element_type()->basic_type() : T_ILLEGAL;
+  BasicType basic_type = default_type->element_type()->basic_type();
   if (basic_type == T_ARRAY) { basic_type = T_OBJECT; }
   if (basic_type != T_OBJECT || !(flags & LIR_OpArrayCopy::type_check)) {
     // Sanity check the known type with the incoming class.  For the

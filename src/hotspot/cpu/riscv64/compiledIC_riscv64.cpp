@@ -67,7 +67,7 @@ address CompiledStaticCall::emit_to_interp_stub(CodeBuffer &cbuf, address mark) 
 #undef __
 
 int CompiledStaticCall::to_interp_stub_size() {
-  // fence_i + (lui, addi, slli, addi, slli, addi) + (lui, addi, slli, addi, slli) + jalr
+  // fence_i + fence* + (lui, addi, slli, addi, slli, addi) + (lui, addi, slli, addi, slli) + jalr
   return NativeFenceI::instruction_size() + 12 * NativeInstruction::instruction_size;
 }
 
