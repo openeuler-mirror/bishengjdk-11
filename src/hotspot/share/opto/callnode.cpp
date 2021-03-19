@@ -972,6 +972,10 @@ bool CallJavaNode::validate_symbolic_info() const {
   if (method() == NULL) {
     return true; // call into runtime or uncommon trap
   }
+  if (LazyBox && this->is_CallStaticJava() &&
+      this->as_CallStaticJava()->is_boxing_method()) {
+    return true;
+  }
   ciMethod* symbolic_info = jvms()->method()->get_method_at_bci(_bci);
   ciMethod* callee = method();
   if (symbolic_info->is_method_handle_intrinsic() && !callee->is_method_handle_intrinsic()) {
@@ -1230,6 +1234,20 @@ void SafePointNode::grow_stack(JVMState* jvms, uint grow_by) {
   jvms->set_monoff(monoff + grow_by);
   jvms->set_scloff(scloff + grow_by);
   jvms->set_endoff(endoff + grow_by);
+}
+
+void SafePointNode::desc_stack(JVMState* jvms, uint desc_by) {
+  assert((int)desc_by > 0, "sanity");
+  int monoff = jvms->monoff();
+  int scloff = jvms->scloff();
+  int endoff = jvms->endoff();
+  assert(endoff == (int)req(), "no other states or debug info after me");
+  for (uint i = 0; i < desc_by; i++) {
+    del_req_ordered(monoff - 1 - i);
+  }
+  jvms->set_monoff(monoff - desc_by);
+  jvms->set_scloff(scloff - desc_by);
+  jvms->set_endoff(endoff - desc_by);
 }
 
 void SafePointNode::push_monitor(const FastLockNode *lock) {

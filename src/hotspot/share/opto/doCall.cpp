@@ -416,6 +416,49 @@ static bool check_call_consistency(JVMState* jvms, CallGenerator* cg) {
 }
 #endif // ASSERT
 
+void Parse::do_lazybox(ciMethod* callee) {
+  if (!LazyBox) return;
+
+  // unboxing method will eliminate
+  if (callee->is_unboxing_method()) return;
+
+  const bool is_virtual = bc() == Bytecodes::_invokevirtual;
+  const bool is_static = bc() == Bytecodes::_invokestatic;
+  const uint nargs = callee->arg_size();
+
+  // receiver maybe box node
+  if (is_virtual) {
+    Node* receiver_node = stack(sp() - nargs);
+    if (is_box_use_node(receiver_node)) {
+      Node* replace = insert_box_node(receiver_node);
+      set_stack(sp() - nargs, replace);
+      return;
+    }
+  }
+
+  // args maybe box node
+  if (is_virtual || is_static) {
+    Node* use = NULL;
+    uint use_idx = -1;
+    int count = 0;
+    for (uint i = nargs; i > 0; i--) {
+      Node* arg = stack(sp() - i);
+      if (is_box_use_node(arg)) {
+        use = arg;
+        use_idx = i;
+        count++;
+      }
+    }
+
+    // only delay one box node to use
+    if (use != NULL && count == 1) {
+      Node* replace = insert_box_node(use);
+      set_stack(sp() - use_idx, replace);
+      return;
+    }
+  }
+}
+
 //------------------------------do_call----------------------------------------
 // Handle your basic call.  Inline if we can & want to, else just setup call.
 void Parse::do_call() {
@@ -551,6 +594,13 @@ void Parse::do_call() {
   // This call checks with CHA, the interpreter profile, intrinsics table, etc.
   // It decides whether inlining is desirable or not.
   CallGenerator* cg = C->call_generator(callee, vtable_index, call_does_dispatch, jvms, try_inline, prof_factor(), speculative_receiver_type);
+
+  if (!cg->is_inline()) {
+    inc_sp(nargs);
+    do_lazybox(orig_callee);
+    dec_sp(nargs);
+    JVMState* jvms = sync_jvms();
+  }
 
   // NOTE:  Don't use orig_callee and callee after this point!  Use cg->method() instead.
   orig_callee = callee = NULL;

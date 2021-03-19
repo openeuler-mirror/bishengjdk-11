@@ -2235,6 +2235,11 @@ void Compile::Optimize() {
 
   print_method(PHASE_AFTER_PARSING);
 
+  if (LazyBox) {
+    PhaseLazyBoxOpt plb(initial_gvn());
+    print_method(PHASE_LAZYBOXOPT);
+  }
+
  {
   // Iterative Global Value Numbering, including ideal transforms
   // Initialize IterGVN with types and values from parse-time GVN

@@ -407,6 +407,217 @@ void NodeHash::operator=(const NodeHash& nh) {
 
 #endif
 
+//=============================================================================
+//------------------------------PhaseLazyBoxOpt------------------------------
+// Phase that first collecting all the box nodes, if use nodes of a box node are
+// all SafePointNode or it's subclass and the usage is not monitor, scalar and args, then eliminate the box node.
+// else, eliminate the related inserted box node.
+PhaseLazyBoxOpt::PhaseLazyBoxOpt(PhaseGVN *gvn, PhaseNumber phase_num)
+  : Phase(phase_num),
+    _gvn(gvn) {
+  if (PrintLazyBox) {
+    tty->print("LazyBoxOpt for method: %s.%s\n", C->method()->holder()->name()->as_utf8(), C->method()->name()->as_utf8());
+  }
+  Node_List box_nodes = collect_box_nodes();
+  for (uint i = 0; i < box_nodes.size(); i++) {
+    CallStaticJavaNode* box_node = (CallStaticJavaNode*)box_nodes[i];
+    if (is_eliminatable(box_node)) {
+      // delete origin box node
+      if (PrintLazyBox) {
+        tty->print("delete origin box node %d\n", box_node->_idx);
+      }
+
+      // if copy box not used, remove it
+      if (box_node->_copy_box != NULL) {
+        for (uint j = 0; j < box_node->_copy_box->size(); j++) {
+          CallStaticJavaNode* n = (CallStaticJavaNode*)box_node->_copy_box->at(j);
+          Node* resproj = n->proj_out_or_null(TypeFunc::Parms);
+          if (resproj == NULL) {
+            eliminate_call(n);
+          }
+        }
+      }
+
+      eliminate_call(box_node);
+    } else if (box_node->_copy_box != NULL) {
+      // delete copy box node
+      if (PrintLazyBox) {
+        tty->print("delete copy box node for box node %d \n", box_node->_idx);
+      }
+      Node* origin_resproj = box_node->proj_out_or_null(TypeFunc::Parms);
+
+      for (uint j = 0; j < box_node->_copy_box->size(); j++) {
+        CallStaticJavaNode* n = (CallStaticJavaNode*)box_node->_copy_box->at(j);
+        if (PrintLazyBox) {
+          tty->print("    delete copy box node %d\n", n->_idx);
+        }
+        // replace the copy box node resproj by original box node resproj
+        Node* copy_resproj = n->proj_out_or_null(TypeFunc::Parms);
+
+        if (copy_resproj != NULL) {
+          C->gvn_replace_by(copy_resproj, origin_resproj);
+        }
+        eliminate_call(n);
+      }
+    }
+  }
+
+  if (C->failing())  return;
+  {
+    ResourceMark rm;
+    PhaseRemoveUseless pru(C->initial_gvn(), C->for_igvn());
+  }
+}
+
+Node_List PhaseLazyBoxOpt::collect_box_nodes() {
+  Node_List box_nodes;
+
+  Node* start_node = C->start();
+  Node* framptr_node = start_node->raw_out(TypeFunc::FramePtr + 1);
+
+  for (DUIterator_Fast imax, i = framptr_node->fast_outs(imax); i < imax; i++) {
+    Node* m = framptr_node->fast_out(i);
+    if (m->is_CallStaticJava()) {
+      ciMethod* method = m->as_CallStaticJava()->method();
+      if (method != NULL && method->is_boxing_method() && m->as_CallStaticJava()->_is_lazy_box == false) {
+        box_nodes.push(m);
+      }
+    }
+  }
+  return box_nodes;
+}
+
+// determine if a box node is eliminatable
+bool PhaseLazyBoxOpt::is_eliminatable(CallStaticJavaNode* box_node) {
+  assert(!box_node->_is_lazy_box, "must orgin box node");
+
+  Node* resproj = box_node->proj_out_or_null(TypeFunc::Parms);
+  if (resproj == NULL) {
+    return true;
+  }
+
+  for (DUIterator_Fast imax, i = resproj->fast_outs(imax); i < imax; i++) {
+    Node* res = resproj;
+    Node* use_node = res->fast_out(i);
+    if (use_node->is_SafePoint()) {
+      int arg_end = 0;
+      JVMState* youngest_jvms = use_node->jvms();
+      for (JVMState* jvms = youngest_jvms; jvms != NULL; ) {
+        arg_end = jvms->locoff();
+
+        int k, l;
+        // if origin box node is used only in SafePoint's stack and local, so it's not used actually
+        // check local, just check
+        k = jvms->locoff();
+        l = jvms->loc_size();
+        for (int j = 0; j < l; j++){
+          if (use_node->in(k+j) == res) {
+#ifndef PRODUCT
+            if (PrintLazyBox) {
+              tty->print("use node is safepoint, check local!\n");
+              use_node->dump(0);
+            }
+#endif
+          }
+        }
+
+        // check stack, just check
+        k = jvms->stkoff();
+        l = jvms->sp();
+        for (int j = 0; j < l; j++) {
+          if (use_node->in(k+j) == res) {
+#ifndef PRODUCT
+            if (PrintLazyBox) {
+              tty->print("use node is safepoint, check stack!\n");
+              use_node->dump(0);
+            }
+#endif
+          }
+        }
+        // check monitor
+        k = jvms->monoff();
+        l = jvms->mon_size();
+        for (int j = 0; j < l; j++) {
+          if (use_node->in(k+j) == res) {
+#ifndef PRODUCT
+            if (PrintLazyBox) {
+              tty->print("use node is safepoint, check monitor false!\n");
+              use_node->dump(0);
+            }
+#endif
+            return false;
+          }
+        }
+        // check scalar
+        k = jvms->scloff();
+        l = jvms->scl_size();
+        for (int j = 0; j < l; j++) {
+          if (use_node->in(k+j) == res) {
+#ifndef PRODUCT
+            if (PrintLazyBox) {
+              tty->print("use node is safepoint, check scalar false!\n");
+              use_node->dump(0);
+            }
+#endif
+            return false;
+          }
+        }
+        jvms = jvms->caller();
+      }
+
+      if (use_node->is_CallJava()) {
+        for (int i = TypeFunc::Parms; i < arg_end; i++) {
+          if(use_node->in(i) == res) {
+#ifndef PRODUCT
+            if (PrintLazyBox) {
+              tty->print("use node is CallJava, check args false!\n");
+              use_node->dump(0);
+            }
+#endif
+            return false;
+          }
+        }
+      }
+
+    } else {
+#ifndef PRODUCT
+      if (PrintLazyBox) {
+        tty->print("use node %s can't do lazybox!\n", use_node->Name());
+        use_node->dump(0);
+      }
+#endif
+      return false;
+    }
+  }
+  return true;
+}
+
+void PhaseLazyBoxOpt::eliminate_call(CallNode* call) {
+  CallProjections projs;
+  call->extract_projections(&projs, false);
+  if (projs.fallthrough_catchproj != NULL) {
+    C->gvn_replace_by(projs.fallthrough_catchproj, call->in(TypeFunc::Control));
+  }
+  if (projs.fallthrough_memproj != NULL) {
+    C->gvn_replace_by(projs.fallthrough_memproj, call->in(TypeFunc::Memory));
+  }
+  if (projs.catchall_memproj != NULL) {
+    C->gvn_replace_by(projs.catchall_memproj, C->top());
+  }
+  if (projs.fallthrough_ioproj != NULL) {
+    C->gvn_replace_by(projs.fallthrough_ioproj, call->in(TypeFunc::I_O));
+  }
+  if (projs.catchall_ioproj != NULL) {
+    C->gvn_replace_by(projs.catchall_ioproj, C->top());
+  }
+  if (projs.catchall_catchproj != NULL) {
+    C->gvn_replace_by(projs.catchall_catchproj, C->top());
+  }
+  if (projs.resproj != NULL) {
+    C->gvn_replace_by(projs.resproj, C->top());
+  }
+  C->gvn_replace_by(call, C->top());
+}
 
 //=============================================================================
 //------------------------------PhaseRemoveUseless-----------------------------

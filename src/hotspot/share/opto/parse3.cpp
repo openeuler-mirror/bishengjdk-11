@@ -244,6 +244,14 @@ void Parse::do_put_xxx(Node* obj, ciField* field, bool is_field) {
   // Value to be stored
   Node* val = type2size[bt] == 1 ? pop() : pop_pair();
 
+  if (LazyBox && is_box_use_node(val)) {
+    // oop size is 1
+    push(val);
+    Node* replace = insert_box_node(val);
+    val = replace_box_use_node(val, replace);
+    pop();
+  }
+
   DecoratorSet decorators = IN_HEAP;
   decorators |= is_vol ? MO_SEQ_CST : MO_UNORDERED;
 

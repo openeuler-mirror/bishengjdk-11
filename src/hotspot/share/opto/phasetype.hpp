@@ -30,6 +30,7 @@ enum CompilerPhaseType {
   PHASE_AFTER_STRINGOPTS,
   PHASE_BEFORE_REMOVEUSELESS,
   PHASE_AFTER_PARSING,
+  PHASE_LAZYBOXOPT,
   PHASE_ITER_GVN1,
   PHASE_PHASEIDEAL_BEFORE_EA,
   PHASE_ITER_GVN_AFTER_EA,
@@ -73,6 +74,7 @@ class CompilerPhaseTypeHelper {
       case PHASE_AFTER_STRINGOPTS:           return "After StringOpts";
       case PHASE_BEFORE_REMOVEUSELESS:       return "Before RemoveUseless";
       case PHASE_AFTER_PARSING:              return "After Parsing";
+      case PHASE_LAZYBOXOPT:                 return "After LazyBoxOpt";
       case PHASE_ITER_GVN1:                  return "Iter GVN 1";
       case PHASE_PHASEIDEAL_BEFORE_EA:       return "PhaseIdealLoop before EA";
       case PHASE_ITER_GVN_AFTER_EA:          return "Iter GVN after EA";

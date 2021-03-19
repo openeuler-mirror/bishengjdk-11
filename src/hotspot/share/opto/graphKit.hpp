@@ -276,6 +276,8 @@ class GraphKit : public Phase {
 #ifdef ASSERT
   bool dead_locals_are_killed();
 #endif
+  void add_local(SafePointNode* call, uint idx, Node* local, GrowableArray<uint> *delay_boxes);
+
   // The call may deoptimize.  Supply required JVM state as debug info.
   // If must_throw is true, the call is guaranteed not to return normally.
   void add_safepoint_edges(SafePointNode* call,
@@ -478,6 +480,7 @@ class GraphKit : public Phase {
   void set_stack(uint idx, Node* c)   { map_not_null(); _map->set_stack(   _map->_jvms, idx, c); }
   void set_argument(uint idx, Node* c){ map_not_null(); _map->set_argument(_map->_jvms, idx, c); }
   void ensure_stack(uint stk_size)    { map_not_null(); _map->ensure_stack(_map->_jvms, stk_size); }
+  void recover_stack(uint stk_size)    { map_not_null(); _map->recover_stack(_map->_jvms, stk_size); }
 
   // Access unaliased memory
   Node* memory(uint alias_idx);
@@ -862,6 +865,12 @@ class GraphKit : public Phase {
   Node* compress_string(Node* src, const TypeAryPtr* src_type, Node* dst, Node* count);
   void inflate_string(Node* src, Node* dst, const TypeAryPtr* dst_type, Node* count);
   void inflate_string_slow(Node* src, Node* dst, Node* start, Node* count);
+
+  // lazy box helpers
+  static bool is_box_use_node(const Node* node);
+  static Node* replace_box_use_node(Node* n, Node* replace);
+  Node* insert_box_node(Node* use);
+  Node* inline_lazy_box(CallStaticJavaNode* box, Node* value);
 
   // Handy for making control flow
   IfNode* create_and_map_if(Node* ctrl, Node* tst, float prob, float cnt) {

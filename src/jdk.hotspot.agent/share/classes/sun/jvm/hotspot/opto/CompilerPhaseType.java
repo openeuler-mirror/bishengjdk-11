@@ -30,6 +30,7 @@ public enum CompilerPhaseType {
   PHASE_BEFORE_STRINGOPTS ("Before StringOpts"),
   PHASE_AFTER_STRINGOPTS ("After StringOpts"),
   PHASE_BEFORE_REMOVEUSELESS ("Before RemoveUseless"),
+  PHASE_LAZYBOXOPT ("After LazyBoxOpt"),
   PHASE_AFTER_PARSING ("After Parsing"),
   PHASE_ITER_GVN1 ("Iter GVN 1"),
   PHASE_PHASEIDEAL_BEFORE_EA ("PhaseIdealLoop before EA"),

@@ -331,6 +331,7 @@ public:
     : MultiNode( edges ),
       _jvms(jvms),
       _oop_map(NULL),
+      _fake_exception_state(false),
       _adr_type(adr_type)
   {
     init_class_id(Class_SafePoint);
@@ -340,6 +341,7 @@ public:
   JVMState* const _jvms;      // Pointer to list of JVM State objects
   const TypePtr*  _adr_type;  // What type of memory does this node produce?
   ReplacedNodes   _replaced_nodes; // During parsing: list of pair of nodes from calls to GraphKit::replace_in_map()
+  bool            _fake_exception_state; // lazy box may produce exception
 
   // Many calls take *all* of memory as input,
   // but some produce a limited subset of that memory as output.
@@ -398,7 +400,13 @@ public:
     int grow_by = (int)stk_size - (int)jvms->stk_size();
     if (grow_by > 0)  grow_stack(jvms, grow_by);
   }
+  void recover_stack(JVMState* jvms, uint stk_size) {
+    assert(verify_jvms(jvms), "jvms must match");
+    int desc_by = (int)jvms->stk_size() - (int)stk_size;
+    if (desc_by > 0) desc_stack(jvms, desc_by);
+  }
   void grow_stack(JVMState* jvms, uint grow_by);
+  void desc_stack(JVMState* jvms, uint desc_by);
   // Handle monitor stack
   void push_monitor( const FastLockNode *lock );
   void pop_monitor ();
@@ -708,6 +716,8 @@ public:
     }
     _is_scalar_replaceable = false;
     _is_non_escaping = false;
+    _copy_box = NULL;
+    _is_lazy_box = false;
   }
   CallStaticJavaNode(const TypeFunc* tf, address addr, const char* name, int bci,
                      const TypePtr* adr_type)
@@ -718,7 +728,12 @@ public:
     _is_scalar_replaceable = false;
     _is_non_escaping = false;
     _name = name;
+    _copy_box = NULL;
+    _is_lazy_box = false;
   }
+
+  Node_List* _copy_box;
+  bool _is_lazy_box;
 
   // Result of Escape Analysis
   bool _is_scalar_replaceable;
