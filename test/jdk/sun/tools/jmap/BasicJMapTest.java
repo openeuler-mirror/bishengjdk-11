@@ -45,6 +45,35 @@ import jdk.testlibrary.ProcessTools;
  * @build jdk.test.lib.hprof.util.*
  * @run main/timeout=240 BasicJMapTest
  */
+
+/*
+ * @test id=Parallel
+ * @summary Unit test for jmap utility (Parallel GC)
+ * @key intermittent
+ * @library /lib/testlibrary
+ * @library /test/lib
+ * @build jdk.testlibrary.*
+ * @build jdk.test.lib.hprof.*
+ * @build jdk.test.lib.hprof.model.*
+ * @build jdk.test.lib.hprof.parser.*
+ * @build jdk.test.lib.hprof.util.*
+ * @run main/othervm/timeout=240 -XX:+UseParallelGC BasicJMapTest
+ */
+
+/*
+ * @test id=G1
+ * @summary Unit test for jmap utility (G1 GC)
+ * @key intermittent
+ * @library /lib/testlibrary
+ * @library /test/lib
+ * @build jdk.testlibrary.*
+ * @build jdk.test.lib.hprof.*
+ * @build jdk.test.lib.hprof.model.*
+ * @build jdk.test.lib.hprof.parser.*
+ * @build jdk.test.lib.hprof.util.*
+ * @run main/othervm/timeout=240 -XX:+UseG1GC BasicJMapTest
+ */
+
 public class BasicJMapTest {
 
     private static ProcessBuilder processBuilder = new ProcessBuilder();
@@ -65,6 +94,32 @@ public class BasicJMapTest {
 
     private static void testHistoLive() throws Exception {
         OutputAnalyzer output = jmap("-histo:live");
+        output.shouldHaveExitValue(0);
+    }
+
+    private static void testHistoParallelZero() throws Exception {
+        OutputAnalyzer output = jmap("-histo:parallel=0");
+        output.shouldHaveExitValue(0);
+    }
+
+    private static void testHistoParallel() throws Exception {
+        OutputAnalyzer output = jmap("-histo:parallel=2");
+        output.shouldHaveExitValue(0);
+    }
+
+    private static void testHistoNonParallel() throws Exception {
+        OutputAnalyzer output = jmap("-histo:parallel=1");
+        output.shouldHaveExitValue(0);
+    }
+
+    private static void testHistoMultipleParameters() throws Exception {
+        OutputAnalyzer output = jmap("-histo:parallel=2,live");
+        output.shouldHaveExitValue(0);
+        output = jmap("-histo:live,parallel=2");
+        output.shouldHaveExitValue(0);
+        output = jmap("-histo:parallel=2,all");
+        output.shouldHaveExitValue(0);
+        output = jmap("-histo:all,parallel=2");
         output.shouldHaveExitValue(0);
     }
 

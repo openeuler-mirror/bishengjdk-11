@@ -1125,8 +1125,12 @@ public:
 
   // Iteration functions.
 
+  void object_iterate_parallel(ObjectClosure* cl, uint worker_id, HeapRegionClaimer* claimer);
+
   // Iterate over all objects, calling "cl.do_object" on each.
   virtual void object_iterate(ObjectClosure* cl);
+
+  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num);
 
   virtual void safe_object_iterate(ObjectClosure* cl) {
     object_iterate(cl);

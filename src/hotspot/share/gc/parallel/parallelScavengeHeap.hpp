@@ -44,6 +44,7 @@
 class AdjoiningGenerations;
 class GCHeapSummary;
 class GCTaskManager;
+class HeapBlockClaimer;
 class MemoryManager;
 class MemoryPool;
 class PSAdaptiveSizePolicy;
@@ -79,6 +80,8 @@ class ParallelScavengeHeap : public CollectedHeap {
   MemoryPool* _survivor_pool;
   MemoryPool* _old_pool;
 
+  WorkGang _workers;
+
   virtual void initialize_serviceability();
 
   void trace_heap(GCWhen::Type when, const GCTracer* tracer);
@@ -93,7 +96,20 @@ class ParallelScavengeHeap : public CollectedHeap {
 
  public:
   ParallelScavengeHeap(GenerationSizer* policy) :
-    CollectedHeap(), _collector_policy(policy), _death_march_count(0) { }
+    CollectedHeap(),
+    _collector_policy(policy),
+    _death_march_count(0),
+    _young_manager(NULL),
+    _old_manager(NULL),
+    _eden_pool(NULL),
+    _survivor_pool(NULL),
+    _old_pool(NULL),
+    _workers("GC Thread",
+            ParallelGCThreads,
+            true /* are_GC_task_threads */,
+            false /* are_ConcurrentGC_threads */) {
+    _workers.initialize_workers();
+  }
 
   // For use by VM operations
   enum CollectionType {
@@ -217,6 +233,8 @@ class ParallelScavengeHeap : public CollectedHeap {
 
   void object_iterate(ObjectClosure* cl);
   void safe_object_iterate(ObjectClosure* cl) { object_iterate(cl); }
+  void object_iterate_parallel(ObjectClosure* cl, HeapBlockClaimer* claimer);
+  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num);
 
   HeapWord* block_start(const void* addr) const;
   size_t block_size(const HeapWord* addr) const;
@@ -231,6 +249,8 @@ class ParallelScavengeHeap : public CollectedHeap {
   virtual void print_gc_threads_on(outputStream* st) const;
   virtual void gc_threads_do(ThreadClosure* tc) const;
   virtual void print_tracing_info() const;
+
+  virtual WorkGang* get_safepoint_workers() { return &_workers; }
 
   void verify(VerifyOption option /* ignored */);
 
