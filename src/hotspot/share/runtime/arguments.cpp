@@ -1969,6 +1969,19 @@ jint Arguments::set_aggressive_opts_flags() {
       AggressiveUnboxing = false;
     }
   }
+
+  // LazyBox need set AggressiveUnboxing
+  if (LazyBox) {
+    if (!AggressiveUnboxing || UseAOT || EnableJVMCI) {
+      warning("LazyBox is disable because AggressiveUnboxing is disabled or UseAOT/EnableJVMCI is enable");
+      LazyBox = false;
+    }
+  }
+
+  if (PrintLazyBox) {
+    PrintLazyBox = LazyBox;
+  }
+
   if (AggressiveOpts || !FLAG_IS_DEFAULT(AutoBoxCacheMax)) {
     if (FLAG_IS_DEFAULT(EliminateAutoBox)) {
       FLAG_SET_DEFAULT(EliminateAutoBox, true);

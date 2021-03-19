@@ -918,7 +918,7 @@ void Parse::do_exceptions() {
 
   SafePointNode* ex_map;
   while ((ex_map = pop_exception_state()) != NULL) {
-    if (!method()->has_exception_handlers()) {
+    if (!method()->has_exception_handlers() || ex_map->_fake_exception_state) {
       // Common case:  Transfer control outward.
       // Doing it this early allows the exceptions to common up
       // even between adjacent method calls.

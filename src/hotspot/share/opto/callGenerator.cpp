@@ -150,12 +150,15 @@ JVMState* DirectCallGenerator::generate(JVMState* jvms) {
   }
 
   CallStaticJavaNode *call = new CallStaticJavaNode(kit.C, tf(), target, method(), kit.bci());
-  if (is_inlined_method_handle_intrinsic(jvms, method())) {
-    // To be able to issue a direct call and skip a call to MH.linkTo*/invokeBasic adapter,
-    // additional information about the method being invoked should be attached
-    // to the call site to make resolution logic work
-    // (see SharedRuntime::resolve_static_call_C).
-    call->set_override_symbolic_info(true);
+  // LazyBox use DirectCallGenerator insert box node with unexpected bci
+  if (!(LazyBox && method()->is_boxing_method())) {
+    if (is_inlined_method_handle_intrinsic(jvms, method())) {
+      // To be able to issue a direct call and skip a call to MH.linkTo*/invokeBasic adapter,
+      // additional information about the method being invoked should be attached
+      // to the call site to make resolution logic work
+      // (see SharedRuntime::resolve_static_call_C).
+      call->set_override_symbolic_info(true);
+    }
   }
   _call_node = call;  // Save the call node in case we need it later
   if (!is_static) {
@@ -416,7 +419,15 @@ void LateInlineCallGenerator::do_late_inline() {
 
   // Make enough space in the expression stack to transfer
   // the incoming arguments and return value.
-  map->ensure_stack(jvms, jvms->method()->max_stack());
+  uint ensure_stack_size = jvms->method()->max_stack();
+  if (LazyBox && call->_is_lazy_box) {
+    // Make enough space for the arg pushed in insert_box_node
+    int arg_size = jvms->method()->arg_size();
+    if (jvms->sp() + arg_size > ensure_stack_size) {
+      ensure_stack_size = jvms->sp() + arg_size;
+    }
+  }
+  map->ensure_stack(jvms, ensure_stack_size);
   for (uint i1 = 0; i1 < nargs; i1++) {
     map->set_argument(jvms, i1, call->in(TypeFunc::Parms + i1));
   }
@@ -440,6 +451,14 @@ void LateInlineCallGenerator::do_late_inline() {
     Node_Notes* entry_nn = old_nn->clone(C);
     entry_nn->set_jvms(jvms);
     C->set_default_node_notes(entry_nn);
+  }
+
+  if (LazyBox && call->_is_lazy_box) {
+    GraphKit kit(jvms);
+    Node* value = call->in(TypeFunc::Parms);
+    Node* result = kit.inline_lazy_box(call, value);
+    kit.replace_call(call, result, true);
+    return;
   }
 
   // Now perform the inlining using the synthesized JVMState

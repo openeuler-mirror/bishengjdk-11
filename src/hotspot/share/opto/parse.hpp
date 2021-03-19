@@ -498,6 +498,9 @@ class Parse : public GraphKit {
 
   // Note:  Intrinsic generation routines may be found in library_call.cpp.
 
+  // Helper function to do lazy box in do_call()
+  void do_lazybox(ciMethod* callee);
+
   // Helper function to setup Ideal Call nodes
   void do_call();
 

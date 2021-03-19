@@ -519,6 +519,12 @@
   experimental(bool, AggressiveUnboxing, false,                             \
           "Control optimizations for aggressive boxing elimination")        \
                                                                             \
+  experimental(bool, LazyBox, false,                                        \
+          "Delay some box operator to speed up some hot path without box ") \
+                                                                            \
+  experimental(bool, PrintLazyBox, false,                                   \
+          "Print LazyBox")                                                  \
+                                                                            \
   develop(bool, TracePostallocExpand, false, "Trace expanding nodes after"  \
           " register allocation.")                                          \
                                                                             \

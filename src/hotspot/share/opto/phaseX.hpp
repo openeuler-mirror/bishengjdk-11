@@ -173,6 +173,26 @@ public:
                     PhaseNumber phase_num = Remove_Useless_And_Renumber_Live);
 };
 
+//------------------------------PhaseLazyBoxOpt------------------------------
+// Phase that first collecting all the box nodes, if use nodes of a box node are
+// all SafePointNode or it's subclass and the usage is not monitor, scalar and args, then eliminate the box node.
+// else, eliminate the related inserted box node.
+class PhaseLazyBoxOpt : public Phase {
+private:
+  PhaseGVN* _gvn;
+
+public:
+  PhaseLazyBoxOpt(PhaseGVN *gvn, PhaseNumber phase_num = LazyBoxOpt);
+
+  // collecting a list of box nodes
+  Node_List collect_box_nodes();
+
+  // determine if a box node is eliminatable
+  bool is_eliminatable(CallStaticJavaNode* box_node);
+
+  void eliminate_call(CallNode* call);
+};
+
 
 //------------------------------PhaseTransform---------------------------------
 // Phases that analyze, then transform.  Constructing the Phase object does any

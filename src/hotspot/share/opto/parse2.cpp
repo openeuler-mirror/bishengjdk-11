@@ -2660,9 +2660,17 @@ void Parse::do_one_bytecode() {
   case Bytecodes::_return:
     return_current(NULL);
     break;
-
-  case Bytecodes::_ireturn:
   case Bytecodes::_areturn:
+    a = pop();
+    if (LazyBox && is_box_use_node(a)) {
+      push(a);
+      b = insert_box_node(a);
+      a = replace_box_use_node(a, b);
+      pop();
+    }
+    return_current(a);
+    break;
+  case Bytecodes::_ireturn:
   case Bytecodes::_freturn:
     return_current(pop());
     break;
@@ -2749,6 +2757,19 @@ void Parse::do_one_bytecode() {
     maybe_add_safepoint(iter().get_dest());
     a = pop();
     b = pop();
+
+    //one of node is box use node, insert box node and replace
+    if (LazyBox && (is_box_use_node(a) ^ is_box_use_node(b))) {
+      push(b);
+      push(a);
+      Node* use = is_box_use_node(a) ? a : b;
+      Node* replace = insert_box_node(use);
+      a = replace_box_use_node(a, replace);
+      b = replace_box_use_node(b, replace);
+      pop();
+      pop();
+    }
+
     c = _gvn.transform( new CmpPNode(b, a) );
     c = optimize_cmp_with_klass(c);
     do_if(btest, c);

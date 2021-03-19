@@ -31,6 +31,7 @@
 #include "memory/resourceArea.hpp"
 #include "opto/addnode.hpp"
 #include "opto/castnode.hpp"
+#include "opto/callGenerator.hpp"
 #include "opto/convertnode.hpp"
 #include "opto/graphKit.hpp"
 #include "opto/idealKit.hpp"
@@ -315,6 +316,15 @@ JVMState* GraphKit::transfer_exceptions_into_jvms() {
   jvms->map()->set_next_exception(_exceptions);
   _exceptions = NULL;   // done with this set of exceptions
   return jvms;
+}
+
+bool GraphKit::is_box_use_node(const Node* node) {
+  return node->is_Proj() && node->in(0)->is_CallStaticJava() &&
+          node->in(0)->as_CallStaticJava()->is_boxing_method();
+}
+
+Node* GraphKit::replace_box_use_node(Node* n, Node* replace) {
+  return is_box_use_node(n) ? replace : n;
 }
 
 static inline void add_n_reqs(Node* dstphi, Node* srcphi) {
@@ -840,6 +850,19 @@ static bool should_reexecute_implied_by_bytecode(JVMState *jvms, bool is_anewarr
     return false;
 }
 
+// Delay boxnode to uncommon trap
+void GraphKit::add_local(SafePointNode* call, uint idx, Node* local, GrowableArray<uint> *delay_boxes) {
+  if (LazyBox && local != NULL && local->is_Proj() &&
+      local->as_Proj()->_con == TypeFunc::Parms &&
+      local->in(0)->is_CallStaticJava() &&
+      local->in(0)->as_CallStaticJava()->is_boxing_method() &&
+      call->is_CallStaticJava() &&
+      call->as_CallStaticJava()->uncommon_trap_request() != 0) {
+    delay_boxes->append(idx);
+  }
+  call->set_req(idx, local);
+}
+
 // Helper function for adding JVMState and debug information to node
 void GraphKit::add_safepoint_edges(SafePointNode* call, bool must_throw) {
   // Add the safepoint edges to the call (or other safepoint).
@@ -847,7 +870,8 @@ void GraphKit::add_safepoint_edges(SafePointNode* call, bool must_throw) {
   // Make sure dead locals are set to top.  This
   // should help register allocation time and cut down on the size
   // of the deoptimization information.
-  assert(dead_locals_are_killed(), "garbage in debug info before safepoint");
+  // LazyBox may insert box in some bci, resulting in some dead locals not set to top
+  assert(LazyBox || dead_locals_are_killed(), "garbage in debug info before safepoint");
 
   // Walk the inline list to fill in the correct set of JVMState's
   // Also fill in the associated edges for each JVMState.
@@ -910,6 +934,9 @@ void GraphKit::add_safepoint_edges(SafePointNode* call, bool must_throw) {
   // Fill pointer walks backwards from "young:" to "root:" in the diagram above:
   uint debug_ptr = call->req();
 
+  // used boxes in uncommon_trap
+  GrowableArray<uint> *delay_boxes = new GrowableArray<uint>();
+
   // Loop over the map input edges associated with jvms, add them
   // to the call node, & reset all offsets to match call node array.
   for (JVMState* in_jvms = youngest_jvms; in_jvms != NULL; ) {
@@ -938,7 +965,7 @@ void GraphKit::add_safepoint_edges(SafePointNode* call, bool must_throw) {
     out_jvms->set_locoff(p);
     if (!can_prune_locals) {
       for (j = 0; j < l; j++)
-        call->set_req(p++, in_map->in(k+j));
+        add_local(call, p++, in_map->in(k+j), delay_boxes);
     } else {
       p += l;  // already set to top above by add_req_batch
     }
@@ -949,7 +976,7 @@ void GraphKit::add_safepoint_edges(SafePointNode* call, bool must_throw) {
     out_jvms->set_stkoff(p);
     if (!can_prune_locals) {
       for (j = 0; j < l; j++)
-        call->set_req(p++, in_map->in(k+j));
+        add_local(call, p++, in_map->in(k+j), delay_boxes);
     } else if (can_prune_locals && stack_slots_not_pruned != 0) {
       // Divide stack into {S0,...,S1}, where S0 is set to top.
       uint s1 = stack_slots_not_pruned;
@@ -958,7 +985,8 @@ void GraphKit::add_safepoint_edges(SafePointNode* call, bool must_throw) {
       uint s0 = l - s1;
       p += s0;  // skip the tops preinstalled by add_req_batch
       for (j = s0; j < l; j++)
-        call->set_req(p++, in_map->in(k+j));
+        add_local(call, p++, in_map->in(k+j), delay_boxes);
+    } else if (can_prune_locals && stack_slots_not_pruned != 0) {
     } else {
       p += l;  // already set to top above by add_req_batch
     }
@@ -990,6 +1018,35 @@ void GraphKit::add_safepoint_edges(SafePointNode* call, bool must_throw) {
     // Update the two tail pointers in parallel.
     out_jvms = out_jvms->caller();
     in_jvms  = in_jvms->caller();
+  }
+
+  // delay box node in uncommon_trap runtime, treat box as scalarized object
+  for (int index = 0; index < delay_boxes->length(); index++) {
+    assert(LazyBox, "delay boxnode to uncommon_trap need set LazyBox");
+    assert(call->is_CallStaticJava() &&
+      call->as_CallStaticJava()->uncommon_trap_request() != 0, "call node must be uncommon_trap call");
+    uint idx = delay_boxes->at(index);
+    Node* local = call->in(idx);
+
+    assert(local->in(0)->is_CallStaticJava(), "sanity");
+    assert(local->in(0)->as_CallStaticJava()->is_boxing_method(), "sanity");
+
+    CallStaticJavaNode* box = local->in(0)->as_CallStaticJava();
+    ciInstanceKlass* klass = box->method()->holder();
+    int n_fields = klass->nof_nonstatic_fields();
+    assert(n_fields == 1, "sanity");
+
+    uint first_ind = (call->req() - call->jvms()->scloff());
+    Node* sobj = new SafePointScalarObjectNode(_gvn.type(local)->isa_oopptr(),
+#ifdef ASSERT
+                NULL,
+#endif // ASSERT
+                                               first_ind, n_fields);
+    sobj->init_req(0, C->root());
+    call->add_req(local->in(0)->in(local->as_Proj()->_con));
+    sobj = _gvn.transform(sobj);
+    call->jvms()->set_endoff(call->req());
+    call->set_req(idx, sobj);
   }
 
   assert(debug_ptr == non_debug_edges, "debug info must fit exactly");
@@ -4015,6 +4072,130 @@ void GraphKit::inflate_string_slow(Node* src, Node* dst, Node* start, Node* coun
 
   set_control(IfFalse(iff));
   set_memory(st, TypeAryPtr::BYTES);
+}
+
+Node* GraphKit::insert_box_node(Node* use) {
+  assert(is_box_use_node(use), "use node must be box_use_node");
+  CallStaticJavaNode* box = use->in(0)->as_CallStaticJava();
+  // get method from node
+  ciMethod* method = box->method();
+  CallGenerator* parse_cg = CallGenerator::for_inline(method);
+  CallGenerator* cg = CallGenerator::for_boxing_late_inline(method, parse_cg);
+
+  Node* arg = box->in(TypeFunc::Parms);
+  Node* res = NULL;
+
+  { PreserveReexecuteState preexecs(this);
+
+    int arg_size = method->arg_size();
+    int stk_size = jvms()->stk_size();
+
+    assert(arg_size == 1 || arg_size == 2, "boxing method, arg size must 1 or 2!");
+
+    // add arg, ensure stack size
+    ensure_stack(sp() + arg_size);
+    if (arg_size == 1) {
+      push(arg);
+    } else if (arg_size == 2) {
+      push_pair(arg);
+    }
+
+    dec_sp(arg_size);
+    JVMState* old_jvms = sync_jvms();
+    JVMState* new_jvms = cg->generate(old_jvms);
+    assert(new_jvms != NULL, "insert box generate fail");
+
+    // add new box to late inline
+    CallStaticJavaNode* new_box = cg->call_node();
+    new_box->_is_lazy_box = true;
+
+    // Set the box objects and the reexecute bit for the interpreter to reexecute the bytecode if deoptimization happens
+    new_box->jvms()->set_should_reexecute(true);
+
+    ciInstanceKlass* klass = box->method()->holder();
+    int n_fields = klass->nof_nonstatic_fields();
+    assert(n_fields == 1, "sanity");
+
+    uint first_ind = new_box->req() - new_box->jvms()->scloff();
+    Node* sobj = new SafePointScalarObjectNode(_gvn.type(use)->isa_oopptr(),
+#ifdef ASSERT
+                NULL,
+#endif // ASSERT
+                                               first_ind, n_fields);
+    sobj->init_req(0, C->root());
+    new_box->add_req(arg);
+    sobj = _gvn.transform(sobj);
+    new_box->jvms()->set_endoff(new_box->req());
+    for (uint i = 0; i < new_box->req(); i++) {
+      if (new_box->in(i) == use) {
+        new_box->set_req(i, sobj);
+      }
+    }
+
+    if (box->_copy_box == NULL) {
+      box->_copy_box = new Node_List();
+    }
+    box->_copy_box->push(new_box);
+
+    // inserted Box node can't throw exception to handler
+    // convert exception to uncommon_trap in inline_lazy_box
+    SafePointNode* ex_map = new_jvms->map()->next_exception();
+    ex_map->_fake_exception_state = true;
+    add_exception_states_from(new_jvms);
+
+    assert(new_jvms->map()->control() != top(), "generate box call node fail");
+    assert(new_jvms->same_calls_as(old_jvms), "method/bci left unchanged");
+    set_jvms(new_jvms);
+    res = pop();
+    set_stack(sp(), top());
+    recover_stack(stk_size);
+  }
+  return res;
+}
+
+Node* GraphKit::inline_lazy_box(CallStaticJavaNode* box, Node* value) {
+  assert(box->method()->is_boxing_method(), "must be box method");
+  ciInstanceKlass* klass = box->method()->holder();
+
+  BasicType type = klass->box_klass_type();
+
+  if (type == T_BOOLEAN) {
+    // value ? TRUE : FALSE
+    ciSymbol* java_lang_Boolean = ciSymbol::make("Ljava/lang/Boolean;");
+    ciField* true_field = klass->get_field_by_name(ciSymbol::make("TRUE"), java_lang_Boolean, true);
+    ciField* false_field = klass->get_field_by_name(ciSymbol::make("FALSE"), java_lang_Boolean, true);
+    const TypeInstPtr* tip = TypeInstPtr::make(klass->java_mirror());
+    Node* java_mirror = _gvn.makecon(tip);
+    Node* true_node = make_constant_from_field(true_field, java_mirror);
+    Node* false_node = make_constant_from_field(false_field, java_mirror);
+
+    Node* tst = gvn().transform(Bool(CmpI(value, intcon(0)), BoolTest::ne));
+    IfNode* iff = create_and_map_if(control(), tst, PROB_FAIR, COUNT_UNKNOWN);
+    Node* true_proj = IfTrue(iff);
+    Node* false_proj = IfFalse(iff);
+    RegionNode* region = new RegionNode(3);
+    gvn().set_type(region, Type::CONTROL);
+    region->init_req(1, true_proj);
+    region->init_req(2, false_proj);
+    Node *obj = new PhiNode(region, TypeOopPtr::make_from_klass(klass));
+    gvn().set_type(obj, obj->bottom_type());
+    obj->init_req(1, true_node);
+    obj->init_req(2, false_node);
+    set_control(region);
+    return obj;
+  }
+
+  Node* kls = makecon(TypeKlassPtr::make(klass));
+  Node* obj = new_instance(kls, NULL, NULL, true);
+  const BasicType primitive_type = klass->box_klass_type();
+  int value_offset = java_lang_boxing_object::value_offset_in_bytes(primitive_type);
+  const TypeInstPtr* box_type = TypeInstPtr::make(TypePtr::NotNull, klass,
+                                                     false, NULL, 0);
+  const TypePtr* value_field_type = box_type->add_offset(value_offset);
+  const Type *value_type = Type::get_const_basic_type(primitive_type);
+  access_store_at(control(), obj,  basic_plus_adr(obj, value_offset), value_field_type,
+                  value, value_type, primitive_type, IN_HEAP);
+  return obj;
 }
 
 Node* GraphKit::make_constant_from_field(ciField* field, Node* obj) {
