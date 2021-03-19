@@ -41,6 +41,7 @@ protected:
 
 private:
   void compact_region(HeapRegion* hr);
+  void process_no_moving_region(HeapRegion* hr);
 
 public:
   G1FullGCCompactTask(G1FullCollector* collector) :

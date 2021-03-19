@@ -246,7 +246,7 @@ class HeapRegion: public G1ContiguousSpace {
   // in each heap region.
   size_t _prev_marked_bytes;    // Bytes known to be live via last completed marking.
   size_t _next_marked_bytes;    // Bytes known to be live via in-progress marking.
-
+  size_t _live_words;
   // The calculated GC efficiency of the region.
   double _gc_efficiency;
 
@@ -320,6 +320,10 @@ class HeapRegion: public G1ContiguousSpace {
                                       ~((1 << (size_t) LogOfHRGrainBytes) - 1);
   }
 
+  void reset_no_compaction_region_during_compaction() {
+    zero_marked_bytes();
+    init_top_at_mark_start();
+  }
 
   // Returns whether a field is in the same region as the obj it points to.
   template <typename T>
@@ -369,6 +373,9 @@ class HeapRegion: public G1ContiguousSpace {
 
   // The number of bytes marked live in the region in the last marking phase.
   size_t marked_bytes()    { return _prev_marked_bytes; }
+  size_t* live_words_addr() { return &_live_words; }
+  size_t live_bytes_after_mark() { return _live_words * HeapWordSize; }
+  void set_live_words_after_mark(size_t live_words) { _live_words = live_words; }
   size_t live_bytes() {
     return (top() - prev_top_at_mark_start()) * HeapWordSize + marked_bytes();
   }

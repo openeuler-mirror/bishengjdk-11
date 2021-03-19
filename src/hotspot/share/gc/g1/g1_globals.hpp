@@ -302,6 +302,14 @@
           "Verify the code root lists attached to each heap region.")       \
                                                                             \
   develop(bool, G1VerifyBitmaps, false,                                     \
-          "Verifies the consistency of the marking bitmaps")
+          "Verifies the consistency of the marking bitmaps")                \
+                                                                            \
+  product(double, G1NoMovingRegionLiveBytesLowerThreshold, 98.0,            \
+          "The Lower Threshold of Heap Region Live bytes percent"           \
+          "in G1 Mark Sweep phase")                                         \
+          range(50.0, 100.0)                                                \
+                                                                            \
+  product(bool, G1FullGCNoMoving, false,                                    \
+          "full gc support no moving region mode ")
 
 #endif // SHARE_VM_GC_G1_G1_GLOBALS_HPP

@@ -39,7 +39,6 @@ class G1FullGCPrepareTask : public G1FullGCTask {
 protected:
   volatile bool     _freed_regions;
   HeapRegionClaimer _hrclaimer;
-
   void set_freed_regions();
 
 public:
@@ -54,16 +53,20 @@ protected:
     G1CollectedHeap* _g1h;
     G1CMBitMap* _bitmap;
     G1FullGCCompactionPoint* _cp;
+    G1FullGCCompactionPoint* _no_moving_regions_cp;
     uint _humongous_regions_removed;
+    size_t _hr_live_bytes_threshold;
 
     virtual void prepare_for_compaction(HeapRegion* hr);
     void prepare_for_compaction_work(G1FullGCCompactionPoint* cp, HeapRegion* hr);
     void free_humongous_region(HeapRegion* hr);
     void reset_region_metadata(HeapRegion* hr);
+    void prepare_no_moving_region(const HeapRegion* hr);
 
   public:
     G1CalculatePointersClosure(G1CMBitMap* bitmap,
-                               G1FullGCCompactionPoint* cp);
+                               G1FullGCCompactionPoint* cp,
+                               G1FullGCCompactionPoint* no_moving_regions_cp);
 
     void update_sets();
     bool do_heap_region(HeapRegion* hr);

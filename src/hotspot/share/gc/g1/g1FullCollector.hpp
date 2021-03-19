@@ -66,6 +66,8 @@ class G1FullCollector : StackObj {
   G1IsAliveClosure          _is_alive;
   ReferenceProcessorIsAliveMutator _is_alive_mutator;
 
+  G1FullGCCompactionPoint**   _no_moving_region_compaction_points;
+
   static uint calc_active_workers();
 
   G1FullGCSubjectToDiscoveryClosure _always_subject_to_discovery;
@@ -83,6 +85,7 @@ public:
   uint                     workers() { return _num_workers; }
   G1FullGCMarker*          marker(uint id) { return _markers[id]; }
   G1FullGCCompactionPoint* compaction_point(uint id) { return _compaction_points[id]; }
+  G1FullGCCompactionPoint* no_moving_region_compaction_point(uint id) { return _no_moving_region_compaction_points[id]; }
   OopQueueSet*             oop_queue_set() { return &_oop_queue_set; }
   ObjArrayTaskQueueSet*    array_queue_set() { return &_array_queue_set; }
   PreservedMarksSet*       preserved_mark_set() { return &_preserved_marks_set; }

@@ -31,6 +31,7 @@
 #include "gc/g1/g1FullGCOopClosures.inline.hpp"
 #include "gc/g1/g1StringDedup.hpp"
 #include "gc/g1/g1StringDedupQueue.hpp"
+#include "gc/g1/g1MarkLiveWords.hpp"
 #include "gc/shared/preservedMarks.inline.hpp"
 #include "oops/access.inline.hpp"
 #include "oops/compressedOops.inline.hpp"
@@ -68,6 +69,10 @@ template <class T> inline void G1FullGCMarker::mark_and_push(T* p) {
   if (!CompressedOops::is_null(heap_oop)) {
     oop obj = CompressedOops::decode_not_null(heap_oop);
     if (mark_object(obj)) {
+      uint hr_index = G1CollectedHeap::heap()->addr_to_region((HeapWord*)obj);
+      if (_tl_live_words_cache != NULL) {
+        _tl_live_words_cache->inc_live(hr_index, (size_t)obj->size());
+      }
       _oop_stack.push(obj);
       assert(_bitmap->is_marked(obj), "Must be marked now - map self");
     } else {

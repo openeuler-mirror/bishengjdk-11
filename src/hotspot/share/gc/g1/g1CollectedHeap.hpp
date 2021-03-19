@@ -722,7 +722,7 @@ private:
   void print_taskqueue_stats() const;
   void reset_taskqueue_stats();
   #endif // TASKQUEUE_STATS
-
+  void verify_numa_regions(const char* desc);
   // Schedule the VM operation that will do an evacuation pause to
   // satisfy an allocation request of word_size. *succeeded will
   // return whether the VM operation was successful (it did do an
