@@ -87,6 +87,11 @@ void G1FullGCCompactTask::compact_region(HeapRegion* hr) {
   hr->complete_compaction();
 }
 
+void G1FullGCCompactTask::process_no_moving_region(HeapRegion* hr) {
+  collector()->mark_bitmap()->clear_region(hr);
+  hr->reset_no_compaction_region_during_compaction();
+}
+
 void G1FullGCCompactTask::work(uint worker_id) {
   Ticks start = Ticks::now();
   GrowableArray<HeapRegion*>* compaction_queue = collector()->compaction_point(worker_id)->regions();
@@ -94,6 +99,15 @@ void G1FullGCCompactTask::work(uint worker_id) {
        it != compaction_queue->end();
        ++it) {
     compact_region(*it);
+  }
+
+  if (G1FullGCNoMoving) {
+    GrowableArray<HeapRegion*>* no_move_region_queue = collector()->no_moving_region_compaction_point(worker_id)->regions();
+    for (GrowableArrayIterator<HeapRegion*> it = no_move_region_queue->begin();
+         it != no_move_region_queue->end();
+         ++it) {
+      process_no_moving_region(*it);
+    }
   }
 
   G1ResetHumongousClosure hc(collector()->mark_bitmap());

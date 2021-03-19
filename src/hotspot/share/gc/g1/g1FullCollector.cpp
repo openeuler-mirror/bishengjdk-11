@@ -37,6 +37,7 @@
 #include "gc/g1/g1OopClosures.hpp"
 #include "gc/g1/g1Policy.hpp"
 #include "gc/g1/g1StringDedup.hpp"
+#include "gc/g1/g1MarkRegionCache.hpp"
 #include "gc/shared/adaptiveSizePolicy.hpp"
 #include "gc/shared/gcTraceTime.inline.hpp"
 #include "gc/shared/preservedMarks.hpp"
@@ -120,9 +121,11 @@ G1FullCollector::G1FullCollector(G1CollectedHeap* heap, GCMemoryManager* memory_
   _preserved_marks_set.init(_num_workers);
   _markers = NEW_C_HEAP_ARRAY(G1FullGCMarker*, _num_workers, mtGC);
   _compaction_points = NEW_C_HEAP_ARRAY(G1FullGCCompactionPoint*, _num_workers, mtGC);
+  _no_moving_region_compaction_points = NEW_C_HEAP_ARRAY(G1FullGCCompactionPoint*, _num_workers, mtGC);
   for (uint i = 0; i < _num_workers; i++) {
     _markers[i] = new G1FullGCMarker(i, _preserved_marks_set.get(i), mark_bitmap());
     _compaction_points[i] = new G1FullGCCompactionPoint();
+    _no_moving_region_compaction_points[i] = new G1FullGCCompactionPoint();
     _oop_queue_set.register_queue(i, marker(i)->oop_stack());
     _array_queue_set.register_queue(i, marker(i)->objarray_stack());
   }
@@ -132,9 +135,11 @@ G1FullCollector::~G1FullCollector() {
   for (uint i = 0; i < _num_workers; i++) {
     delete _markers[i];
     delete _compaction_points[i];
+    delete _no_moving_region_compaction_points[i];
   }
   FREE_C_HEAP_ARRAY(G1FullGCMarker*, _markers);
   FREE_C_HEAP_ARRAY(G1FullGCCompactionPoint*, _compaction_points);
+  FREE_C_HEAP_ARRAY(G1FullGCCompactionPoint*, _no_moving_region_compaction_points);
 }
 
 void G1FullCollector::prepare_collection() {

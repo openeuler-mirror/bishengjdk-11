@@ -78,7 +78,8 @@ bool G1FullGCPrepareTask::has_freed_regions() {
 void G1FullGCPrepareTask::work(uint worker_id) {
   Ticks start = Ticks::now();
   G1FullGCCompactionPoint* compaction_point = collector()->compaction_point(worker_id);
-  G1CalculatePointersClosure closure(collector()->mark_bitmap(), compaction_point);
+  G1FullGCCompactionPoint* no_moving_regions_compaction_point = collector()->no_moving_region_compaction_point(worker_id);
+  G1CalculatePointersClosure closure(collector()->mark_bitmap(), compaction_point, no_moving_regions_compaction_point);
   G1CollectedHeap::heap()->heap_region_par_iterate_from_start(&closure, &_hrclaimer);
 
   // Update humongous region sets
@@ -93,11 +94,14 @@ void G1FullGCPrepareTask::work(uint worker_id) {
 }
 
 G1FullGCPrepareTask::G1CalculatePointersClosure::G1CalculatePointersClosure(G1CMBitMap* bitmap,
-                                                                            G1FullGCCompactionPoint* cp) :
+                                                                            G1FullGCCompactionPoint* cp,
+                                                                            G1FullGCCompactionPoint* no_moving_regions_cp) :
     _g1h(G1CollectedHeap::heap()),
     _bitmap(bitmap),
     _cp(cp),
-    _humongous_regions_removed(0) { }
+    _no_moving_regions_cp(no_moving_regions_cp),
+    _humongous_regions_removed(0),
+    _hr_live_bytes_threshold((size_t)HeapRegion::GrainBytes * G1NoMovingRegionLiveBytesLowerThreshold / 100) { }
 
 void G1FullGCPrepareTask::G1CalculatePointersClosure::free_humongous_region(HeapRegion* hr) {
   FreeRegionList dummy_free_list("Dummy Free List for G1MarkSweep");
@@ -113,7 +117,7 @@ void G1FullGCPrepareTask::G1CalculatePointersClosure::free_humongous_region(Heap
 void G1FullGCPrepareTask::G1CalculatePointersClosure::reset_region_metadata(HeapRegion* hr) {
   hr->rem_set()->clear();
   hr->clear_cardtable();
-
+  hr->set_live_words_after_mark((size_t)0);
   if (_g1h->g1_hot_card_cache()->use_cache()) {
     _g1h->g1_hot_card_cache()->reset_card_counts(hr);
   }
@@ -151,13 +155,41 @@ void G1FullGCPrepareTask::G1CalculatePointersClosure::prepare_for_compaction_wor
 }
 
 void G1FullGCPrepareTask::G1CalculatePointersClosure::prepare_for_compaction(HeapRegion* hr) {
-  if (!_cp->is_initialized()) {
-    hr->set_compaction_top(hr->bottom());
-    _cp->initialize(hr, true);
+  size_t live_bytes_after_mark = hr->live_bytes_after_mark();
+  if(!G1FullGCNoMoving || live_bytes_after_mark < _hr_live_bytes_threshold || hr->is_humongous()) {
+    if (!_cp->is_initialized()) {
+      hr->set_compaction_top(hr->bottom());
+      _cp->initialize(hr, true);
+    }
+    // Add region to the compaction queue and prepare it.
+    _cp->add(hr);
+    prepare_for_compaction_work(_cp, hr);
+  } else {
+    prepare_no_moving_region(hr);
+    _no_moving_regions_cp->add(hr);
+    log_debug(gc, phases)("no moving region index: %u, live bytes: "SIZE_FORMAT, hr->hrm_index(), live_bytes_after_mark);
   }
-  // Add region to the compaction queue and prepare it.
-  _cp->add(hr);
-  prepare_for_compaction_work(_cp, hr);
+}
+
+void G1FullGCPrepareTask::G1CalculatePointersClosure::prepare_no_moving_region(const HeapRegion* hr) {
+  const HeapRegion* current = hr;
+  assert(!current->is_humongous(), "Should be no humongous regions");
+  HeapWord* limit = current->top();
+  HeapWord* next_addr = current->bottom();
+  while (next_addr < limit) {
+    Prefetch::write(next_addr, PrefetchScanIntervalInBytes);
+    oop obj = oop(next_addr);
+    size_t obj_size = obj->size();
+    if (_bitmap->is_marked(next_addr)) {
+      if (obj->forwardee() != NULL) {
+        obj->init_mark_raw();
+      }
+    } else {
+      // Fill dummy object to replace dead object
+      Universe::heap()->fill_with_dummy_object(next_addr, next_addr + obj_size, true);
+    }
+    next_addr += obj_size;
+  }
 }
 
 void G1FullGCPrepareTask::prepare_serial_compaction() {

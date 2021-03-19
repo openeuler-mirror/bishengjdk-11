@@ -29,6 +29,7 @@
 #include "gc/g1/g1FullGCMarkTask.hpp"
 #include "gc/g1/g1FullGCOopClosures.inline.hpp"
 #include "gc/g1/g1FullGCReferenceProcessorExecutor.hpp"
+#include "gc/g1/g1MarkLiveWords.hpp"
 #include "gc/shared/gcTraceTime.inline.hpp"
 #include "gc/shared/referenceProcessor.hpp"
 #include "memory/iterator.inline.hpp"
@@ -42,6 +43,7 @@ G1FullGCMarkTask::G1FullGCMarkTask(G1FullCollector* collector) :
 }
 
 void G1FullGCMarkTask::work(uint worker_id) {
+  G1MarkLiveWords g1_mark_live_words;
   Ticks start = Ticks::now();
   ResourceMark rm;
   G1FullGCMarker* marker = collector()->marker(worker_id);

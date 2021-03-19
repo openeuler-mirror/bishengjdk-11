@@ -2571,6 +2571,17 @@ void G1CollectedHeap::gc_epilogue(bool full) {
   _numa->print_statistics();
 }
 
+void G1CollectedHeap::verify_numa_regions(const char* desc) {
+  LogTarget(Trace, gc, heap, verify) lt;
+
+  if (lt.is_enabled()) {
+    LogStream ls(lt);
+    // Iterate all heap regions to print matching between preferred numa id and actual numa id.
+    G1NodeIndexCheckClosure cl(desc, _numa, &ls);
+    heap_region_iterate(&cl);
+  }
+}
+
 HeapWord* G1CollectedHeap::do_collection_pause(size_t word_size,
                                                uint gc_count_before,
                                                bool* succeeded,
@@ -2975,7 +2986,7 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
       _verifier->verify_before_gc(verify_type);
 
       _verifier->check_bitmaps("GC Start");
-
+      verify_numa_regions("GC Start");
 #if COMPILER2_OR_JVMCI
       DerivedPointerTable::clear();
 #endif
@@ -3129,7 +3140,7 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
 
         _verifier->verify_after_gc(verify_type);
         _verifier->check_bitmaps("GC End");
-
+        verify_numa_regions("GC End");
         assert(!_ref_processor_stw->discovery_enabled(), "Postcondition");
         _ref_processor_stw->verify_no_references_recorded();
 

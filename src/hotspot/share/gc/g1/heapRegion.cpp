@@ -243,7 +243,8 @@ HeapRegion::HeapRegion(uint hrm_index,
     _surv_rate_group(NULL), _age_index(-1),
     _prev_top_at_mark_start(NULL), _next_top_at_mark_start(NULL),
     _recorded_rs_length(0), _predicted_elapsed_time_ms(0),
-    _node_index(G1NUMA::UnknownNodeIndex)
+    _node_index(G1NUMA::UnknownNodeIndex),
+    _live_words(0)
 {
   _rem_set = new HeapRegionRemSet(bot, this);
 

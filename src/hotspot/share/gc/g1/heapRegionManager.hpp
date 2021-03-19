@@ -29,6 +29,7 @@
 #include "gc/g1/g1NUMA.hpp"
 #include "gc/g1/g1RegionToSpaceMapper.hpp"
 #include "gc/g1/heapRegionSet.hpp"
+#include "gc/g1/g1RegionsOnNodes.hpp"
 #include "services/memoryUsage.hpp"
 
 class HeapRegion;
