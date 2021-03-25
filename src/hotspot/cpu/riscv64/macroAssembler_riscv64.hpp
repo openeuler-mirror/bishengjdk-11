@@ -690,8 +690,8 @@ class MacroAssembler: public Assembler {
   void oop_equal(Register obj1, Register obj2, Label& equal, bool is_far = false); // cmpoop
   void oop_nequal(Register obj1, Register obj2, Label& nequal, bool is_far = false);
 #ifdef COMPILER2
-  void arrays_equals(Register a1, Register a2, Register tmp3, Register tpm4,
-                     Register tmp5, Register tmp6, Register reslut, Register cnt1, int elem_size);
+  void arrays_equals(Register a1, Register a2, Register tmp3, Register tmp4,
+                     Register tmp5, Register tmp6, Register result, Register cnt1, int elem_size);
 
   void string_equals(Register a1, Register a2, Register result, Register cnt1,
                      int elem_size);
