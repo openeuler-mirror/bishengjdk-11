@@ -28,6 +28,11 @@ WIN_VERIFY_LIB := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libverify/verify.lib
 # Hook to include the corresponding custom file, if present.
 $(eval $(call IncludeCustomExtension, lib/CoreLibraries.gmk))
 
+LIBMEMCPY_FILES += \
+        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
+                memcpy.cpp \
+        )
+
 
 ##########################################################################################
 # libfdlibm is statically linked with libjava below and not delivered into the
@@ -76,6 +81,7 @@ endif
 $(eval $(call SetupJdkLibrary, BUILD_LIBVERIFY, \
     NAME := verify, \
     OPTIMIZATION := $(LIBVERIFY_OPTIMIZATION), \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     CFLAGS := $(CFLAGS_JDKLIB), \
     DISABLED_WARNINGS_gcc := implicit-fallthrough, \
     DISABLED_WARNINGS_microsoft := 4244 4267, \
@@ -96,9 +102,11 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
   BUILD_LIBJAVA_java_props_macosx.c_CFLAGS := -x objective-c
 endif
 
+
 $(eval $(call SetupJdkLibrary, BUILD_LIBJAVA, \
     NAME := java, \
     OPTIMIZATION := HIGH, \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     CFLAGS := $(CFLAGS_JDKLIB) \
         $(LIBJAVA_CFLAGS), \
     System.c_CFLAGS := $(VERSION_CFLAGS), \
@@ -144,6 +152,7 @@ endif
 $(eval $(call SetupJdkLibrary, BUILD_LIBZIP, \
     NAME := zip, \
     OPTIMIZATION := LOW, \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     EXCLUDES := $(LIBZIP_EXCLUDES), \
     CFLAGS := $(CFLAGS_JDKLIB) \
         $(LIBZ_CFLAGS), \
@@ -165,6 +174,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJIMAGE, \
     NAME := jimage, \
     TOOLCHAIN := TOOLCHAIN_LINK_CXX, \
     OPTIMIZATION := LOW, \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     CFLAGS := $(CFLAGS_JDKLIB), \
     CXXFLAGS := $(CXXFLAGS_JDKLIB), \
     CFLAGS_unix := -UDEBUG, \
@@ -236,7 +246,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJLI, \
     NAME := jli, \
     OUTPUT_DIR := $(LIBJLI_OUTPUT_DIR), \
     EXCLUDE_FILES := $(LIBJLI_EXCLUDE_FILES), \
-    EXTRA_FILES := $(LIBJLI_EXTRA_FILES), \
+    EXTRA_FILES := $(LIBJLI_EXTRA_FILES) $(LIBMEMCPY_FILES), \
     OPTIMIZATION := HIGH, \
     CFLAGS := $(CFLAGS_JDKLIB) $(LIBJLI_CFLAGS), \
     DISABLED_WARNINGS_gcc := unused-function implicit-fallthrough, \

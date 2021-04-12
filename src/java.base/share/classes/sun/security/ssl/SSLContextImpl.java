@@ -207,6 +207,10 @@ public abstract class SSLContextImpl extends SSLContextSpi {
         if (!isInitialized) {
             throw new IllegalStateException("SSLContext is not initialized");
         }
+        if (isDTLS()) {
+            throw new UnsupportedOperationException(
+                    "DTLS not supported with SSLSocket");
+        }
        return new SSLSocketFactoryImpl(this);
     }
 
@@ -214,6 +218,10 @@ public abstract class SSLContextImpl extends SSLContextSpi {
     protected SSLServerSocketFactory engineGetServerSocketFactory() {
         if (!isInitialized) {
             throw new IllegalStateException("SSLContext is not initialized");
+        }
+        if (isDTLS()) {
+            throw new UnsupportedOperationException(
+                    "DTLS not supported with SSLServerSocket");
         }
         return new SSLServerSocketFactoryImpl(this);
     }
@@ -1260,6 +1268,25 @@ public abstract class SSLContextImpl extends SSLContextSpi {
                     supportedProtocols);
             serverDefaultCipherSuites = getApplicableEnabledCipherSuites(
                     serverDefaultProtocols, false);
+        }
+
+        @Override
+        protected SSLParameters engineGetDefaultSSLParameters() {
+            SSLEngine engine = createSSLEngineImpl();
+            // Note: The TLSContext defaults to client side SSLParameters.
+            // We can do the same here. Please don't change the behavior
+            // for compatibility.
+            engine.setUseClientMode(true);
+            return engine.getSSLParameters();
+        }
+
+        @Override
+        protected SSLParameters engineGetSupportedSSLParameters() {
+            SSLEngine engine = createSSLEngineImpl();
+            SSLParameters params = new SSLParameters();
+            params.setCipherSuites(engine.getSupportedCipherSuites());
+            params.setProtocols(engine.getSupportedProtocols());
+            return params;
         }
 
         @Override

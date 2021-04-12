@@ -30,6 +30,11 @@ $(eval $(call IncludeCustomExtension, launcher/Launcher-java.base.gmk))
 JAVA_RC_FLAGS += -I$(TOPDIR)/src/java.base/windows/native/common
 JAVA_RC_FLAGS += -I$(TOPDIR)/src/java.base/windows/native/launcher/icons
 
+LIBMEMCPY_FILES += \
+        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
+                memcpy.cpp \
+        )
+
 ################################################################################
 
 $(eval $(call SetupBuildLauncher, java, \
@@ -79,6 +84,7 @@ ifneq ($(findstring $(OPENJDK_TARGET_OS), macosx solaris aix linux), )
   $(eval $(call SetupJdkExecutable, BUILD_JSPAWNHELPER, \
       NAME := jspawnhelper, \
       SRC := $(TOPDIR)/src/$(MODULE)/unix/native/jspawnhelper, \
+      EXTRA_FILES := $(LIBMEMCPY_FILES), \
       OPTIMIZATION := LOW, \
       CFLAGS := $(CFLAGS_JDKEXE) -I$(TOPDIR)/src/$(MODULE)/unix/native/libjava, \
       EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/native/$(MODULE)/libjava/childproc.o, \

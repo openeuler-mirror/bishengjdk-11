@@ -746,7 +746,7 @@ class RecordInstanceClosure : public ObjectClosure {
 };
 
 // Heap inspection for every worker.
-// When native OOM hanppens for KlassInfoTable, set _success to false.
+// When native OOM happens for KlassInfoTable, set _success to false.
 void ParHeapInspectTask::work(uint worker_id) {
   uintx missed_count = 0;
   bool merge_success = true;

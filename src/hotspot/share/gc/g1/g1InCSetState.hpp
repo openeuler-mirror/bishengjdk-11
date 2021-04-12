@@ -70,7 +70,6 @@ struct InCSetState {
 
   const char* get_type_str() const {
     switch (value()) {
-      //case Optional: return "Optional";
       case Humongous: return "Humongous";
       case NotInCSet: return "NotInCSet";
       case Young: return "Young";

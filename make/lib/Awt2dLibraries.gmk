@@ -35,6 +35,11 @@ LIBAWT_DEFAULT_HEADER_DIRS := \
     libawt/java2d/pipe \
     #
 
+LIBMEMCPY_FILES += \
+        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
+                memcpy.cpp \
+        )
+
 ################################################################################
 
 # We must not include java.desktop/unix/native/libmlib_image, which is only
@@ -50,6 +55,7 @@ endif
 $(eval $(call SetupJdkLibrary, BUILD_LIBMLIB_IMAGE, \
     NAME := mlib_image, \
     EXTRA_SRC := common/awt/medialib, \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     EXCLUDE_FILES := mlib_c_ImageBlendTable.c, \
     EXCLUDE_SRC_PATTERNS := $(BUILD_LIBMLIB_EXCLUDE_SRC_PATTERNS), \
     OPTIMIZATION := HIGHEST, \
@@ -219,6 +225,7 @@ endif
 $(eval $(call SetupJdkLibrary, BUILD_LIBAWT, \
     NAME := awt, \
     EXTRA_SRC := $(LIBAWT_EXTRA_SRC), \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     EXCLUDES := $(LIBAWT_EXCLUDES), \
     EXCLUDE_FILES := $(LIBAWT_EXFILES), \
     OPTIMIZATION := LOW, \
@@ -431,6 +438,7 @@ endif
 $(eval $(call SetupJdkLibrary, BUILD_LIBJAVAJPEG, \
     NAME := javajpeg, \
     INCLUDE_FILES := $(BUILD_LIBJAVAJPEG_INCLUDE_FILES), \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     OPTIMIZATION := HIGHEST, \
     CFLAGS := $(CFLAGS_JDKLIB), \
     HEADERS_FROM_SRC := $(LIBJPEG_HEADERS_FROM_SRC), \
@@ -921,6 +929,7 @@ ifeq ($(ENABLE_HEADLESS_ONLY), false)
       NAME := splashscreen, \
       EXTRA_SRC := $(LIBSPLASHSCREEN_EXTRA_SRC), \
       EXCLUDE_SRC_PATTERNS := $(LIBSPLASHSCREEN_EXCLUDE_SRC_PATTERNS), \
+      EXTRA_FILES := $(LIBMEMCPY_FILES), \
       EXCLUDE_FILES := imageioJPEG.c jpegdecoder.c pngtest.c, \
       EXCLUDES := $(LIBSPLASHSCREEN_EXCLUDES), \
       OPTIMIZATION := LOW, \

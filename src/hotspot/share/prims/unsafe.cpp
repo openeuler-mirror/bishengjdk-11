@@ -1111,9 +1111,11 @@ static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
     {CC "fullFence",          CC "()V",                  FN_PTR(Unsafe_FullFence)},
 
     {CC "isBigEndian0",       CC "()Z",                  FN_PTR(Unsafe_isBigEndian0)},
+    {CC "unalignedAccess0",   CC "()Z",                  FN_PTR(Unsafe_unalignedAccess0)},
+
     {CC "getUseHashMapIntegerCache", CC "()Z",           FN_PTR(Unsafe_GetUseHashMapIntegerCache)},
     {CC "getUseFastSerializer",   CC "()Z",              FN_PTR(Unsafe_GetUseFastSerializer)},
-    {CC "unalignedAccess0",   CC "()Z",                  FN_PTR(Unsafe_unalignedAccess0)}
+
 };
 
 #undef CC
