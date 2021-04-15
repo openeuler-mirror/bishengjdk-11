@@ -30,6 +30,11 @@ $(eval $(call SetupBuildLauncher, pack200, \
     MAIN_CLASS := com.sun.java.util.jar.pack.Driver, \
 ))
 
+LIBMEMCPY_FILES += \
+        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
+                memcpy.cpp \
+        )
+
 ################################################################################
 # The order of the object files on the link command line affects the size of the resulting
 # binary (at least on linux) which causes the size to differ between old and new build.
@@ -81,6 +86,7 @@ $(eval $(call SetupJdkExecutable, BUILD_UNPACKEXE, \
     SRC := $(UNPACKEXE_SRC), \
     TOOLCHAIN := TOOLCHAIN_LINK_CXX, \
     OPTIMIZATION := LOW, \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     CFLAGS := $(UNPACKEXE_CFLAGS) $(CXXFLAGS_JDKEXE) -DFULL, \
     CFLAGS_release := -DPRODUCT, \
     CFLAGS_linux := -fPIC, \

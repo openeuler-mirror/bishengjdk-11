@@ -515,7 +515,7 @@ public:
   // As above, but it also terminates if the should_exit_termination()
   // method of the terminator parameter returns true. If terminator is
   // NULL, then it is ignored.
-  SHENANDOAHGC_ONLY(virtual) virtual bool offer_termination(TerminatorTerminator* terminator);
+  virtual bool offer_termination(TerminatorTerminator* terminator);
 
   // Reset the terminator, so that it may be reused again.
   // The caller is responsible for ensuring that this is done

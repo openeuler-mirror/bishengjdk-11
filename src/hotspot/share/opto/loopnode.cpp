@@ -2730,7 +2730,7 @@ bool PhaseIdealLoop::process_expensive_nodes() {
 //----------------------------build_and_optimize-------------------------------
 // Create a PhaseLoop.  Build the ideal Loop tree.  Map each Ideal Node to
 // its corresponding LoopNode.  If 'optimize' is true, do some loop cleanups.
-void PhaseIdealLoop::build_and_optimize(LoopOptsMode mode, bool z_barrier_insertion) {
+void PhaseIdealLoop::build_and_optimize(LoopOptsMode mode) {
   bool do_split_ifs = (mode == LoopOptsDefault || mode == LoopOptsLastRound);
   bool skip_loop_opts = (mode == LoopOptsNone);
 #if INCLUDE_SHENANDOAHGC
@@ -2801,8 +2801,7 @@ void PhaseIdealLoop::build_and_optimize(LoopOptsMode mode, bool z_barrier_insert
   }
 
   // Nothing to do, so get out
-  bool stop_early = !C->has_loops() && !skip_loop_opts && !do_split_ifs && !_verify_me && !_verify_only SHENANDOAHGC_ONLY(&& !shenandoah_opts) &&
-    !z_barrier_insertion;
+  bool stop_early = !C->has_loops() && !skip_loop_opts && !do_split_ifs && !_verify_me && !_verify_only SHENANDOAHGC_ONLY(&& !shenandoah_opts);
   bool do_expensive_nodes = C->should_optimize_expensive_nodes(_igvn);
   if (stop_early && !do_expensive_nodes) {
     _igvn.optimize();           // Cleanup NeverBranches
@@ -2957,16 +2956,6 @@ void PhaseIdealLoop::build_and_optimize(LoopOptsMode mode, bool z_barrier_insert
     return;
   }
 #endif
-
-  if(z_barrier_insertion) {
-    BarrierSetC2* bs = BarrierSet::barrier_set()->barrier_set_c2();
-    bs->optimize_loops(this, visited, nstack, worklist);
-    _igvn.optimize();
-    if (C->log() != NULL) {
-      log_loop_tree(_ltree_root, _ltree_root, C->log());
-    }
-    return;
-  }
 
   if (ReassociateInvariants) {
     // Reassociate invariants and prep for split_thru_phi

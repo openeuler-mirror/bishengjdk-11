@@ -44,8 +44,8 @@
 #include "opto/runtime.hpp"
 #include "runtime/deoptimization.hpp"
 #include "runtime/sharedRuntime.hpp"
-#include "utilities/bitMap.inline.hpp"
 #include "utilities/macros.hpp"
+#include "utilities/bitMap.inline.hpp"
 #if INCLUDE_SHENANDOAHGC
 #include "gc/shenandoah/c2/shenandoahBarrierSetC2.hpp"
 #endif

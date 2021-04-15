@@ -27,6 +27,11 @@ include LibCommon.gmk
 
 $(eval $(call IncludeCustomExtension, hotspot/lib/Lib-jdk.hotspot.agent.gmk))
 
+LIBMEMCPY_FILES += \
+        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
+                memcpy.cpp \
+        )
+
 ################################################################################
 
 ifeq ($(OPENJDK_TARGET_OS), linux)
@@ -58,6 +63,7 @@ endif
 $(eval $(call SetupJdkLibrary, BUILD_LIBSA, \
     NAME := saproc, \
     OPTIMIZATION := HIGH, \
+    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     DISABLED_WARNINGS_microsoft := 4267, \
     DISABLED_WARNINGS_gcc := sign-compare, \
     DISABLED_WARNINGS_CXX_solstudio := truncwarn unknownpragma, \
