@@ -171,25 +171,47 @@ void G1FullGCPrepareTask::G1CalculatePointersClosure::prepare_for_compaction(Hea
   }
 }
 
-void G1FullGCPrepareTask::G1CalculatePointersClosure::prepare_no_moving_region(const HeapRegion* hr) {
-  const HeapRegion* current = hr;
+void G1FullGCPrepareTask::G1CalculatePointersClosure::prepare_no_moving_region(HeapRegion* hr) {
+  HeapRegion* current = hr;
   assert(!current->is_humongous(), "Should be no humongous regions");
   HeapWord* limit = current->top();
   HeapWord* next_addr = current->bottom();
+  HeapWord* live_end = current->bottom();
+  HeapWord* threshold = current->initialize_threshold();
+  HeapWord* pre_addr;
+
   while (next_addr < limit) {
     Prefetch::write(next_addr, PrefetchScanIntervalInBytes);
-    oop obj = oop(next_addr);
-    size_t obj_size = obj->size();
+    pre_addr = next_addr;
+
     if (_bitmap->is_marked(next_addr)) {
+      oop obj = oop(next_addr);
+      size_t obj_size = obj->size();
+      // Object should not move but mark-word is used so it looks like the
+      // object is forwarded. Need to clear the mark and it's no problem
+      // since it will be restored by preserved marks. There is an exception
+      // with BiasedLocking, in this case forwardee() will return NULL
+      // even if the mark-word is used. This is no problem since
+      // forwardee() will return NULL in the compaction phase as well.
       if (obj->forwardee() != NULL) {
-        obj->init_mark_raw();
+        obj->init_mark();
       }
+      next_addr += obj_size;
+      // update live byte range end
+      live_end = next_addr;
     } else {
-      // Fill dummy object to replace dead object
-      Universe::heap()->fill_with_dummy_object(next_addr, next_addr + obj_size, true);
+      next_addr = _bitmap->get_next_marked_addr(next_addr, limit);
+      assert(next_addr > live_end, "next_addr must be bigger than live_end");
+      assert(next_addr == limit || _bitmap->is_marked(next_addr), "next_addr is the limit or is marked");
+      // fill dummy object to replace dead range
+      Universe::heap()->fill_with_dummy_object(live_end, next_addr, true);
     }
-    next_addr += obj_size;
+
+    if (next_addr > threshold) {
+      threshold = current->cross_threshold(pre_addr, next_addr);
+    }
   }
+  assert(next_addr == limit, "Should stop the scan at the limit.");
 }
 
 void G1FullGCPrepareTask::prepare_serial_compaction() {

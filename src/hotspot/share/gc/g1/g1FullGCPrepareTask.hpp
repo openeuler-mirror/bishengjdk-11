@@ -61,7 +61,7 @@ protected:
     void prepare_for_compaction_work(G1FullGCCompactionPoint* cp, HeapRegion* hr);
     void free_humongous_region(HeapRegion* hr);
     void reset_region_metadata(HeapRegion* hr);
-    void prepare_no_moving_region(const HeapRegion* hr);
+    void prepare_no_moving_region(HeapRegion* hr);
 
   public:
     G1CalculatePointersClosure(G1CMBitMap* bitmap,
