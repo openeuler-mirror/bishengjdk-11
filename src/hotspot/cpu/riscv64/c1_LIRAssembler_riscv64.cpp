@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -154,6 +154,7 @@ Address LIR_Assembler::as_Address_lo(LIR_Address* addr) {
 void LIR_Assembler::osr_entry() {
   offsets()->set_value(CodeOffsets::OSR_Entry, code_offset());
   BlockBegin* osr_entry = compilation()->hir()->osr_entry();
+  guarantee(osr_entry != NULL, "NULL osr_entry!");
   ValueStack* entry_state = osr_entry->state();
   int number_of_locks = entry_state->locks_size();
 
@@ -243,7 +244,7 @@ void LIR_Assembler::jobject2reg(jobject o, Register reg) {
   if (o == NULL) {
     __ mv(reg, zr);
   } else {
-    __ movoop(reg, o, /*immediate*/ true);
+    __ movoop(reg, o, /* immediate */ true);
   }
 }
 
@@ -724,32 +725,7 @@ void LIR_Assembler::stack2reg(LIR_Opr src, LIR_Opr dest, BasicType type) {
 }
 
 void LIR_Assembler::klass2reg_with_patching(Register reg, CodeEmitInfo* info) {
-  address target = NULL;
-  relocInfo::relocType reloc_type = relocInfo::none;
-
-  switch (patching_id(info)) {
-    case PatchingStub::access_field_id:
-      target = Runtime1::entry_for(Runtime1::access_field_patching_id);
-      reloc_type = relocInfo::section_word_type;
-      break;
-    case PatchingStub::load_klass_id:
-      target = Runtime1::entry_for(Runtime1::load_klass_patching_id);
-      reloc_type = relocInfo::metadata_type;
-      break;
-    case PatchingStub::load_mirror_id:
-      target = Runtime1::entry_for(Runtime1::load_mirror_patching_id);
-      reloc_type = relocInfo::oop_type;
-      break;
-    case PatchingStub::load_appendix_id:
-      target = Runtime1::entry_for(Runtime1::load_appendix_patching_id);
-      reloc_type = relocInfo::oop_type;
-      break;
-    default:
-      ShouldNotReachHere();
-  }
-
-  __ far_call(RuntimeAddress(target));
-  add_call_info_here(info);
+  deoptimize_trap(info);
 }
 
 void LIR_Assembler::stack2stack(LIR_Opr src, LIR_Opr dest, BasicType type) {
@@ -872,7 +848,6 @@ void LIR_Assembler::emit_op3(LIR_Op3* op) {
       break;
     default:
       ShouldNotReachHere();
-      break;
   }
 }
 
@@ -881,7 +856,7 @@ void LIR_Assembler::emit_op4(LIR_Op4* op) {
     case lir_cmove:
       emit_cmove(op);
       break;
-    default:      ShouldNotReachHere(); break;
+    default:      ShouldNotReachHere();
   }
 }
 
@@ -1074,7 +1049,7 @@ void LIR_Assembler::data_check(LIR_OpTypeCheck *op, ciMethodData **md, ciProfile
   assert(method != NULL, "Should have method");
   int bci = op->profiled_bci();
   *md = method->method_data_or_null();
-  assert(*md != NULL, "Sanity");
+  guarantee(*md != NULL, "Sanity");
   *data = ((*md)->bci_to_data(bci));
   assert(*data != NULL, "need data for type check");
   assert((*data)->is_ReceiverTypeData(), "need ReceiverTypeData for type check");
@@ -1512,7 +1487,7 @@ void LIR_Assembler::emit_profile_call(LIR_OpProfileCall* op) {
 
   // Update counter for all call types
   ciMethodData* md = method->method_data_or_null();
-  assert(md != NULL, "Sanity");
+  guarantee(md != NULL, "Sanity");
   ciProfileData* data = md->bci_to_data(bci);
   assert(data != NULL && data->is_CounterData(), "need CounterData for calls");
   assert(op->mdo()->is_single_cpu(),  "mdo must be allocated");
@@ -1606,7 +1581,7 @@ void LIR_Assembler::check_conflict(ciKlass* exact_klass, intptr_t current_klass,
 
     if (TypeEntries::is_type_none(current_klass)) {
       __ beqz(t1, none);
-      __ li(t0, TypeEntries::null_seen);
+      __ li(t0, (u1)TypeEntries::null_seen);
       __ beq(t0, t1, none);
       // There is a chance that the checks above (re-reading profiling
       // data from memory) fail if another thread has just set the
@@ -1656,7 +1631,7 @@ void LIR_Assembler::check_no_conflict(ciKlass* exact_klass, intptr_t current_kla
     Label ok;
     __ ld(t0, mdo_addr);
     __ beqz(t0, ok);
-    __ li(t1, TypeEntries::null_seen);
+    __ li(t1, (u1)TypeEntries::null_seen);
     __ beq(t0, t1, ok);
     // may have been set by another thread
     __ membar(MacroAssembler::LoadLoad);
@@ -1793,7 +1768,7 @@ void LIR_Assembler::leal(LIR_Opr addr, LIR_Opr dest, LIR_PatchCode patch_code, C
     LIR_Opr index_op = adr->index();
     int scale = adr->scale();
     if(index_op->is_constant()) {
-      offset += index_op->as_constant_ptr()->as_jint() << scale;
+      offset += ((intptr_t)index_op->as_constant_ptr()->as_jint()) << scale;
     }
 
     if(!is_imm_in_range(offset, 12, 0)) {
@@ -1982,7 +1957,7 @@ Address LIR_Assembler::as_Address(LIR_Address* addr, Register tmp) {
     }
     return Address(tmp, addr->disp());
   } else if (index_op->is_constant()) {
-    intptr_t addr_offset = (index_op->as_constant_ptr()->as_jint() << scale) + addr->disp();
+    intptr_t addr_offset = (((intptr_t)index_op->as_constant_ptr()->as_jint()) << scale) + addr->disp();
     return Address(base, addr_offset);
   }
 

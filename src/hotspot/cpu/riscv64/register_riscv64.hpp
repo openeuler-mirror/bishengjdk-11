@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,6 +32,13 @@
 #define CSR_FFLAGS   0x001        // Floating-Point Accrued Exceptions.
 #define CSR_FRM      0x002        // Floating-Point Dynamic Rounding Mode.
 #define CSR_FCSR     0x003        // Floating-Point Control and Status Register (frm + fflags).
+#define CSR_VSTART   0x008        // Vector start position
+#define CSR_VXSAT    0x009        // Fixed-Point Saturate Flag
+#define CSR_VXRM     0x00A        // Fixed-Point Rounding Mode
+#define CSR_VCSR     0x00F        // Vector control and status register
+#define CSR_VL       0xC20        // Vector length
+#define CSR_VTYPE    0xC21        // Vector data type register
+#define CSR_VLENB    0xC22        // VLEN/8 (vector register length in bytes)
 #define CSR_CYCLE    0xc00        // Cycle counter for RDCYCLE instruction.
 #define CSR_TIME     0xc01        // Timer for RDTIME instruction.
 #define CSR_INSTERT  0xc02        // Instructions-retired counter for RDINSTRET instruction.
@@ -181,6 +188,75 @@ CONSTANT_REGISTER_DECLARATION(FloatRegister, f29    , (29));
 CONSTANT_REGISTER_DECLARATION(FloatRegister, f30    , (30));
 CONSTANT_REGISTER_DECLARATION(FloatRegister, f31    , (31));
 
+// Use VectorRegister as shortcut
+class VectorRegisterImpl;
+typedef VectorRegisterImpl* VectorRegister;
+
+inline VectorRegister as_VectorRegister(int encoding) {
+  return (VectorRegister)(intptr_t) encoding;
+}
+
+// The implementation of vector registers for riscv-v
+class VectorRegisterImpl: public AbstractRegisterImpl {
+ public:
+  enum {
+    number_of_registers    = 32,
+    max_slots_per_register = 4
+  };
+
+  // construction
+  inline friend VectorRegister as_VectorRegister(int encoding);
+
+  VMReg as_VMReg();
+
+  // derived registers, offsets, and addresses
+  VectorRegister successor() const { return as_VectorRegister(encoding() + 1); }
+
+  // accessors
+  int encoding() const             { assert(is_valid(), "invalid register"); return (intptr_t)this; }
+  int encoding_nocheck() const     { return (intptr_t)this; }
+  bool is_valid() const            { return 0 <= (intptr_t)this && (intptr_t)this < number_of_registers; }
+  const char* name() const;
+
+};
+
+// The vector registers of RVV
+CONSTANT_REGISTER_DECLARATION(VectorRegister, vnoreg , (-1));
+
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v0     , ( 0));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v1     , ( 1));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v2     , ( 2));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v3     , ( 3));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v4     , ( 4));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v5     , ( 5));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v6     , ( 6));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v7     , ( 7));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v8     , ( 8));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v9     , ( 9));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v10    , (10));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v11    , (11));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v12    , (12));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v13    , (13));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v14    , (14));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v15    , (15));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v16    , (16));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v17    , (17));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v18    , (18));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v19    , (19));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v20    , (20));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v21    , (21));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v22    , (22));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v23    , (23));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v24    , (24));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v25    , (25));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v26    , (26));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v27    , (27));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v28    , (28));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v29    , (29));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v30    , (30));
+CONSTANT_REGISTER_DECLARATION(VectorRegister, v31    , (31));
+
+
 // Need to know the total number of registers of all sorts for SharedInfo.
 // Define a class that exports it.
 class ConcreteRegisterImpl : public AbstractRegisterImpl {
@@ -192,12 +268,14 @@ class ConcreteRegisterImpl : public AbstractRegisterImpl {
   // it's optoregs.
 
     number_of_registers = (RegisterImpl::max_slots_per_register * RegisterImpl::number_of_registers +
-                           FloatRegisterImpl::max_slots_per_register * FloatRegisterImpl::number_of_registers)
+                           FloatRegisterImpl::max_slots_per_register * FloatRegisterImpl::number_of_registers +
+                           VectorRegisterImpl::max_slots_per_register * VectorRegisterImpl::number_of_registers)
   };
 
   // added to make it compile
   static const int max_gpr;
   static const int max_fpr;
+  static const int max_vpr;
 };
 
 // A set of registers

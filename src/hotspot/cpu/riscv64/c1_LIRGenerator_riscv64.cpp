@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2005, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -86,8 +86,10 @@ LIR_Opr LIRGenerator::result_register_for(ValueType* type, bool callee) {
     case floatTag:   opr = FrameMap::fpu10_float_opr;  break;
     case doubleTag:  opr = FrameMap::fpu10_double_opr; break;
 
-    case addressTag:
-    default: ShouldNotReachHere(); return LIR_OprFact::illegalOpr;
+    case addressTag: // fall through
+    default:
+      ShouldNotReachHere();
+      return LIR_OprFact::illegalOpr;
   }
 
   assert(opr->type_field() == as_OprType(as_BasicType(type)), "type mismatch");
@@ -384,15 +386,14 @@ void LIRGenerator::do_ArithmeticOp_Long(ArithmeticOp* x) {
 
     rlock_result(x);
     switch (x->op()) {
-    case Bytecodes::_lrem:
-      __ rem(left.result(), right.result(), x->operand());
-      break;
-    case Bytecodes::_ldiv:
-      __ div(left.result(), right.result(), x->operand());
-      break;
-    default:
-      ShouldNotReachHere();
-      break;
+      case Bytecodes::_lrem:
+        __ rem(left.result(), right.result(), x->operand());
+        break;
+      case Bytecodes::_ldiv:
+        __ div(left.result(), right.result(), x->operand());
+        break;
+      default:
+        ShouldNotReachHere();
     }
   } else {
     assert(x->op() == Bytecodes::_lmul || x->op() == Bytecodes::_ladd || x->op() == Bytecodes::_lsub,
@@ -531,16 +532,16 @@ void LIRGenerator::do_LogicOp(LogicOp* x) {
   }
 
   switch (x->op()) {
-  case Bytecodes::_iand:
-  case Bytecodes::_land:
-    __ logical_and(left.result(), right.result(), x->operand()); break;
-  case Bytecodes::_ior:
-  case Bytecodes::_lor:
-    __ logical_or(left.result(), right.result(), x->operand()); break;
-  case Bytecodes::_ixor:
-  case Bytecodes::_lxor:
-    __ logical_xor(left.result(), right.result(), x->operand()); break;
-  default: Unimplemented();
+    case Bytecodes::_iand:  // fall through
+    case Bytecodes::_land:
+      __ logical_and(left.result(), right.result(), x->operand()); break;
+    case Bytecodes::_ior:   // fall through
+    case Bytecodes::_lor:
+      __ logical_or(left.result(), right.result(), x->operand()); break;
+    case Bytecodes::_ixor:  // fall through
+    case Bytecodes::_lxor:
+      __ logical_xor(left.result(), right.result(), x->operand()); break;
+    default: Unimplemented();
   }
 }
 
@@ -579,7 +580,6 @@ LIR_Opr LIRGenerator::atomic_cmpxchg(BasicType type, LIR_Opr addr, LIRItem& cmp_
     __ cas_long(addr->as_address_ptr()->base(), cmp_value.result(), new_value.result(), ill, ill);
   } else {
     ShouldNotReachHere();
-    Unimplemented();
   }
   __ logical_xor(FrameMap::r5_opr, LIR_OprFact::intConst(1), result);
   return result;
@@ -609,16 +609,16 @@ void LIRGenerator::do_MathIntrinsic(Intrinsic* x) {
          "wrong type");
 
   switch (x->id()) {
-    case vmIntrinsics::_dexp:
-    case vmIntrinsics::_dlog:
-    case vmIntrinsics::_dpow:
-    case vmIntrinsics::_dcos:
-    case vmIntrinsics::_dsin:
-    case vmIntrinsics::_dtan:
+    case vmIntrinsics::_dexp: // fall through
+    case vmIntrinsics::_dlog: // fall through
+    case vmIntrinsics::_dpow: // fall through
+    case vmIntrinsics::_dcos: // fall through
+    case vmIntrinsics::_dsin: // fall through
+    case vmIntrinsics::_dtan: // fall through
     case vmIntrinsics::_dlog10:
       do_LibmIntrinsic(x);
       break;
-    case vmIntrinsics::_dabs:
+    case vmIntrinsics::_dabs: // fall through
     case vmIntrinsics::_dsqrt: {
       assert(x->number_of_arguments() == 1, "wrong type");
       LIRItem value(x->argument_at(0), this);
@@ -627,7 +627,7 @@ void LIRGenerator::do_MathIntrinsic(Intrinsic* x) {
 
       if (x->id() == vmIntrinsics::_dsqrt) {
         __ sqrt(value.result(), dst, LIR_OprFact::illegalOpr);
-      } else if(x->id() == vmIntrinsics::_dabs) {
+      } else { // vmIntrinsics::_dabs
         __ abs(value.result(), dst, LIR_OprFact::illegalOpr);
       }
       break;

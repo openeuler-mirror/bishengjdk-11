@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -241,7 +241,7 @@ class SlowSignatureHandler
 
     if (_num_fp_args < Argument::n_float_register_parameters_c) {
       *_fp_args++ = from_obj;
-      *_fp_identifiers |= (1 << _num_fp_args); // mark as double
+      *_fp_identifiers |= (1ull << _num_fp_args); // mark as double
       _num_fp_args++;
     } else if (_num_int_args < Argument::n_int_register_parameters_c - 1) {
       // ld/st from_obj as integer, no need to mark _fp_identifiers
@@ -267,7 +267,14 @@ class SlowSignatureHandler
     _num_int_args = (method->is_static() ? 1 : 0);
     _num_fp_args = 0;
   }
-  ~SlowSignatureHandler() {}
+  ~SlowSignatureHandler()
+  {
+    _from           = NULL;
+    _to             = NULL;
+    _int_args       = NULL;
+    _fp_args        = NULL;
+    _fp_identifiers = NULL;
+  }
 };
 
 

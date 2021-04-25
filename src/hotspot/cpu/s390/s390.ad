@@ -1522,14 +1522,16 @@ const bool Matcher::match_rule_supported(int opcode) {
                 // BUT: make sure match rule is not disabled by a false predicate!
 }
 
-const bool Matcher::match_rule_supported_vector(int opcode, int vlen) {
+const bool Matcher::match_rule_supported_vector(int opcode, int vlen, BasicType bt) {
   // TODO
   // Identify extra cases that we might want to provide match rules for
   // e.g. Op_ vector nodes and other intrinsics while guarding with vlen.
-  bool ret_value = match_rule_supported(opcode);
+  if (!match_rule_supported(opcode) || !vector_size_supported(bt, vlen)) {
+    return false;
+  }
   // Add rules here.
 
-  return ret_value;  // Per default match rules are supported.
+  return true; // Per default match rules are supported.
 }
 
 int Matcher::regnum_to_fpu_offset(int regnum) {
@@ -1576,6 +1578,14 @@ const int Matcher::min_vector_size(const BasicType bt) {
 const uint Matcher::vector_shift_count_ideal_reg(int size) {
   fatal("vector shift is not supported");
   return Node::NotAMachineReg;
+}
+
+const bool Matcher::supports_scalable_vector() {
+  return false;
+}
+
+const int Matcher::scalable_vector_reg_size(const BasicType bt) {
+  return -1;
 }
 
 // z/Architecture does support misaligned store/load at minimal extra cost.

@@ -24,6 +24,7 @@
 
 #include "precompiled.hpp"
 #include "opto/ad.hpp"
+#include "opto/chaitin.hpp"
 #include "opto/compile.hpp"
 #include "opto/matcher.hpp"
 #include "opto/node.hpp"
@@ -116,28 +117,45 @@ const RegMask RegMask::Empty(
 
 //=============================================================================
 bool RegMask::is_vector(uint ireg) {
-  return (ireg == Op_VecS || ireg == Op_VecD ||
+  return (ireg == Op_VecA || ireg == Op_VecS || ireg == Op_VecD ||
           ireg == Op_VecX || ireg == Op_VecY || ireg == Op_VecZ );
 }
 
 int RegMask::num_registers(uint ireg) {
     switch(ireg) {
       case Op_VecZ:
-        return 16;
+        return SlotsPerVecZ;
       case Op_VecY:
-        return 8;
+        return SlotsPerVecY;
       case Op_VecX:
-        return 4;
+        return SlotsPerVecX;
       case Op_VecD:
+        return SlotsPerVecD;
       case Op_RegD:
       case Op_RegL:
 #ifdef _LP64
       case Op_RegP:
 #endif
         return 2;
+      case Op_VecA:
+        assert(Matcher::supports_scalable_vector(), "does not support scalable vector");
+        return SlotsPerVecA;
     }
     // Op_VecS and the rest ideal registers.
     return 1;
+}
+
+int RegMask::num_registers(uint ireg, LRG &lrg) {
+  int n_regs = num_registers(ireg);
+
+  // assigned is OptoReg which is selected by register allocator
+  OptoReg::Name assigned = lrg.reg();
+  assert(OptoReg::is_valid(assigned), "should be valid opto register");
+
+  if (lrg.is_scalable() && OptoReg::is_stack(assigned)) {
+    n_regs = lrg.scalable_reg_slots();
+  }
+  return n_regs;
 }
 
 //------------------------------find_first_pair--------------------------------
@@ -238,14 +256,30 @@ int RegMask::is_bound_pair() const {
   return true;
 }
 
+// Check that whether given reg number with size is valid
+// for current regmask, where reg is the highest number.
+bool RegMask::is_valid_reg(OptoReg::Name reg, const int size) const {
+  for (int i = 0; i < size; i++) {
+    if (!Member(reg - i)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // only indicies of power 2 are accessed, so index 3 is only filled in for storage.
 static int low_bits[5] = { 0x55555555, 0x11111111, 0x01010101, 0x00000000, 0x00010001 };
-//------------------------------find_first_set---------------------------------
+
 // Find the lowest-numbered register set in the mask.  Return the
 // HIGHEST register number in the set, or BAD if no sets.
 // Works also for size 1.
-OptoReg::Name RegMask::find_first_set(const int size) const {
-  verify_sets(size);
+OptoReg::Name RegMask::find_first_set(LRG &lrg, const int size) const {
+  if (lrg.is_scalable()) {
+    // For scalable vector register, regmask is SlotsPerVecA bits aligned.
+    assert(is_aligned_sets(SlotsPerVecA), "mask is not aligned, adjacent sets");
+  } else {
+    assert(is_aligned_sets(size), "mask is not aligned, adjacent sets");
+  }
   for (int i = 0; i < RM_SIZE; i++) {
     if (_A[i]) {                // Found some bits
       int bit = _A[i] & -_A[i]; // Extract low bit

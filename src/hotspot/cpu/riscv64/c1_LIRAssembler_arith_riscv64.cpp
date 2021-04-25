@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -64,7 +64,6 @@ void LIR_Assembler::arith_op_single_cpu_right_constant(LIR_Code code, LIR_Opr le
     default:
       ShouldNotReachHere();
       c = 0;   // unreachable
-      break;
   }
 
   assert(code == lir_add || code == lir_sub, "mismatched arithmetic op");
@@ -200,9 +199,6 @@ void LIR_Assembler::arith_op(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr
     arith_op_single_fpu(code, left, right, dest);
   } else if (left->is_double_fpu()) {
     arith_op_double_fpu(code, left, right, dest);
-  } else if (left->is_single_stack() || left->is_address()) {
-    assert(left == dest, "left and dest must be equal");
-    ShouldNotReachHere();
   } else {
     ShouldNotReachHere();
   }

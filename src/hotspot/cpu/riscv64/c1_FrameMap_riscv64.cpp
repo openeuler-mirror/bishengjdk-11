@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -42,19 +42,19 @@ LIR_Opr FrameMap::map_to_opr(BasicType type, VMRegPair* reg, bool)
     int st_off = (r_1->reg2stack() + SharedRuntime::out_preserve_stack_slots()) * VMRegImpl::stack_slot_size;
     opr = LIR_OprFact::address(new LIR_Address(sp_opr, st_off, type));
   } else if (r_1->is_Register()) {
-    Register reg = r_1->as_Register();
+    Register reg1 = r_1->as_Register();
     if (r_2->is_Register() && (type == T_LONG || type == T_DOUBLE)) {
       Register reg2 = r_2->as_Register();
-      assert(reg2 == reg, "must be same register");
-      opr = as_long_opr(reg);
+      assert(reg2 == reg1, "must be same register");
+      opr = as_long_opr(reg1);
     } else if (type == T_OBJECT || type == T_ARRAY) {
-      opr = as_oop_opr(reg);
+      opr = as_oop_opr(reg1);
     } else if (type == T_METADATA) {
-      opr = as_metadata_opr(reg);
+      opr = as_metadata_opr(reg1);
     } else if (type == T_ADDRESS) {
-      opr = as_address_opr(reg);
+      opr = as_address_opr(reg1);
     } else {
-      opr = as_opr(reg);
+      opr = as_opr(reg1);
     }
   } else if (r_1->is_FloatRegister()) {
     assert(type == T_DOUBLE || type == T_FLOAT, "wrong type");

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1999, 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -109,7 +109,9 @@ intptr_t* os::Linux::ucontext_get_fp(const ucontext_t * uc) {
 // frames. Currently we don't do that on Linux, so it's the same as
 // os::fetch_frame_from_context().
 ExtendedPC os::Linux::fetch_frame_from_ucontext(Thread* thread,
-  const ucontext_t* uc, intptr_t** ret_sp, intptr_t** ret_fp) {
+                                                const ucontext_t* uc,
+                                                intptr_t** ret_sp,
+                                                intptr_t** ret_fp) {
 
   assert(thread != NULL, "just checking");
   assert(ret_sp != NULL, "just checking");
@@ -426,6 +428,12 @@ JVM_handle_linux_signal(int sig,
       }
     }
 
+    if (sig == SIGILL && VM_Version::is_checkvext_fault(pc)) {
+      os::Posix::ucontext_set_pc(uc, VM_Version::continuation_for_checkvext_fault(pc));
+      return true;
+    }
+
+
     if (thread->thread_state() == _thread_in_Java) {
       // Java thread running in Java code => find exception handler if any
       // a fault inside compiled code, the interpreter, or a stub
@@ -472,9 +480,9 @@ JVM_handle_linux_signal(int sig,
     // jni_fast_Get<Primitive>Field can trap at certain pc's if a GC kicks in
     // and the heap gets shrunk before the field access.
     if ((sig == SIGSEGV) || (sig == SIGBUS)) {
-      address addr = JNI_FastGetField::find_slowcase_pc(pc);
-      if (addr != (address)-1) {
-        stub = addr;
+      address addr_slow = JNI_FastGetField::find_slowcase_pc(pc);
+      if (addr_slow != (address)-1) {
+        stub = addr_slow;
       }
     }
 

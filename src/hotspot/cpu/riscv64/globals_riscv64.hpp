@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2015, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -108,6 +108,7 @@ define_pd_global(intx, InlineSmallCode,          1000);
           "Extend i for r and o for w in the pred/succ flags of fence;" \
           "Extend fence.i to fence.i + fence.")                         \
   product(bool, AvoidUnalignedAccesses, true,                           \
-          "Avoid generating unaligned memory accesses")
+          "Avoid generating unaligned memory accesses")                 \
+  product(bool, UseVExt, false, "Use RVV instructions")
 
 #endif // CPU_RISCV64_VM_GLOBALS_RISCV64_HPP

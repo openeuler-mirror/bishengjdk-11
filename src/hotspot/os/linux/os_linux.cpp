@@ -1826,7 +1826,7 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
   #define EM_AARCH64    183               /* ARM AARCH64 */
 #endif
 #ifndef EM_RISCV
-  #define EM_RISCV      243               /* RISC-V      */
+  #define EM_RISCV      243               /* RISC-V */
 #endif
 
   static const arch_t arch_array[]={
@@ -1856,8 +1856,6 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
     {EM_RISCV,       EM_RISCV,   ELFCLASS64, ELFDATA2LSB, (char*)"RISCV"},
   };
 
-#define riscv
-
 #if  (defined IA32)
   static  Elf32_Half running_arch_code=EM_386;
 #elif   (defined AMD64)
@@ -1872,7 +1870,7 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
   static  Elf32_Half running_arch_code=EM_PPC64;
 #elif  (defined __powerpc__)
   static  Elf32_Half running_arch_code=EM_PPC;
-#elif  (defined riscv)
+#elif  (defined RISCV)
   static  Elf32_Half running_arch_code=EM_RISCV;
 #elif  (defined AARCH64)
   static  Elf32_Half running_arch_code=EM_AARCH64;

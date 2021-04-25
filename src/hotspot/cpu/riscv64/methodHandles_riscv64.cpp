@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -332,84 +332,82 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
 
     Label L_incompatible_class_change_error;
     switch (iid) {
-    case vmIntrinsics::_linkToSpecial:
-      if (VerifyMethodHandles) {
-        verify_ref_kind(_masm, JVM_REF_invokeSpecial, member_reg, temp3);
-      }
-      __ load_heap_oop(xmethod, member_vmtarget);
-      __ access_load_at(T_ADDRESS, IN_HEAP, xmethod, vmtarget_method, noreg, noreg);
-      break;
+      case vmIntrinsics::_linkToSpecial:
+        if (VerifyMethodHandles) {
+          verify_ref_kind(_masm, JVM_REF_invokeSpecial, member_reg, temp3);
+        }
+        __ load_heap_oop(xmethod, member_vmtarget);
+        __ access_load_at(T_ADDRESS, IN_HEAP, xmethod, vmtarget_method, noreg, noreg);
+        break;
 
-    case vmIntrinsics::_linkToStatic:
-      if (VerifyMethodHandles) {
-        verify_ref_kind(_masm, JVM_REF_invokeStatic, member_reg, temp3);
-      }
-      __ load_heap_oop(xmethod, member_vmtarget);
-      __ access_load_at(T_ADDRESS, IN_HEAP, xmethod, vmtarget_method, noreg, noreg);
-      break;
+      case vmIntrinsics::_linkToStatic:
+        if (VerifyMethodHandles) {
+          verify_ref_kind(_masm, JVM_REF_invokeStatic, member_reg, temp3);
+        }
+        __ load_heap_oop(xmethod, member_vmtarget);
+        __ access_load_at(T_ADDRESS, IN_HEAP, xmethod, vmtarget_method, noreg, noreg);
+        break;
 
-    case vmIntrinsics::_linkToVirtual:
-    {
-      // same as TemplateTable::invokevirtual,
-      // minus the CP setup and profiling:
+      case vmIntrinsics::_linkToVirtual: {
+        // same as TemplateTable::invokevirtual,
+        // minus the CP setup and profiling:
 
-      if (VerifyMethodHandles) {
-        verify_ref_kind(_masm, JVM_REF_invokeVirtual, member_reg, temp3);
-      }
+        if (VerifyMethodHandles) {
+          verify_ref_kind(_masm, JVM_REF_invokeVirtual, member_reg, temp3);
+        }
 
-      // pick out the vtable index from the MemberName, and then we can discard it:
-      Register temp2_index = temp2;
-      __ access_load_at(T_ADDRESS, IN_HEAP, temp2_index, member_vmindex, noreg, noreg);
+        // pick out the vtable index from the MemberName, and then we can discard it:
+        Register temp2_index = temp2;
+        __ access_load_at(T_ADDRESS, IN_HEAP, temp2_index, member_vmindex, noreg, noreg);
 
-      if (VerifyMethodHandles) {
-        Label L_index_ok;
-        __ bgez(temp2_index, L_index_ok);
-        __ ebreak();
-        __ BIND(L_index_ok);
-      }
+        if (VerifyMethodHandles) {
+          Label L_index_ok;
+          __ bgez(temp2_index, L_index_ok);
+          __ ebreak();
+          __ BIND(L_index_ok);
+        }
 
-      // Note:  The verifier invariants allow us to ignore MemberName.clazz and vmtarget
-      // at this point.  And VerifyMethodHandles has already checked clazz, if needed.
+        // Note:  The verifier invariants allow us to ignore MemberName.clazz and vmtarget
+        // at this point.  And VerifyMethodHandles has already checked clazz, if needed.
 
-      // get target Method* & entry point
-      __ lookup_virtual_method(temp1_recv_klass, temp2_index, xmethod);
-      break;
-    }
-
-    case vmIntrinsics::_linkToInterface:
-    {
-      // same as TemplateTable::invokeinterface
-      // (minus the CP setup and profiling, with different argument motion)
-      if (VerifyMethodHandles) {
-        verify_ref_kind(_masm, JVM_REF_invokeInterface, member_reg, temp3);
+        // get target Method* & entry point
+        __ lookup_virtual_method(temp1_recv_klass, temp2_index, xmethod);
+        break;
       }
 
-      Register temp3_intf = temp3;
-      __ load_heap_oop(temp3_intf, member_clazz);
-      load_klass_from_Class(_masm, temp3_intf);
-      __ verify_klass_ptr(temp3_intf);
+      case vmIntrinsics::_linkToInterface: {
+        // same as TemplateTable::invokeinterface
+        // (minus the CP setup and profiling, with different argument motion)
+        if (VerifyMethodHandles) {
+          verify_ref_kind(_masm, JVM_REF_invokeInterface, member_reg, temp3);
+        }
 
-      Register rindex = xmethod;
-      __ access_load_at(T_ADDRESS, IN_HEAP, rindex, member_vmindex, noreg, noreg);
-      if (VerifyMethodHandles) {
-        Label L;
-        __ bgez(rindex, L);
-        __ ebreak();
-        __ bind(L);
+        Register temp3_intf = temp3;
+        __ load_heap_oop(temp3_intf, member_clazz);
+        load_klass_from_Class(_masm, temp3_intf);
+        __ verify_klass_ptr(temp3_intf);
+
+        Register rindex = xmethod;
+        __ access_load_at(T_ADDRESS, IN_HEAP, rindex, member_vmindex, noreg, noreg);
+        if (VerifyMethodHandles) {
+          Label L;
+          __ bgez(rindex, L);
+          __ ebreak();
+          __ bind(L);
+        }
+
+        // given intf, index, and recv klass, dispatch to the implementation method
+        __ lookup_interface_method(temp1_recv_klass, temp3_intf,
+                                   // note: next two args must be the same:
+                                   rindex, xmethod,
+                                   temp2,
+                                   L_incompatible_class_change_error);
+        break;
       }
 
-      // given intf, index, and recv klass, dispatch to the implementation method
-      __ lookup_interface_method(temp1_recv_klass, temp3_intf,
-                                 // note: next two args must be the same:
-                                 rindex, xmethod,
-                                 temp2,
-                                 L_incompatible_class_change_error);
-      break;
-    }
-
-    default:
-      fatal("unexpected intrinsic %d: %s", iid, vmIntrinsics::name_at(iid));
-      break;
+      default:
+        fatal("unexpected intrinsic %d: %s", iid, vmIntrinsics::name_at(iid));
+        break;
     }
 
     // live at this point:  xmethod, x30 (if interpreted)

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1999, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -203,6 +203,7 @@ void StubFrame::load_argument(int offset_in_words, Register reg) {
 
 StubFrame::~StubFrame() {
   __ epilogue();
+  _sasm = NULL;
 }
 
 #undef __
@@ -236,8 +237,6 @@ enum reg_save_layout {
 
 static int cpu_reg_save_offsets[FrameMap::nof_cpu_regs];
 static int fpu_reg_save_offsets[FrameMap::nof_fpu_regs];
-static int reg_save_size_in_words = 0;
-static int frame_size_in_bytes = -1;
 
 static OopMap* generate_oop_map(StubAssembler* sasm, bool save_fpu_registers) {
   int frame_size_in_bytes = reg_save_frame_size * BytesPerWord;
@@ -451,6 +450,7 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler *sasm) {
   // compute the exception handler.
   // the exception oop and the throwing pc are read from the fields in JavaThread
   int call_offset = __ call_RT(noreg, noreg, CAST_FROM_FN_PTR(address, exception_handler_for_pc));
+  guarantee(oop_map != NULL, "NULL oop_map!");
   oop_maps->add_gc_map(call_offset, oop_map);
 
   // x10: handler address
@@ -859,7 +859,7 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
           __ srli(tmp1, tmp1, registerSize - lh_header_size_width);
           __ add(arr_size, arr_size, tmp1);
           __ addi(arr_size, arr_size, MinObjAlignmentInBytesMask); // align up
-          __ andi(arr_size, arr_size, ~MinObjAlignmentInBytesMask);
+          __ andi(arr_size, arr_size, ~(uint)MinObjAlignmentInBytesMask);
 
           __ eden_allocate(obj, arr_size, 0, tmp1, slow_path); // preserves arr_size
 

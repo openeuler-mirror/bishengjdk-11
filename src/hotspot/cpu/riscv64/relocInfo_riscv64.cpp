@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1998, 2011, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -39,8 +39,7 @@ void Relocation::pd_set_data_value(address x, intptr_t o, bool verify_only) {
   int bytes;
 
   switch(type()) {
-  case relocInfo::oop_type:
-    {
+    case relocInfo::oop_type: {
       oop_Relocation *reloc = (oop_Relocation *)this;
       // in movoop when immediate == false
       if (NativeInstruction::is_load_pc_relative_at(addr())) {
@@ -50,11 +49,11 @@ void Relocation::pd_set_data_value(address x, intptr_t o, bool verify_only) {
       } else {
         bytes = MacroAssembler::patch_oop(addr(), x);
       }
+      break;
     }
-    break;
-  default:
-    bytes = MacroAssembler::pd_patch_instruction_size(addr(), x);
-    break;
+    default:
+      bytes = MacroAssembler::pd_patch_instruction_size(addr(), x);
+      break;
   }
   ICache::invalidate_range(addr(), bytes);
 }

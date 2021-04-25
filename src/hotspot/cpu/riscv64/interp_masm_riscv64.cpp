@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -381,61 +381,61 @@ void InterpreterMacroAssembler::push_d(FloatRegister r) {
 
 void InterpreterMacroAssembler::pop(TosState state) {
   switch (state) {
-  case atos:
-    pop_ptr();
-    verify_oop(x10);
-    break;
-  case btos:  // fall through
-  case ztos:  // fall through
-  case ctos:  // fall through
-  case stos:  // fall through
-  case itos:
-    pop_i();
-    break;
-  case ltos:
-    pop_l();
-    break;
-  case ftos:
-    pop_f();
-    break;
-  case dtos:
-    pop_d();
-    break;
-  case vtos:
-    /* nothing to do */
-    break;
-  default:
-    ShouldNotReachHere();
+    case atos:
+      pop_ptr();
+      verify_oop(x10);
+      break;
+    case btos:  // fall through
+    case ztos:  // fall through
+    case ctos:  // fall through
+    case stos:  // fall through
+    case itos:
+      pop_i();
+      break;
+    case ltos:
+      pop_l();
+      break;
+    case ftos:
+      pop_f();
+      break;
+    case dtos:
+      pop_d();
+      break;
+    case vtos:
+      /* nothing to do */
+      break;
+    default:
+      ShouldNotReachHere();
   }
 }
 
 void InterpreterMacroAssembler::push(TosState state) {
   switch (state) {
-  case atos:
-    verify_oop(x10);
-    push_ptr();
-    break;
-  case btos:  // fall through
-  case ztos:  // fall through
-  case ctos:  // fall through
-  case stos:  // fall through
-  case itos:
-    push_i();
-    break;
-  case ltos:
-    push_l();
-    break;
-  case ftos:
-    push_f();
-    break;
-  case dtos:
-    push_d();
-    break;
-  case vtos:
-    /* nothing to do */
-    break;
-  default:
-    ShouldNotReachHere();
+    case atos:
+      verify_oop(x10);
+      push_ptr();
+      break;
+    case btos:  // fall through
+    case ztos:  // fall through
+    case ctos:  // fall through
+    case stos:  // fall through
+    case itos:
+      push_i();
+      break;
+    case ltos:
+      push_l();
+      break;
+    case ftos:
+      push_f();
+      break;
+    case dtos:
+      push_d();
+      break;
+    case vtos:
+      /* nothing to do */
+      break;
+    default:
+      ShouldNotReachHere();
   }
 }
 
@@ -809,7 +809,7 @@ void InterpreterMacroAssembler::lock_object(Register lock_reg)
     // least significant 3 bits clear.
     // NOTE: the oopMark is in swap_reg %x10 as the result of cmpxchg
     sub(swap_reg, swap_reg, sp);
-    li(t0, (unsigned long)(7 - os::vm_page_size()));
+    li(t0, (int64_t)(7 - os::vm_page_size()));
     andr(swap_reg, swap_reg, t0);
 
     // Save the test result, for recursive case, the result is zero
@@ -1696,10 +1696,10 @@ void InterpreterMacroAssembler::profile_arguments_type(Register mdp, Register ca
 
     lbu(t0, Address(mdp, in_bytes(DataLayout::tag_offset()) - off_to_start));
     if (is_virtual) {
-      li(tmp, DataLayout::virtual_call_type_data_tag);
+      li(tmp, (u1)DataLayout::virtual_call_type_data_tag);
       bne(t0, tmp, profile_continue);
     } else {
-      li(tmp, DataLayout::call_type_data_tag);
+      li(tmp, (u1)DataLayout::call_type_data_tag);
       bne(t0, tmp, profile_continue);
     }
 
@@ -1828,9 +1828,9 @@ void InterpreterMacroAssembler::profile_return_type(Register mdp, Register ret, 
       // length
       Label do_profile;
       lbu(t0, Address(xbcp, 0));
-      li(tmp, Bytecodes::_invokedynamic);
+      li(tmp, (u1)Bytecodes::_invokedynamic);
       beq(t0, tmp, do_profile);
-      li(tmp, Bytecodes::_invokehandle);
+      li(tmp, (u1)Bytecodes::_invokehandle);
       beq(t0, tmp, do_profile);
       get_method(tmp);
       lhu(t0, Address(tmp, Method::intrinsic_id_offset_in_bytes()));
@@ -1915,3 +1915,27 @@ void InterpreterMacroAssembler::get_method_counters(Register method,
   beqz(mcs, skip); // No MethodCounters allocated, OutOfMemory
   bind(has_counters);
 }
+
+#ifdef ASSERT
+void InterpreterMacroAssembler::verify_access_flags(Register access_flags, uint32_t flag_bits,
+                                                    const char* msg, bool stop_by_hit) {
+  Label L;
+  andi(t0, access_flags, flag_bits);
+  if (stop_by_hit) {
+    beqz(t0, L);
+  } else {
+    bnez(t0, L);
+  }
+  stop(msg);
+  bind(L);
+}
+
+void InterpreterMacroAssembler::verify_frame_setup() {
+  Label L;
+  const Address monitor_block_top(fp, frame::interpreter_frame_monitor_block_top_offset * wordSize);
+  ld(t0, monitor_block_top);
+  beq(esp, t0, L);
+  stop("broken stack frame setup in interpreter");
+  bind(L);
+}
+#endif

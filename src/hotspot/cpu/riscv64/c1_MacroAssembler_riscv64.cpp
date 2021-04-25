@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1999, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -39,13 +39,13 @@
 #include "runtime/stubRoutines.hpp"
 
 void C1_MacroAssembler::float_cmp(bool is_float, int unordered_result,
-                                  FloatRegister f0, FloatRegister f1,
+                                  FloatRegister freg0, FloatRegister freg1,
                                   Register result)
 {
   if (is_float) {
-    float_compare(result, f0, f1, unordered_result);
+    float_compare(result, freg0, freg1, unordered_result);
   } else {
-    double_compare(result, f0, f1, unordered_result);
+    double_compare(result, freg0, freg1, unordered_result);
   }
 }
 
@@ -53,7 +53,7 @@ int C1_MacroAssembler::lock_object(Register hdr, Register obj, Register disp_hdr
   const int aligned_mask = BytesPerWord - 1;
   const int hdr_offset = oopDesc::mark_offset_in_bytes();
   assert(hdr != obj && hdr != disp_hdr && obj != disp_hdr, "registers must be different");
-  Label done, fail;
+  Label done;
   int null_check_offset = -1;
 
   verify_oop(obj);
@@ -288,7 +288,7 @@ void C1_MacroAssembler::allocate_array(Register obj, Register len, Register tmp1
   mv(arr_size, (int32_t)header_size * BytesPerWord + MinObjAlignmentInBytesMask);
   slli(t0, len, f);
   add(arr_size, arr_size, t0);
-  andi(arr_size, arr_size, ~MinObjAlignmentInBytesMask);
+  andi(arr_size, arr_size, ~(uint)MinObjAlignmentInBytesMask);
 
   try_allocate(obj, arr_size, 0, tmp1, tmp2, slow_case);
 

@@ -28,6 +28,8 @@
 #include "code/vmreg.hpp"
 #include "opto/optoreg.hpp"
 
+class LRG;
+
 // Some fun naming (textual) substitutions:
 //
 // RegMask::get_low_elem() ==> RegMask::find_first_elem()
@@ -95,11 +97,16 @@ public:
   // requirement is internal to the allocator, and independent of any
   // particular platform.
   enum { SlotsPerLong = 2,
+#ifdef RISCV64
+         SlotsPerVecA = 4,
+#else
+         SlotsPerVecA = 8,
+#endif
          SlotsPerVecS = 1,
          SlotsPerVecD = 2,
          SlotsPerVecX = 4,
          SlotsPerVecY = 8,
-         SlotsPerVecZ = 16 };
+         SlotsPerVecZ = 16};
 
   // A constructor only used by the ADLC output.  All mask fields are filled
   // in directly.  Calls to this look something like RM(1,2,3,4);
@@ -204,10 +211,14 @@ public:
     return false;
   }
 
+  // Check that whether given reg number with size is valid
+  // for current regmask, where reg is the highest number.
+  bool is_valid_reg(OptoReg::Name reg, const int size) const;
+
   // Find the lowest-numbered register set in the mask.  Return the
   // HIGHEST register number in the set, or BAD if no sets.
   // Assert that the mask contains only bit sets.
-  OptoReg::Name find_first_set(const int size) const;
+  OptoReg::Name find_first_set(LRG &lrg, const int size) const;
 
   // Clear out partial bits; leave only aligned adjacent bit sets of size.
   void clear_to_sets(const int size);
@@ -226,6 +237,7 @@ public:
 
   static bool is_vector(uint ireg);
   static int num_registers(uint ireg);
+  static int num_registers(uint ireg, LRG &lrg);
 
   // Fast overlap test.  Non-zero if any registers in common.
   int overlap( const RegMask &rm ) const {

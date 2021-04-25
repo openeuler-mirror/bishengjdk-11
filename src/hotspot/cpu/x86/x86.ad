@@ -1473,10 +1473,13 @@ const bool Matcher::match_rule_supported(int opcode) {
   return ret_value;  // Per default match rules are supported.
 }
 
-const bool Matcher::match_rule_supported_vector(int opcode, int vlen) {
+const bool Matcher::match_rule_supported_vector(int opcode, int vlen, BasicType bt) {
   // identify extra cases that we might want to provide match rules for
   // e.g. Op_ vector nodes and other intrinsics while guarding with vlen
   bool ret_value = match_rule_supported(opcode);
+  if (!vector_size_supported(bt, vlen)) {
+    ret_value = false;
+  }
   if (ret_value) {
     switch (opcode) {
       case Op_AbsVB:
@@ -1598,6 +1601,14 @@ const int Matcher::min_vector_size(const BasicType bt) {
   // Min size which can be loaded into vector is 4 bytes.
   int size = (type2aelembytes(bt) == 1) ? 4 : 2;
   return MIN2(size,max_size);
+}
+
+const bool Matcher::supports_scalable_vector() {
+  return false;
+}
+
+const int Matcher::scalable_vector_reg_size(const BasicType bt) {
+  return -1;
 }
 
 // Vector ideal reg corresponding to specified size in bytes

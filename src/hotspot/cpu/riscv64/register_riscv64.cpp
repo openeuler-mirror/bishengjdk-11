@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,10 +27,16 @@
 #include "precompiled.hpp"
 #include "register_riscv64.hpp"
 
-const int ConcreteRegisterImpl::max_gpr = RegisterImpl::number_of_registers << 1;
+const int ConcreteRegisterImpl::max_gpr = RegisterImpl::number_of_registers *
+                                          RegisterImpl::max_slots_per_register;
+const int ConcreteRegisterImpl::max_fpr =
+    ConcreteRegisterImpl::max_gpr +
+    FloatRegisterImpl::number_of_registers * FloatRegisterImpl::max_slots_per_register;
 
-const int ConcreteRegisterImpl::max_fpr
-  = ConcreteRegisterImpl::max_gpr + (FloatRegisterImpl::number_of_registers << 1);
+const int ConcreteRegisterImpl::max_vpr =
+    ConcreteRegisterImpl::max_fpr +
+    VectorRegisterImpl::number_of_registers * VectorRegisterImpl::max_slots_per_register;
+
 
 const char* RegisterImpl::name() const {
   const char* names[number_of_registers] = {
@@ -48,6 +54,16 @@ const char* FloatRegisterImpl::name() const {
     "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
     "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
     "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31"
+  };
+  return is_valid() ? names[encoding()] : "noreg";
+}
+
+const char* VectorRegisterImpl::name() const {
+  const char* names[number_of_registers] = {
+    "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+    "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15",
+    "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",
+    "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31"
   };
   return is_valid() ? names[encoding()] : "noreg";
 }

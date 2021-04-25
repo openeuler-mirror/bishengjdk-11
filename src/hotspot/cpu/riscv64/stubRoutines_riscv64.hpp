@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -132,39 +132,39 @@ class riscv64 {
   }
 
   static address has_negatives_long() {
-      return _has_negatives_long;
+    return _has_negatives_long;
   }
 
   static address compare_long_string_LL() {
-      return _compare_long_string_LL;
+    return _compare_long_string_LL;
   }
 
   static address compare_long_string_LU() {
-      return _compare_long_string_LU;
+    return _compare_long_string_LU;
   }
 
   static address compare_long_string_UL() {
-      return _compare_long_string_UL;
+    return _compare_long_string_UL;
   }
 
   static address compare_long_string_UU() {
-      return _compare_long_string_UU;
+    return _compare_long_string_UU;
   }
 
   static address string_indexof_linear_ul() {
-      return _string_indexof_linear_ul;
+    return _string_indexof_linear_ul;
   }
 
   static address string_indexof_linear_ll() {
-      return _string_indexof_linear_ll;
+    return _string_indexof_linear_ll;
   }
 
   static address string_indexof_linear_uu() {
-      return _string_indexof_linear_uu;
+    return _string_indexof_linear_uu;
   }
 
   static address large_byte_array_inflate() {
-      return _large_byte_array_inflate;
+    return _large_byte_array_inflate;
   }
 
   static bool complete() {

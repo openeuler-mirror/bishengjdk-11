@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,19 +32,29 @@ void VMRegImpl::set_regName() {
   Register reg = ::as_Register(0);
   int i = 0;
   for ( ; i < ConcreteRegisterImpl::max_gpr ; ) {
-    regName[i++] = reg->name();
-    regName[i++] = reg->name();
+    for (int j = 0 ; j < RegisterImpl::max_slots_per_register ; j++) {
+      regName[i++] = reg->name();
+    }
     reg = reg->successor();
   }
 
   FloatRegister freg = ::as_FloatRegister(0);
   for ( ; i < ConcreteRegisterImpl::max_fpr ; ) {
-    regName[i++] = freg->name();
-    regName[i++] = freg->name();
+    for (int j = 0 ; j < FloatRegisterImpl::max_slots_per_register ; j++) {
+      regName[i++] = reg->name();
+    }
     freg = freg->successor();
   }
 
-  for ( ; i < ConcreteRegisterImpl::number_of_registers ; i++ ) {
-    regName[i] = "NON-GPR-FPR";
+  VectorRegister vreg = ::as_VectorRegister(0);
+  for ( ; i < ConcreteRegisterImpl::max_vpr ; ) {
+    for (int j = 0 ; j < VectorRegisterImpl::max_slots_per_register ; j++) {
+      regName[i++] = reg->name();
+    }
+    vreg = vreg->successor();
+  }
+
+  for ( ; i < ConcreteRegisterImpl::number_of_registers ; i ++ ) {
+    regName[i] = "NON-GPR-FPR-VPR";
   }
 }

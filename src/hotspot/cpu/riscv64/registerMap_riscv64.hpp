@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -34,9 +34,9 @@
   // This is the hook for finding a register in an "well-known" location,
   // such as a register block of a predetermined format.
   // Since there is none, we just return NULL.
-  // See registerMap_sparc.hpp for an example of grabbing registers
+  // See registerMap_riscv64.hpp for an example of grabbing registers
   // from register save areas of a standard layout.
-   address pd_location(VMReg reg) const {return NULL;}
+  address pd_location(VMReg reg) const {return NULL;}
 
   // no PD state to clear or copy:
   void pd_clear() {}

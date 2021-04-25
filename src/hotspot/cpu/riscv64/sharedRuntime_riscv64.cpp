@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -53,8 +53,7 @@
 const int StackAlignmentInSlots = StackAlignmentInBytes / VMRegImpl::stack_slot_size;
 
 class SimpleRuntimeFrame {
-
- public:
+public:
 
   // Most of the runtime stubs have this simple frame layout.
   // This class exists to make the layout shared in one place.
@@ -72,15 +71,22 @@ class SimpleRuntimeFrame {
 };
 
 class RegisterSaver {
+  const bool _save_vectors;
  public:
-  static OopMap* save_live_registers(MacroAssembler* masm, int additional_frame_words, int* total_frame_words);
-  static void restore_live_registers(MacroAssembler* masm);
+  RegisterSaver(bool save_vectors) : _save_vectors(UseVExt && save_vectors) {}
+  ~RegisterSaver() {}
+  OopMap* save_live_registers(MacroAssembler* masm, int additional_frame_words, int* total_frame_words);
+  void restore_live_registers(MacroAssembler* masm);
 
   // Offsets into the register save area
   // Used by deoptimization when it is managing result register
   // values on its own
-  // gregs:30, float_register:32; except: x1 & x2
-  // |---f0---|<---SP
+  // gregs:30, float_register:32; except: x1(ra) & x2(sp)
+  // |---v0---|<---SP
+  // |---v1---|save vectors only in generate_handler_blob
+  // |-- .. --|
+  // |---v31--|-----
+  // |---f0---|
   // |---f1---|
   // |   ..   |
   // |---f31--|
@@ -91,39 +97,57 @@ class RegisterSaver {
   // |---x31--|
   // |---fp---|
   // |---ra---|
-  static int reg_offset_in_bytes(Register r) {
-    assert (r->encoding() > 2, "ra and sp not saved");
-    return (32 /* floats*/ + r->encoding() - 2 /* x1, x2*/) * wordSize;
+  int v0_offset_in_bytes(void) { return 0; }
+  int f0_offset_in_bytes(void) {
+    int f0_offset = 0;
+#ifdef COMPILER2
+    if (_save_vectors) {
+      f0_offset += Matcher::scalable_vector_reg_size(T_INT) * VectorRegisterImpl::number_of_registers *
+                   BytesPerInt;
+    }
+#endif
+    return f0_offset;
   }
-  static int x10_offset_in_bytes(void)        { return reg_offset_in_bytes(x10); } // x10
-  static int xmethod_offset_in_bytes(void)    { return reg_offset_in_bytes(xmethod); } // x31
-  static int tmp0_offset_in_bytes(void)       { return reg_offset_in_bytes(t0); } // x5
-  static int f0_offset_in_bytes(void)         { return 0; }
-  static int f10_offset_in_bytes(void)        { return 10 /* floats*/ * wordSize; }
-  static int return_offset_in_bytes(void)     { return return_off * BytesPerInt; }
+  int x0_offset_in_bytes(void) {
+    return f0_offset_in_bytes() +
+           FloatRegisterImpl::max_slots_per_register *
+           FloatRegisterImpl::number_of_registers *
+           BytesPerInt;
+  }
+
+  int reg_offset_in_bytes(Register r) {
+    assert (r->encoding() > 2, "ra and sp not saved");
+    return x0_offset_in_bytes() + (r->encoding() - 2 /* x1, x2*/) * wordSize;
+  }
+
+  int freg_offset_in_bytes(FloatRegister f) {
+    return f0_offset_in_bytes() + f->encoding() * wordSize;
+  }
+
+  int ra_offset_in_bytes(void) {
+    return x0_offset_in_bytes() +
+           (RegisterImpl::number_of_registers - 1) *
+           RegisterImpl::max_slots_per_register *
+           BytesPerInt;
+  }
 
   // During deoptimization only the result registers need to be restored,
   // all the other values have already been extracted.
-  static void restore_result_registers(MacroAssembler* masm);
-
-  // Capture info about frame layout
-  enum layout {
-    fpu_state_off = 0,
-    fpu_state_end = fpu_state_off + FPUStateSizeInWords - 1,
-    // The frame sender code expects that fp will be in
-    // the "natural" place and will override any oopMap
-    // setting for it. We must therefore force the layout
-    // so that it agrees with the frame sender code.
-    x0_off        = fpu_state_off + FPUStateSizeInWords,
-    fp_off        = x0_off + 30 * 2,
-    return_off    = fp_off + 2,      // slot for return address
-    reg_save_size = return_off + 2
-  };
+  void restore_result_registers(MacroAssembler* masm);
 };
 
 OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_frame_words, int* total_frame_words) {
+  int vector_size_in_bytes = 0;
+  int vector_size_in_slots = 0;
+#ifdef COMPILER2
+  if (_save_vectors) {
+    vector_size_in_bytes += Matcher::scalable_vector_reg_size(T_BYTE);
+    vector_size_in_slots += Matcher::scalable_vector_reg_size(T_INT);
+  }
+#endif
+
   assert_cond(masm != NULL && total_frame_words != NULL);
-  int frame_size_in_bytes = align_up(additional_frame_words * wordSize + reg_save_size * BytesPerInt, 16);
+  int frame_size_in_bytes = align_up(additional_frame_words * wordSize + ra_offset_in_bytes() + wordSize, 16);
   // OopMap frame size is in compiler stack slots (jint's) not bytes or words
   int frame_size_in_slots = frame_size_in_bytes / BytesPerInt;
   // The caller will allocate additional_frame_words
@@ -132,9 +156,9 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
   int frame_size_in_words = frame_size_in_bytes / wordSize;
   *total_frame_words = frame_size_in_words;
 
-  // Save Integer and Float registers.
+  // Save Integer, Float and Vector registers.
   __ enter();
-  __ push_CPU_state();
+  __ push_CPU_state(_save_vectors, vector_size_in_bytes);
 
   // Set an oopmap for the call site.  This oopmap will map all
   // oop-registers and debug-info registers as callee-saved.  This
@@ -145,20 +169,30 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
   OopMap* oop_map = new OopMap(frame_size_in_slots, 0);
   assert_cond(oop_maps != NULL && oop_map != NULL);
 
-  // ignore zr, ra and sp, being ignored also by push_CPU_state (pushing zr only for stack alignment)
-  for (int i = 3; i < RegisterImpl::number_of_registers; i++) {
-    Register r = as_Register(i);
-    if (r != xthread && r != t0 && r != t1) {
-      int sp_offset = 2 * ((i - 2) + 32); // SP offsets are in 4-byte words, register slots are 8 bytes
-                                          // wide, 32 floating-point registers
-      oop_map->set_callee_saved(VMRegImpl::stack2reg(sp_offset + additional_frame_slots), r->as_VMReg());
+  int sp_offset_in_slots = 0;
+  int step_in_slots = 0;
+  if (_save_vectors) {
+    step_in_slots = vector_size_in_slots;
+    for (int i = 0; i < VectorRegisterImpl::number_of_registers; i++, sp_offset_in_slots += step_in_slots) {
+      VectorRegister r = as_VectorRegister(i);
+      oop_map->set_callee_saved(VMRegImpl::stack2reg(sp_offset_in_slots), r->as_VMReg());
     }
   }
 
-  for (int i = 0; i < FloatRegisterImpl::number_of_registers; i++) {
+  step_in_slots = FloatRegisterImpl::max_slots_per_register;
+  for (int i = 0; i < FloatRegisterImpl::number_of_registers; i++, sp_offset_in_slots += step_in_slots) {
     FloatRegister r = as_FloatRegister(i);
-    int sp_offset = 2 * i;
-    oop_map->set_callee_saved(VMRegImpl::stack2reg(sp_offset), r->as_VMReg());
+    oop_map->set_callee_saved(VMRegImpl::stack2reg(sp_offset_in_slots), r->as_VMReg());
+  }
+
+  // ignore zr, ra and sp, being ignored also by push_CPU_state (pushing zr only for stack alignment)
+  sp_offset_in_slots += RegisterImpl::max_slots_per_register;
+  step_in_slots = RegisterImpl::max_slots_per_register;
+  for (int i = 3; i < RegisterImpl::number_of_registers; i++, sp_offset_in_slots += step_in_slots) {
+    Register r = as_Register(i);
+    if (r != xthread && r != t0 && r != t1) {
+      oop_map->set_callee_saved(VMRegImpl::stack2reg(sp_offset_in_slots + additional_frame_slots), r->as_VMReg());
+    }
   }
 
   return oop_map;
@@ -166,7 +200,11 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
 
 void RegisterSaver::restore_live_registers(MacroAssembler* masm) {
   assert_cond(masm != NULL);
-  __ pop_CPU_state();
+#ifdef COMPILER2
+  __ pop_CPU_state(_save_vectors, Matcher::scalable_vector_reg_size(T_BYTE));
+#else
+  __ pop_CPU_state(_save_vectors);
+#endif
   __ leave();
 }
 
@@ -178,12 +216,12 @@ void RegisterSaver::restore_result_registers(MacroAssembler* masm) {
   // restoration so only result registers need to be restored here.
   assert_cond(masm != NULL);
   // Restore fp result register
-  __ fld(f10, Address(sp, f10_offset_in_bytes()));
+  __ fld(f10, Address(sp, freg_offset_in_bytes(f10)));
   // Restore integer result register
-  __ ld(x10, Address(sp, x10_offset_in_bytes()));
+  __ ld(x10, Address(sp, reg_offset_in_bytes(x10)));
 
   // Pop all of the register save are off the stack
-  __ add(sp, sp, align_up(return_offset_in_bytes(), 16));
+  __ add(sp, sp, align_up(ra_offset_in_bytes(), 16));
 }
 
 // Is vector's size (in bytes) bigger than a size saved by default?
@@ -260,56 +298,54 @@ int SharedRuntime::java_calling_convention(const BasicType *sig_bt,
 
   for (int i = 0; i < total_args_passed; i++) {
     switch (sig_bt[i]) {
-    case T_BOOLEAN:
-    case T_CHAR:
-    case T_BYTE:
-    case T_SHORT:
-    case T_INT:
-      if (int_args < Argument::n_int_register_parameters_j) {
-        regs[i].set1(INT_ArgReg[int_args++]->as_VMReg());
-      } else {
-        regs[i].set1(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    case T_VOID:
-      // halves of T_LONG or T_DOUBLE
-      assert(i != 0 && (sig_bt[i - 1] == T_LONG || sig_bt[i - 1] == T_DOUBLE), "expecting half");
-      regs[i].set_bad();
-      break;
-    case T_LONG:
-      assert((i + 1) < total_args_passed && sig_bt[i + 1] == T_VOID, "expecting half");
-      // fall through
-    case T_OBJECT:
-    case T_ARRAY:
-    case T_ADDRESS:
-      if (int_args < Argument::n_int_register_parameters_j) {
-        regs[i].set2(INT_ArgReg[int_args++]->as_VMReg());
-      } else {
-        regs[i].set2(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    case T_FLOAT:
-      if (fp_args < Argument::n_float_register_parameters_j) {
-        regs[i].set1(FP_ArgReg[fp_args++]->as_VMReg());
-      } else {
-        regs[i].set1(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    case T_DOUBLE:
-      assert((i + 1) < total_args_passed && sig_bt[i + 1] == T_VOID, "expecting half");
-      if (fp_args < Argument::n_float_register_parameters_j) {
-        regs[i].set2(FP_ArgReg[fp_args++]->as_VMReg());
-      } else {
-        regs[i].set2(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    default:
-      ShouldNotReachHere();
-      break;
+      case T_BOOLEAN: // fall through
+      case T_CHAR:    // fall through
+      case T_BYTE:    // fall through
+      case T_SHORT:   // fall through
+      case T_INT:
+        if (int_args < Argument::n_int_register_parameters_j) {
+          regs[i].set1(INT_ArgReg[int_args++]->as_VMReg());
+        } else {
+          regs[i].set1(VMRegImpl::stack2reg(stk_args));
+          stk_args += 2;
+        }
+        break;
+      case T_VOID:
+        // halves of T_LONG or T_DOUBLE
+        assert(i != 0 && (sig_bt[i - 1] == T_LONG || sig_bt[i - 1] == T_DOUBLE), "expecting half");
+        regs[i].set_bad();
+        break;
+      case T_LONG:      // fall through
+        assert((i + 1) < total_args_passed && sig_bt[i + 1] == T_VOID, "expecting half");
+      case T_OBJECT:    // fall through
+      case T_ARRAY:     // fall through
+      case T_ADDRESS:
+        if (int_args < Argument::n_int_register_parameters_j) {
+          regs[i].set2(INT_ArgReg[int_args++]->as_VMReg());
+        } else {
+          regs[i].set2(VMRegImpl::stack2reg(stk_args));
+          stk_args += 2;
+        }
+        break;
+      case T_FLOAT:
+        if (fp_args < Argument::n_float_register_parameters_j) {
+          regs[i].set1(FP_ArgReg[fp_args++]->as_VMReg());
+        } else {
+          regs[i].set1(VMRegImpl::stack2reg(stk_args));
+          stk_args += 2;
+        }
+        break;
+      case T_DOUBLE:
+        assert((i + 1) < total_args_passed && sig_bt[i + 1] == T_VOID, "expecting half");
+        if (fp_args < Argument::n_float_register_parameters_j) {
+          regs[i].set2(FP_ArgReg[fp_args++]->as_VMReg());
+        } else {
+          regs[i].set2(VMRegImpl::stack2reg(stk_args));
+          stk_args += 2;
+        }
+        break;
+      default:
+        ShouldNotReachHere();
     }
   }
 
@@ -663,60 +699,58 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
 
   for (int i = 0; i < total_args_passed; i++) {
     switch (sig_bt[i]) {
-    case T_BOOLEAN:
-    case T_CHAR:
-    case T_BYTE:
-    case T_SHORT:
-    case T_INT:
-      if (int_args < Argument::n_int_register_parameters_c) {
-        regs[i].set1(INT_ArgReg[int_args++]->as_VMReg());
-      } else {
-        regs[i].set1(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    case T_LONG:
-      assert((i + 1) < total_args_passed && sig_bt[i + 1] == T_VOID, "expecting half");
-      // fall through
-    case T_OBJECT:
-    case T_ARRAY:
-    case T_ADDRESS:
-    case T_METADATA:
-      if (int_args < Argument::n_int_register_parameters_c) {
-        regs[i].set2(INT_ArgReg[int_args++]->as_VMReg());
-      } else {
-        regs[i].set2(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    case T_FLOAT:
-      if (fp_args < Argument::n_float_register_parameters_c) {
-        regs[i].set1(FP_ArgReg[fp_args++]->as_VMReg());
-      } else if (int_args < Argument::n_int_register_parameters_c) {
-        regs[i].set1(INT_ArgReg[int_args++]->as_VMReg());
-      } else {
-        regs[i].set1(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    case T_DOUBLE:
-      assert((i + 1) < total_args_passed && sig_bt[i + 1] == T_VOID, "expecting half");
-      if (fp_args < Argument::n_float_register_parameters_c) {
-        regs[i].set2(FP_ArgReg[fp_args++]->as_VMReg());
-      } else if (int_args < Argument::n_int_register_parameters_c) {
-        regs[i].set2(INT_ArgReg[int_args++]->as_VMReg());
-      } else {
-        regs[i].set2(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    case T_VOID: // Halves of longs and doubles
-      assert(i != 0 && (sig_bt[i - 1] == T_LONG || sig_bt[i - 1] == T_DOUBLE), "expecting half");
-      regs[i].set_bad();
-      break;
-    default:
-      ShouldNotReachHere();
-      break;
+      case T_BOOLEAN:  // fall through
+      case T_CHAR:     // fall through
+      case T_BYTE:     // fall through
+      case T_SHORT:    // fall through
+      case T_INT:
+        if (int_args < Argument::n_int_register_parameters_c) {
+          regs[i].set1(INT_ArgReg[int_args++]->as_VMReg());
+        } else {
+          regs[i].set1(VMRegImpl::stack2reg(stk_args));
+          stk_args += 2;
+        }
+        break;
+      case T_LONG:      // fall through
+        assert((i + 1) < total_args_passed && sig_bt[i + 1] == T_VOID, "expecting half");
+      case T_OBJECT:    // fall through
+      case T_ARRAY:     // fall through
+      case T_ADDRESS:   // fall through
+      case T_METADATA:
+        if (int_args < Argument::n_int_register_parameters_c) {
+          regs[i].set2(INT_ArgReg[int_args++]->as_VMReg());
+        } else {
+          regs[i].set2(VMRegImpl::stack2reg(stk_args));
+          stk_args += 2;
+        }
+        break;
+      case T_FLOAT:
+        if (fp_args < Argument::n_float_register_parameters_c) {
+          regs[i].set1(FP_ArgReg[fp_args++]->as_VMReg());
+        } else if (int_args < Argument::n_int_register_parameters_c) {
+          regs[i].set1(INT_ArgReg[int_args++]->as_VMReg());
+        } else {
+          regs[i].set1(VMRegImpl::stack2reg(stk_args));
+          stk_args += 2;
+        }
+        break;
+      case T_DOUBLE:
+        assert((i + 1) < total_args_passed && sig_bt[i + 1] == T_VOID, "expecting half");
+        if (fp_args < Argument::n_float_register_parameters_c) {
+          regs[i].set2(FP_ArgReg[fp_args++]->as_VMReg());
+        } else if (int_args < Argument::n_int_register_parameters_c) {
+          regs[i].set2(INT_ArgReg[int_args++]->as_VMReg());
+        } else {
+          regs[i].set2(VMRegImpl::stack2reg(stk_args));
+          stk_args += 2;
+        }
+        break;
+      case T_VOID: // Halves of longs and doubles
+        assert(i != 0 && (sig_bt[i - 1] == T_LONG || sig_bt[i - 1] == T_DOUBLE), "expecting half");
+        regs[i].set_bad();
+        break;
+      default:
+        ShouldNotReachHere();
     }
   }
 
@@ -724,7 +758,7 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
 }
 
 // On 64 bit we will store integer like items to the stack as
-// 64 bits items (sparc abi) even though java would only store
+// 64 bits items (riscv64 abi) even though java would only store
 // 32bits for a parameter. On 32bit it will simply be 32 bits
 // So this routine will do 32->32 on 32bit and 32->64 on 64bit
 static void move32_64(MacroAssembler* masm, VMRegPair src, VMRegPair dst) {
@@ -910,15 +944,15 @@ void SharedRuntime::save_native_result(MacroAssembler *masm, BasicType ret_type,
   // We always ignore the frame_slots arg and just use the space just below frame pointer
   // which by this time is free to use
   switch (ret_type) {
-  case T_FLOAT:
-    __ fsw(f10, Address(fp, -wordSize));
-    break;
-  case T_DOUBLE:
-    __ fsd(f10, Address(fp, -wordSize));
-    break;
-  case T_VOID:  break;
-  default: {
-    __ sd(x10, Address(fp, -wordSize));
+    case T_FLOAT:
+      __ fsw(f10, Address(fp, -wordSize));
+      break;
+    case T_DOUBLE:
+      __ fsd(f10, Address(fp, -wordSize));
+      break;
+    case T_VOID:  break;
+    default: {
+      __ sd(x10, Address(fp, -wordSize));
     }
   }
 }
@@ -928,15 +962,15 @@ void SharedRuntime::restore_native_result(MacroAssembler *masm, BasicType ret_ty
   // We always ignore the frame_slots arg and just use the space just below frame pointer
   // which by this time is free to use
   switch (ret_type) {
-  case T_FLOAT:
-    __ flw(f10, Address(fp, -wordSize));
-    break;
-  case T_DOUBLE:
-    __ fld(f10, Address(fp, -wordSize));
-    break;
-  case T_VOID:  break;
-  default: {
-    __ ld(x10, Address(fp, -wordSize));
+    case T_FLOAT:
+      __ flw(f10, Address(fp, -wordSize));
+      break;
+    case T_DOUBLE:
+      __ fld(f10, Address(fp, -wordSize));
+      break;
+    case T_VOID:  break;
+    default: {
+      __ ld(x10, Address(fp, -wordSize));
     }
   }
 }
@@ -2107,6 +2141,7 @@ void SharedRuntime::generate_deopt_blob() {
   OopMap* map = NULL;
   OopMapSet *oop_maps = new OopMapSet();
   assert_cond(masm != NULL && oop_maps != NULL);
+  RegisterSaver reg_saver(COMPILER2_OR_JVMCI != 0);
 
   // -------------
   // This code enters when returning to a de-optimized nmethod.  A return
@@ -2144,7 +2179,7 @@ void SharedRuntime::generate_deopt_blob() {
   // Prolog for non exception case!
 
   // Save everything in sight.
-  map = RegisterSaver::save_live_registers(masm, 0, &frame_size_in_words);
+  map = reg_saver.save_live_registers(masm, 0, &frame_size_in_words);
 
   // Normal deoptimization.  Save exec mode for unpack_frames.
   __ mvw(xcpool, Deoptimization::Unpack_deopt); // callee-saved
@@ -2156,7 +2191,7 @@ void SharedRuntime::generate_deopt_blob() {
   // return address is the pc describes what bci to do re-execute at
 
   // No need to update map as each call to save_live_registers will produce identical oopmap
-  (void) RegisterSaver::save_live_registers(masm, 0, &frame_size_in_words);
+  (void) reg_saver.save_live_registers(masm, 0, &frame_size_in_words);
 
   __ mvw(xcpool, Deoptimization::Unpack_reexecute); // callee-saved
   __ j(cont);
@@ -2193,7 +2228,7 @@ void SharedRuntime::generate_deopt_blob() {
   // This is a somewhat fragile mechanism.
 
   // Save everything in sight.
-  map = RegisterSaver::save_live_registers(masm, 0, &frame_size_in_words);
+  map = reg_saver.save_live_registers(masm, 0, &frame_size_in_words);
 
   // Now it is safe to overwrite any register
 
@@ -2269,14 +2304,14 @@ void SharedRuntime::generate_deopt_blob() {
   __ verify_oop(x10);
 
   // Overwrite the result registers with the exception results.
-  __ sd(x10, Address(sp, RegisterSaver::x10_offset_in_bytes()));
+  __ sd(x10, Address(sp, reg_saver.reg_offset_in_bytes(x10)));
 
   __ bind(noException);
 
   // Only register save data is on the stack.
   // Now restore the result registers.  Everything else is either dead
   // or captured in the vframeArray.
-  RegisterSaver::restore_result_registers(masm);
+  reg_saver.restore_result_registers(masm);
 
   // All of the register save area has been popped of the stack. Only the
   // return address remains.
@@ -2360,8 +2395,8 @@ void SharedRuntime::generate_deopt_blob() {
   __ sub(sp, sp, (frame_size_in_words - 2) * wordSize);
 
   // Restore frame locals after moving the frame
-  __ fsd(f10, Address(sp, RegisterSaver::f10_offset_in_bytes()));
-  __ sd(x10, Address(sp, RegisterSaver::x10_offset_in_bytes()));
+  __ fsd(f10, Address(sp, reg_saver.freg_offset_in_bytes(f10)));
+  __ sd(x10, Address(sp, reg_saver.reg_offset_in_bytes(x10)));
 
   // Call C code.  Need thread but NOT official VM entry
   // crud.  We cannot block on this call, no GC can happen.  Call should
@@ -2389,8 +2424,8 @@ void SharedRuntime::generate_deopt_blob() {
   __ reset_last_Java_frame(true);
 
   // Collect return values
-  __ fld(f10, Address(sp, RegisterSaver::f10_offset_in_bytes()));
-  __ ld(x10, Address(sp, RegisterSaver::x10_offset_in_bytes()));
+  __ fld(f10, Address(sp, reg_saver.freg_offset_in_bytes(f10)));
+  __ ld(x10, Address(sp, reg_saver.reg_offset_in_bytes(x10)));
 
   // Pop self-frame.
   __ leave();                           // Epilog
@@ -2627,9 +2662,10 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
   address call_pc = NULL;
   int frame_size_in_words = -1;
   bool cause_return = (poll_type == POLL_AT_RETURN);
+  RegisterSaver reg_saver(poll_type == POLL_AT_VECTOR_LOOP /* save_vectors */);
 
   // Save Integer and Float registers.
-  map = RegisterSaver::save_live_registers(masm, 0, &frame_size_in_words);
+  map = reg_saver.save_live_registers(masm, 0, &frame_size_in_words);
 
   // The following is basically a call_VM.  However, we need the precise
   // address of the call in order to generate an oopmap. Hence, we do all the
@@ -2676,7 +2712,7 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
 
   // Exception pending
 
-  RegisterSaver::restore_live_registers(masm);
+  reg_saver.restore_live_registers(masm);
 
   __ far_jump(RuntimeAddress(StubRoutines::forward_exception_entry()));
 
@@ -2711,8 +2747,8 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
 
   __ bind(no_adjust);
   // Normal exit, restore registers and exit.
-  RegisterSaver::restore_live_registers(masm);
 
+  reg_saver.restore_live_registers(masm);
   __ ret();
 
 #ifdef ASSERT
@@ -2746,6 +2782,7 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
   assert_cond(masm != NULL);
 
   int frame_size_in_words = -1;
+  RegisterSaver reg_saver(false /* save_vectors */);
 
   OopMapSet *oop_maps = new OopMapSet();
   assert_cond(oop_maps != NULL);
@@ -2753,7 +2790,7 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
 
   int start = __ offset();
 
-  map = RegisterSaver::save_live_registers(masm, 0, &frame_size_in_words);
+  map = reg_saver.save_live_registers(masm, 0, &frame_size_in_words);
 
   int frame_complete = __ offset();
 
@@ -2787,11 +2824,11 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
 
   // get the returned Method*
   __ get_vm_result_2(xmethod, xthread);
-  __ sd(xmethod, Address(sp, RegisterSaver::reg_offset_in_bytes(xmethod)));
+  __ sd(xmethod, Address(sp, reg_saver.reg_offset_in_bytes(xmethod)));
 
   // x10 is where we want to jump, overwrite t0 which is saved and temporary
-  __ sd(x10, Address(sp, RegisterSaver::tmp0_offset_in_bytes()));
-  RegisterSaver::restore_live_registers(masm);
+  __ sd(x10, Address(sp, reg_saver.reg_offset_in_bytes(t0)));
+  reg_saver.restore_live_registers(masm);
 
   // We are back the the original state on entry and ready to go.
 
@@ -2801,7 +2838,7 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
 
   __ bind(pending);
 
-  RegisterSaver::restore_live_registers(masm);
+  reg_saver.restore_live_registers(masm);
 
   // exception pending => remove activation and forward to exception handler
 
