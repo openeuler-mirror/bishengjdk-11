@@ -698,6 +698,9 @@ class MacroAssembler: public Assembler {
   void string_compare(Register str1, Register str2,
                       Register cnt1, Register cnt2, Register result,
                       Register tmp1, Register tmp2, Register tmp3, int ae);
+  void string_indexof_char_short(Register str1, Register cnt1,
+                                 Register ch, Register result,
+                                 bool isL);
   void string_indexof_char(Register str1, Register cnt1,
                            Register ch, Register result,
                            Register tmp1, Register tmp2,
@@ -714,7 +717,7 @@ class MacroAssembler: public Assembler {
                                  Register tmp1, Register tmp2,
                                  Register tmp3, Register tmp4,
                                  int needle_con_cnt, Register result, int ae);
-  void compute_index(Register str1, Register tailing_zero, Register match_mask,
+  void compute_index(Register str1, Register trailing_zero, Register match_mask,
                      Register result, Register char_tmp, Register tmp,
                      bool haystack_isL);
   void compute_match_mask(Register src, Register pattern, Register match_mask,
