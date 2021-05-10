@@ -698,6 +698,11 @@ class MacroAssembler: public Assembler {
   void string_compare(Register str1, Register str2,
                       Register cnt1, Register cnt2, Register result,
                       Register tmp1, Register tmp2, Register tmp3, int ae);
+  void string_indexof_char(Register str1, Register cnt1,
+                           Register ch, Register result,
+                           Register tmp1, Register tmp2,
+                           Register tmp3, Register tmp4,
+                           bool isL);
   void string_indexof(Register str1, Register str2,
                       Register cnt1, Register cnt2,
                       Register tmp1, Register tmp2,

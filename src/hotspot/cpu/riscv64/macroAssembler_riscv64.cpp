@@ -3659,6 +3659,87 @@ void MacroAssembler::string_compare(Register str1, Register str2,
   BLOCK_COMMENT("} string_compare");
 }
 
+// StringUTF16.indexOfChar
+// StringLatin1.indexOfChar
+void MacroAssembler::string_indexof_char(Register str1, Register cnt1,
+                                         Register ch, Register result,
+                                         Register tmp1, Register tmp2,
+                                         Register tmp3, Register tmp4,
+                                         bool isL)
+{
+  Label CH1_LOOP, HAS_ZERO, DO1_SHORT, DO1_LOOP, MATCH, NOMATCH, DONE;
+  Register cnt1_neg = cnt1;
+  Register ch1 = t0;
+  Register result_tmp = t1;
+  Register mask1 = tmp3;
+  Register mask2 = tmp2;
+  Register match_mask = tmp1;
+  Register tailing_zero = tmp4;
+
+  BLOCK_COMMENT("string_indexof_char {");
+  beqz(cnt1, NOMATCH);
+
+  addi(t0, cnt1, isL ? -8 : -4);
+  bltz(t0, DO1_SHORT);
+
+  if (isL) {
+    slli(ch1, ch, 8);
+    orr(ch, ch1, ch);
+  }
+  slli(ch1, ch, 16);
+  orr(ch, ch1, ch);
+  slli(ch1, ch, 32);
+  orr(ch, ch1, ch);
+
+  addi(cnt1, cnt1, isL ? -8 : -4);
+  mv(result_tmp, cnt1);
+  if (!isL) slli(cnt1, cnt1, 1);
+  add(str1, str1, cnt1);
+  neg(cnt1_neg, cnt1);
+
+  mv(mask1, isL ? 0x0101010101010101 : 0x0001000100010001);
+  mv(mask2, isL ? 0x7f7f7f7f7f7f7f7f : 0x7fff7fff7fff7fff);
+
+  bind(CH1_LOOP);
+  add(ch1, str1, cnt1_neg);
+  ld(ch1, Address(ch1));
+  compute_match_mask(ch1, ch, match_mask, mask1, mask2);
+  bnez(match_mask, HAS_ZERO);
+  addi(cnt1_neg, cnt1_neg, 8);
+  bltz(cnt1_neg, CH1_LOOP);
+
+  addi(ch1, cnt1_neg, -8);
+  mv(cnt1_neg, 0);
+  bltz(ch1, CH1_LOOP);
+  j(NOMATCH);
+
+  bind(HAS_ZERO);
+  ctz_bit(tailing_zero, match_mask, ch1, result);
+  srli(tailing_zero, tailing_zero, 3);
+  add(cnt1_neg, cnt1_neg, tailing_zero);
+  j(MATCH);
+
+  bind(DO1_SHORT);
+  mv(result_tmp, cnt1);
+  if (!isL) slli(cnt1_neg, cnt1, 1);
+  add(str1, str1, cnt1_neg);
+  neg(cnt1_neg, cnt1_neg);
+  bind(DO1_LOOP);
+  add(ch1, str1, cnt1_neg);
+  isL ? lbu(ch1, Address(ch1)) : lhu(ch1, Address(ch1));
+  beq(ch, ch1, MATCH);
+  addi(cnt1_neg, cnt1_neg, isL ? 1 : 2);
+  bltz(cnt1_neg, DO1_LOOP);
+  bind(NOMATCH);
+  mv(result, -1);
+  j(DONE);
+  bind(MATCH);
+  if (!isL) srai(cnt1_neg, cnt1_neg, 1);
+  add(result, result_tmp, cnt1_neg);
+  bind(DONE);
+  BLOCK_COMMENT("} string_indexof_char");
+}
+
 // Search for needle in haystack and return index or -1
 // x10: result
 // x11: haystack
