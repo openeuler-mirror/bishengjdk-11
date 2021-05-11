@@ -2956,7 +2956,7 @@ void MacroAssembler::load_byte_map_base(Register reg) {
 void MacroAssembler::la_patchable(Register reg1, const Address &dest, int32_t &offset) {
   relocInfo::relocType rtype = dest.rspec().reloc()->type();
   unsigned long low_address = (uintptr_t)CodeCache::low_bound();
-  unsigned long high_address = (uintptr_t)CodeCache::high_bound() - 1;
+  unsigned long high_address = (uintptr_t)CodeCache::high_bound();
   unsigned long dest_address = (uintptr_t)dest.target();
   long offset_low = dest_address - low_address;
   long offset_high = dest_address - high_address;
@@ -2969,8 +2969,8 @@ void MacroAssembler::la_patchable(Register reg1, const Address &dest, int32_t &o
   // RISC-V doesn't compute a page-aligned address, in order to partially
   // compensate for the use of *signed* offsets in its base+disp12
   // addressing mode (RISC-V's PC-relative reach remains asymmetric
-  // +(2 GB - 2k - 1) to -(2 GB + 2k)).
-  if (offset_high >= -((1l << 31)) && offset_low < (1l << 31) + (1l << 12) - 1) {
+  // [-(2G + 2K), 2G - 2K)).
+  if (offset_high >= -((1L << 31) + (1L << 11)) && offset_low < (1L << 31) - (1L << 11)) {
     int64_t distance = dest.target() - pc();
     auipc(reg1, (int32_t)distance + 0x800);
     offset = ((int32_t)distance << 20) >> 20;
