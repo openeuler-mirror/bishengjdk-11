@@ -590,17 +590,9 @@
 #ifdef RISCV64
 #define RISCV64_ONLY(code) code
 #define NOT_RISCV64(code)
-#define NO_FLAG_REG
-#define NO_FLAGREG_ONLY(code) code
-#define HAS_FLAGREG_ONLY(code)
-#define NO_FLAGREG_ONLY_ARG(arg) arg,
 #else
 #define RISCV64_ONLY(code)
 #define NOT_RISCV64(code) code
-#define HAS_FLAG_REG
-#define NO_FLAGREG_ONLY(code)
-#define HAS_FLAGREG_ONLY(code) code
-#define NO_FLAGREG_ONLY_ARG(arg)
 #endif
 
 #ifdef VM_LITTLE_ENDIAN

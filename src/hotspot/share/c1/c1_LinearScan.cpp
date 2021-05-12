@@ -1241,7 +1241,7 @@ void LinearScan::add_register_hints(LIR_Op* op) {
       break;
     }
     case lir_cmove: {
-#ifndef NO_FLAG_REG
+#ifndef RISCV64
       assert(op->as_Op2() != NULL, "lir_cmove must be LIR_Op2");
       LIR_Op2* cmove = (LIR_Op2*)op;
 
@@ -6054,7 +6054,7 @@ void EdgeMoveOptimizer::optimize_moves_at_block_begin(BlockBegin* block) {
       }
     }
 
-#ifdef NO_FLAG_REG
+#ifdef RISCV64
     // Some platforms, such as riscv64, s390 and aarch64, the branch instruction may contain register operands.
     // If the move instruction would change the branch instruction's operand after the optimization, we can't apply it.
     if (branch->as_Op2() != NULL) {
@@ -6271,7 +6271,7 @@ void ControlFlowOptimizer::delete_unnecessary_jumps(BlockList* code) {
 
             if (prev_branch->stub() == NULL) {
 
-#ifndef NO_FLAG_REG
+#ifndef RISCV64
               LIR_Op2* prev_cmp = NULL;
               // There might be a cmove inserted for profiling which depends on the same
               // compare. If we change the condition of the respective compare, we have
@@ -6302,11 +6302,11 @@ void ControlFlowOptimizer::delete_unnecessary_jumps(BlockList* code) {
                 // eliminate a conditional branch to the immediate successor
                 prev_branch->change_block(last_branch->block());
                 prev_branch->negate_cond();
-#ifndef NO_FLAG_REG
+#ifndef RISCV64
                 prev_cmp->set_condition(prev_branch->cond());
 #endif
                 instructions->trunc_to(instructions->length() - 1);
-#ifndef NO_FLAG_REG
+#ifndef RISCV64
                 // if we do change the condition, we have to change the cmove as well
                 if (prev_cmove != NULL) {
                   prev_cmove->set_condition(prev_branch->cond());
@@ -6621,7 +6621,7 @@ void LinearScanStatistic::collect(LinearScan* allocator) {
           break;
         }
 
-#ifndef NO_FLAG_REG
+#ifndef RISCV64
         case lir_cmp:             inc_counter(counter_cmp); break;
 #endif
 
