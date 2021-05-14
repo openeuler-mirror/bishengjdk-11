@@ -3659,108 +3659,6 @@ void MacroAssembler::string_compare(Register str1, Register str2,
   BLOCK_COMMENT("} string_compare");
 }
 
-// short string
-// StringUTF16.indexOfChar
-// StringLatin1.indexOfChar
-void MacroAssembler::string_indexof_char_short(Register str1, Register cnt1,
-                                               Register ch, Register result,
-                                               bool isL)
-{
-  Register ch1 = t0;
-  Register index = t1;
-
-  BLOCK_COMMENT("string_indexof_char_short {");
-
-  Label LOOP, LOOP1, LOOP4, LOOP8;
-  Label MATCH,  MATCH1, MATCH2, MATCH3,
-        MATCH4, MATCH5, MATCH6, MATCH7, NOMATCH;
-
-  mv(result, -1);
-  mv(index, zr);
-
-  bind(LOOP);
-  addi(t0, index, 8);
-  ble(t0, cnt1, LOOP8);
-  addi(t0, index, 4);
-  ble(t0, cnt1, LOOP4);
-  j(LOOP1);
-
-  bind(LOOP8);
-  isL ? lbu(ch1, Address(str1, 0)) : lhu(ch1, Address(str1, 0));
-  beq(ch, ch1, MATCH);
-  isL ? lbu(ch1, Address(str1, 1)) : lhu(ch1, Address(str1, 2));
-  beq(ch, ch1, MATCH1);
-  isL ? lbu(ch1, Address(str1, 2)) : lhu(ch1, Address(str1, 4));
-  beq(ch, ch1, MATCH2);
-  isL ? lbu(ch1, Address(str1, 3)) : lhu(ch1, Address(str1, 6));
-  beq(ch, ch1, MATCH3);
-  isL ? lbu(ch1, Address(str1, 4)) : lhu(ch1, Address(str1, 8));
-  beq(ch, ch1, MATCH4);
-  isL ? lbu(ch1, Address(str1, 5)) : lhu(ch1, Address(str1, 10));
-  beq(ch, ch1, MATCH5);
-  isL ? lbu(ch1, Address(str1, 6)) : lhu(ch1, Address(str1, 12));
-  beq(ch, ch1, MATCH6);
-  isL ? lbu(ch1, Address(str1, 7)) : lhu(ch1, Address(str1, 14));
-  beq(ch, ch1, MATCH7);
-  addi(index, index, 8);
-  addi(str1, str1, isL ? 8 : 16);
-  blt(index, cnt1, LOOP);
-  j(NOMATCH);
-
-  bind(LOOP4);
-  isL ? lbu(ch1, Address(str1, 0)) : lhu(ch1, Address(str1, 0));
-  beq(ch, ch1, MATCH);
-  isL ? lbu(ch1, Address(str1, 1)) : lhu(ch1, Address(str1, 2));
-  beq(ch, ch1, MATCH1);
-  isL ? lbu(ch1, Address(str1, 2)) : lhu(ch1, Address(str1, 4));
-  beq(ch, ch1, MATCH2);
-  isL ? lbu(ch1, Address(str1, 3)) : lhu(ch1, Address(str1, 6));
-  beq(ch, ch1, MATCH3);
-  addi(index, index, 4);
-  addi(str1, str1, isL ? 4 : 8);
-  bge(index, cnt1, NOMATCH);
-
-  bind(LOOP1);
-  isL ? lbu(ch1, Address(str1)) : lhu(ch1, Address(str1));
-  beq(ch, ch1, MATCH);
-  addi(index, index, 1);
-  addi(str1, str1, isL ? 1 : 2);
-  blt(index, cnt1, LOOP1);
-  j(NOMATCH);
-
-  bind(MATCH1);
-  addi(index, index, 1);
-  j(MATCH);
-
-  bind(MATCH2);
-  addi(index, index, 2);
-  j(MATCH);
-
-  bind(MATCH3);
-  addi(index, index, 3);
-  j(MATCH);
-
-  bind(MATCH4);
-  addi(index, index, 4);
-  j(MATCH);
-
-  bind(MATCH5);
-  addi(index, index, 5);
-  j(MATCH);
-
-  bind(MATCH6);
-  addi(index, index, 6);
-  j(MATCH);
-
-  bind(MATCH7);
-  addi(index, index, 7);
-
-  bind(MATCH);
-  mv(result, index);
-  bind(NOMATCH);
-  BLOCK_COMMENT("} string_indexof_char_short");
-}
-
 // StringUTF16.indexOfChar
 // StringLatin1.indexOfChar
 void MacroAssembler::string_indexof_char(Register str1, Register cnt1,
@@ -3769,25 +3667,21 @@ void MacroAssembler::string_indexof_char(Register str1, Register cnt1,
                                          Register tmp3, Register tmp4,
                                          bool isL)
 {
-  Label CH1_LOOP, HAS_ZERO, NOMATCH, DONE, DO_LONG;
+  Label CH1_LOOP, HAS_ZERO, DO1_SHORT, DO1_LOOP, MATCH, NOMATCH, DONE;
   Register cnt1_neg = cnt1;
   Register ch1 = t0;
   Register result_tmp = t1;
   Register mask1 = tmp3;
   Register mask2 = tmp2;
   Register match_mask = tmp1;
-  Register trailing_zero = tmp4;
-  Register align_bytes = tmp4;
+  Register tailing_zero = tmp4;
 
   BLOCK_COMMENT("string_indexof_char {");
   beqz(cnt1, NOMATCH);
 
-  addi(t0, cnt1, isL ? -32 : -16);
-  bgtz(t0, DO_LONG);
-  string_indexof_char_short(str1, cnt1, ch, result, isL);
-  j(DONE);
+  addi(t0, cnt1, isL ? -8 : -4);
+  bltz(t0, DO1_SHORT);
 
-  bind(DO_LONG);
   if (isL) {
     slli(ch1, ch, 8);
     orr(ch, ch1, ch);
@@ -3797,25 +3691,8 @@ void MacroAssembler::string_indexof_char(Register str1, Register cnt1,
   slli(ch1, ch, 32);
   orr(ch, ch1, ch);
 
-  // result_tmp keeps original search length of str1
+  addi(cnt1, cnt1, isL ? -8 : -4);
   mv(result_tmp, cnt1);
-  if (AvoidUnalignedAccesses) {
-    // we load wordSize-aligned address from str1
-    // if str1 is not aligned, we should:
-    //  1. move the pointer of str1 to aligned address
-    //  2. add cnt1 (size of unaligned bytes)
-    // if the match index < 0, the index is less than fromIndex, should keep searching
-    // if the match index >= result_tmp, the index is greater than string length, should set as no match
-    Label ALIGNED;
-    andi(align_bytes, str1, 0x7);
-    beqz(align_bytes, ALIGNED);
-    // unaligned
-    sub(str1, str1, align_bytes);
-    if (!isL) srli(align_bytes, align_bytes, 1);
-    add(cnt1, cnt1, align_bytes);
-    bind(ALIGNED);
-  }
-
   if (!isL) slli(cnt1, cnt1, 1);
   add(str1, str1, cnt1);
   neg(cnt1_neg, cnt1);
@@ -3826,38 +3703,39 @@ void MacroAssembler::string_indexof_char(Register str1, Register cnt1,
   bind(CH1_LOOP);
   add(ch1, str1, cnt1_neg);
   ld(ch1, Address(ch1));
-  addi(cnt1_neg, cnt1_neg, 8);
   compute_match_mask(ch1, ch, match_mask, mask1, mask2);
   bnez(match_mask, HAS_ZERO);
+  addi(cnt1_neg, cnt1_neg, 8);
   bltz(cnt1_neg, CH1_LOOP);
+
+  addi(ch1, cnt1_neg, -8);
+  mv(cnt1_neg, 0);
+  bltz(ch1, CH1_LOOP);
   j(NOMATCH);
 
   bind(HAS_ZERO);
-  ctz_bit(trailing_zero, match_mask, ch1, result);
-  srli(trailing_zero, trailing_zero, 3);
-  add(result, cnt1_neg, trailing_zero);
-  // match case
-  if (!isL) srai(result, result, 1);
-  addi(result, result, isL ? -8 : -4);
-  add(result, result_tmp, result);
-  if (AvoidUnalignedAccesses) {
-    Label CHECK_OUTOFBOUND;
-    bgez(result, CHECK_OUTOFBOUND);
-    // if match index < fromIndex, two options:
-    //   1. check if other match index exists, if exists, back to HAS_ZERO
-    //   2. continue to CH1_LOOP
-    addi(ch1, match_mask, -1); // ch1 is used as tmp register here
-    andr(match_mask, match_mask, ch1);
-    bnez(match_mask, HAS_ZERO);
-    j(CH1_LOOP);
-    bind(CHECK_OUTOFBOUND);
-  }
-  bge(result, result_tmp, NOMATCH); // if match index >= string size, match index is out of string
-  j(DONE);
+  ctz_bit(tailing_zero, match_mask, ch1, result);
+  srli(tailing_zero, tailing_zero, 3);
+  add(cnt1_neg, cnt1_neg, tailing_zero);
+  j(MATCH);
 
+  bind(DO1_SHORT);
+  mv(result_tmp, cnt1);
+  if (!isL) slli(cnt1_neg, cnt1, 1);
+  add(str1, str1, cnt1_neg);
+  neg(cnt1_neg, cnt1_neg);
+  bind(DO1_LOOP);
+  add(ch1, str1, cnt1_neg);
+  isL ? lbu(ch1, Address(ch1)) : lhu(ch1, Address(ch1));
+  beq(ch, ch1, MATCH);
+  addi(cnt1_neg, cnt1_neg, isL ? 1 : 2);
+  bltz(cnt1_neg, DO1_LOOP);
   bind(NOMATCH);
   mv(result, -1);
-
+  j(DONE);
+  bind(MATCH);
+  if (!isL) srai(cnt1_neg, cnt1_neg, 1);
+  add(result, result_tmp, cnt1_neg);
   bind(DONE);
   BLOCK_COMMENT("} string_indexof_char");
 }
@@ -4396,16 +4274,16 @@ void MacroAssembler::string_indexof_linearscan(Register haystack, Register needl
 }
 
 // string indexof
-// compute index by trailing zeros
-void MacroAssembler::compute_index(Register haystack, Register trailing_zero,
+// compute index by tailing zeros
+void MacroAssembler::compute_index(Register haystack, Register tailing_zero,
                                    Register match_mask, Register result,
                                    Register ch2, Register tmp,
                                    bool haystack_isL)
 {
   int haystack_chr_shift = haystack_isL ? 0 : 1;
-  srl(match_mask, match_mask, trailing_zero);
+  srl(match_mask, match_mask, tailing_zero);
   srli(match_mask, match_mask, 1);
-  srli(tmp, trailing_zero, LogBitsPerByte);
+  srli(tmp, tailing_zero, LogBitsPerByte);
   if (!haystack_isL) andi(tmp, tmp, 0xE);
   add(haystack, haystack, tmp);
   ld(ch2, Address(haystack));

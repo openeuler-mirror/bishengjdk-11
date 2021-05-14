@@ -2455,7 +2455,7 @@ class StubGenerator: public StubCodeGenerator {
     // parameters
     Register result = x10, haystack = x11, haystack_len = x12, needle = x13, needle_len = x14;
     // temporary registers
-    Register mask1 = x20, match_mask = x21, first = x22, trailing_zero = x23, mask2 = x24, tmp = x25;
+    Register mask1 = x20, match_mask = x21, first = x22, tailing_zero = x23, mask2 = x24, tmp = x25;
     RegSet spilled_regs = RegSet::range(x20, x25);
     // redefinitions
     Register ch1 = t0, ch2 = t1;
@@ -2486,7 +2486,7 @@ class StubGenerator: public StubCodeGenerator {
     __ blez(haystack_len, L_SMALL);
 
     if (needle_isL != haystack_isL) {
-      __ inflate_lo32(ch1, tmp, match_mask, trailing_zero);
+      __ inflate_lo32(ch1, tmp, match_mask, tailing_zero);
     }
     // xorr, sub, orr, notr, andr
     // compare and set match_mask[i] with 0x80/0x8000 (Latin1/UTF16) if ch2[i] == first[i]
@@ -2523,7 +2523,7 @@ class StubGenerator: public StubCodeGenerator {
     __ xorr(ch2, first, ch2);
     __ sub(match_mask, ch2, mask1);
     __ orr(ch2, ch2, mask2);
-    __ mv(trailing_zero, -1); // all bits set
+    __ mv(tailing_zero, -1); // all bits set
     __ j(L_SMALL_PROCEED);
 
     __ align(OptoLoopAlignment);
@@ -2531,42 +2531,42 @@ class StubGenerator: public StubCodeGenerator {
     __ slli(haystack_len, haystack_len, LogBitsPerByte + haystack_chr_shift);
     __ neg(haystack_len, haystack_len);
     if (needle_isL != haystack_isL) {
-      __ inflate_lo32(ch1, tmp, match_mask, trailing_zero);
+      __ inflate_lo32(ch1, tmp, match_mask, tailing_zero);
     }
     __ xorr(ch2, first, ch2);
     __ sub(match_mask, ch2, mask1);
     __ orr(ch2, ch2, mask2);
-    __ mv(trailing_zero, -1); // all bits set
+    __ mv(tailing_zero, -1); // all bits set
 
     __ bind(L_SMALL_PROCEED);
-    __ srl(trailing_zero, trailing_zero, haystack_len); // mask. zeroes on useless bits.
+    __ srl(tailing_zero, tailing_zero, haystack_len); // mask. zeroes on useless bits.
     __ notr(ch2, ch2);
     __ andr(match_mask, match_mask, ch2);
-    __ andr(ch2, match_mask, trailing_zero); // clear useless bits and check
+    __ andr(ch2, match_mask, tailing_zero); // clear useless bits and check
     __ beqz(ch2, NOMATCH);
 
     __ bind(L_SMALL_HAS_ZERO_LOOP);
-    __ ctz_bit(trailing_zero, match_mask, ch2, tmp); // count trailing zeros
+    __ ctz_bit(tailing_zero, match_mask, ch2, tmp); // count tailing zeros
     __ mv(ch2, wordSize / haystack_chr_size);
     __ ble(needle_len, ch2, L_SMALL_CMP_LOOP_LAST_CMP2);
-    __ compute_index(haystack, trailing_zero, match_mask, result, ch2, tmp, haystack_isL);
-    __ mv(trailing_zero, wordSize / haystack_chr_size);
+    __ compute_index(haystack, tailing_zero, match_mask, result, ch2, tmp, haystack_isL);
+    __ mv(tailing_zero, wordSize / haystack_chr_size);
     __ bne(ch1, ch2, L_SMALL_CMP_LOOP_NOMATCH);
 
     __ bind(L_SMALL_CMP_LOOP);
-    __ slli(first, trailing_zero, needle_chr_shift);
+    __ slli(first, tailing_zero, needle_chr_shift);
     __ add(first, needle, first);
-    __ slli(ch2, trailing_zero, haystack_chr_shift);
+    __ slli(ch2, tailing_zero, haystack_chr_shift);
     __ add(ch2, haystack, ch2);
     needle_isL ? __ lbu(first, Address(first)) : __ lhu(first, Address(first));
     haystack_isL ? __ lbu(ch2, Address(ch2)) : __ lhu(ch2, Address(ch2));
-    __ add(trailing_zero, trailing_zero, 1);
-    __ bge(trailing_zero, needle_len, L_SMALL_CMP_LOOP_LAST_CMP);
+    __ add(tailing_zero, tailing_zero, 1);
+    __ bge(tailing_zero, needle_len, L_SMALL_CMP_LOOP_LAST_CMP);
     __ beq(first, ch2, L_SMALL_CMP_LOOP);
 
     __ bind(L_SMALL_CMP_LOOP_NOMATCH);
     __ beqz(match_mask, NOMATCH);
-    __ ctz_bit(trailing_zero, match_mask, tmp, ch2);
+    __ ctz_bit(tailing_zero, match_mask, tmp, ch2);
     __ add(result, result, 1);
     __ add(haystack, haystack, haystack_chr_size);
     __ j(L_SMALL_HAS_ZERO_LOOP);
@@ -2578,13 +2578,13 @@ class StubGenerator: public StubCodeGenerator {
 
     __ align(OptoLoopAlignment);
     __ bind(L_SMALL_CMP_LOOP_LAST_CMP2);
-    __ compute_index(haystack, trailing_zero, match_mask, result, ch2, tmp, haystack_isL);
+    __ compute_index(haystack, tailing_zero, match_mask, result, ch2, tmp, haystack_isL);
     __ bne(ch1, ch2, L_SMALL_CMP_LOOP_NOMATCH);
     __ j(DONE);
 
     __ align(OptoLoopAlignment);
     __ bind(L_HAS_ZERO);
-    __ ctz_bit(trailing_zero, match_mask, tmp, ch2);
+    __ ctz_bit(tailing_zero, match_mask, tmp, ch2);
     __ slli(needle_len, needle_len, BitsPerByte * wordSize / 2);
     __ orr(haystack_len, haystack_len, needle_len); // restore needle_len(32bits)
     __ sub(result, result, 1); // array index from 0, so result -= 1
@@ -2594,27 +2594,27 @@ class StubGenerator: public StubCodeGenerator {
     __ srli(ch2, haystack_len, BitsPerByte * wordSize / 2);
     __ bge(needle_len, ch2, L_CMP_LOOP_LAST_CMP2);
     // load next 8 bytes from haystack, and increase result index
-    __ compute_index(haystack, trailing_zero, match_mask, result, ch2, tmp, haystack_isL);
+    __ compute_index(haystack, tailing_zero, match_mask, result, ch2, tmp, haystack_isL);
     __ add(result, result, 1);
-    __ mv(trailing_zero, wordSize / haystack_chr_size);
+    __ mv(tailing_zero, wordSize / haystack_chr_size);
     __ bne(ch1, ch2, L_CMP_LOOP_NOMATCH);
 
     // compare one char
     __ bind(L_CMP_LOOP);
-    __ slli(needle_len, trailing_zero, needle_chr_shift);
+    __ slli(needle_len, tailing_zero, needle_chr_shift);
     __ add(needle_len, needle, needle_len);
     needle_isL ? __ lbu(needle_len, Address(needle_len)) : __ lhu(needle_len, Address(needle_len));
-    __ slli(ch2, trailing_zero, haystack_chr_shift);
+    __ slli(ch2, tailing_zero, haystack_chr_shift);
     __ add(ch2, haystack, ch2);
     haystack_isL ? __ lbu(ch2, Address(ch2)) : __ lhu(ch2, Address(ch2));
-    __ add(trailing_zero, trailing_zero, 1); // next char index
+    __ add(tailing_zero, tailing_zero, 1); // next char index
     __ srli(tmp, haystack_len, BitsPerByte * wordSize / 2);
-    __ bge(trailing_zero, tmp, L_CMP_LOOP_LAST_CMP);
+    __ bge(tailing_zero, tmp, L_CMP_LOOP_LAST_CMP);
     __ beq(needle_len, ch2, L_CMP_LOOP);
 
     __ bind(L_CMP_LOOP_NOMATCH);
     __ beqz(match_mask, L_HAS_ZERO_LOOP_NOMATCH);
-    __ ctz_bit(trailing_zero, match_mask, needle_len, ch2); // find next "first" char index
+    __ ctz_bit(tailing_zero, match_mask, needle_len, ch2); // find next "first" char index
     __ add(haystack, haystack, haystack_chr_size);
     __ j(L_HAS_ZERO_LOOP);
 
@@ -2625,7 +2625,7 @@ class StubGenerator: public StubCodeGenerator {
 
     __ align(OptoLoopAlignment);
     __ bind(L_CMP_LOOP_LAST_CMP2);
-    __ compute_index(haystack, trailing_zero, match_mask, result, ch2, tmp, haystack_isL);
+    __ compute_index(haystack, tailing_zero, match_mask, result, ch2, tmp, haystack_isL);
     __ add(result, result, 1);
     __ bne(ch1, ch2, L_CMP_LOOP_NOMATCH);
     __ j(DONE);
