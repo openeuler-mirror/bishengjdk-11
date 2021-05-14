@@ -129,11 +129,6 @@ void VM_Version::get_processor_features() {
     warning("CRC32CIntrinsics instructions are not avaliable on this CPU.");
     FLAG_SET_DEFAULT(UseCRC32CIntrinsics, false);
   }
-
-  if (FLAG_IS_DEFAULT(AvoidUnalignedAccesses)) {
-    FLAG_SET_DEFAULT(AvoidUnalignedAccesses, true);
-  }
-  
 #ifdef COMPILER2
   get_c2_processor_features();
 #endif // COMPILER2
