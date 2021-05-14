@@ -191,7 +191,7 @@ public:
   static inline uint32_t extract(uint32_t val, int msb, int lsb) {
     int nbits = msb - lsb + 1;
     assert_cond(msb >= lsb);
-    uint32_t mask = (1U << nbits) - 1;
+    uint32_t mask = checked_cast<uint32_t>(right_n_bits(nbits));
     uint32_t result = val >> lsb;
     result &= mask;
     return result;
@@ -206,7 +206,7 @@ public:
     int nbits = msb - lsb + 1;
     guarantee(val < (1U << nbits), "Field too big for insn");
     assert_cond(msb >= lsb);
-    unsigned mask = (1U << nbits) - 1;
+    unsigned mask = checked_cast<unsigned>(right_n_bits(nbits));
     val <<= lsb;
     mask <<= lsb;
     unsigned target = *(unsigned *)a;
@@ -220,7 +220,7 @@ public:
     long chk = val >> (nbits - 1);
     guarantee (chk == -1 || chk == 0, "Field too big for insn");
     unsigned uval = val;
-    unsigned mask = (1U << nbits) - 1;
+    unsigned mask = checked_cast<unsigned>(right_n_bits(nbits));
     uval &= mask;
     uval <<= lsb;
     mask <<= lsb;
@@ -232,9 +232,9 @@ public:
 
   void f(unsigned val, int msb, int lsb) {
     int nbits = msb - lsb + 1;
-    guarantee(val < (1U << nbits), "Field too big for insn");
+    guarantee(val < (1ULL << nbits), "Field too big for insn");
     assert_cond(msb >= lsb);
-    unsigned mask = (1U << nbits) - 1;
+    unsigned mask = checked_cast<unsigned>(right_n_bits(nbits));
     val <<= lsb;
     mask <<= lsb;
     insn |= val;
@@ -253,7 +253,7 @@ public:
     long chk = val >> (nbits - 1);
     guarantee (chk == -1 || chk == 0, "Field too big for insn");
     unsigned uval = val;
-    unsigned mask = (1U << nbits) - 1;
+    unsigned mask = checked_cast<unsigned>(right_n_bits(nbits));
     uval &= mask;
     f(uval, lsb + nbits - 1, lsb);
   }
@@ -286,7 +286,7 @@ public:
 
   unsigned get(int msb = 31, int lsb = 0) {
     int nbits = msb - lsb + 1;
-    unsigned mask = ((1U << nbits) - 1) << lsb;
+    unsigned mask = checked_cast<unsigned>(right_n_bits(nbits)) << lsb;
     assert_cond((bits & mask) == mask);
     return (insn & mask) >> lsb;
   }
@@ -306,7 +306,7 @@ class PrePost {
   int _offset;
   Register _r;
 public:
-  PrePost(Register reg, int o) : _r(reg), _offset(o) { }
+  PrePost(Register reg, int o) : _offset(o), _r(reg) { }
   int offset() { return _offset; }
   Register reg() { return _r; }
 };
@@ -341,7 +341,7 @@ class Address {
     ext::operation _op;
   public:
     extend() { }
-    extend(int s, int o, ext::operation op) : _shift(s), _option(o), _op(op) { }
+    extend(int s, int o, ext::operation op) : _option(o), _shift(s), _op(op) { }
     int option() const{ return _option; }
     int shift() const { return _shift; }
     ext::operation op() const { return _op; }
@@ -386,26 +386,25 @@ class Address {
   Address()
     : _mode(no_mode) { }
   Address(Register r)
-    : _mode(base_plus_offset), _base(r), _offset(0), _index(noreg), _target(0) { }
+    : _base(r), _index(noreg), _offset(0), _mode(base_plus_offset), _target(0) { }
   Address(Register r, int o)
-    : _mode(base_plus_offset), _base(r), _offset(o), _index(noreg), _target(0) { }
+    : _base(r), _index(noreg), _offset(o), _mode(base_plus_offset), _target(0) { }
   Address(Register r, long o)
-    : _mode(base_plus_offset), _base(r), _offset(o), _index(noreg), _target(0) { }
+    : _base(r), _index(noreg), _offset(o), _mode(base_plus_offset), _target(0) { }
   Address(Register r, unsigned long o)
-    : _mode(base_plus_offset), _base(r), _offset(o), _index(noreg), _target(0) { }
+    : _base(r), _index(noreg), _offset(o), _mode(base_plus_offset), _target(0) { }
 #ifdef ASSERT
   Address(Register r, ByteSize disp)
-    : _mode(base_plus_offset), _base(r), _offset(in_bytes(disp)),
-      _index(noreg), _target(0) { }
+    : _base(r), _index(noreg), _offset(in_bytes(disp)), _mode(base_plus_offset), _target(0) { }
 #endif
   Address(Register r, Register r1, extend ext = lsl())
-    : _mode(base_plus_offset_reg), _base(r), _index(r1),
-    _ext(ext), _offset(0), _target(0) { }
+    : _base(r), _index(r1), _offset(0), _mode(base_plus_offset_reg),
+      _ext(ext), _target(0) { }
   Address(Pre p)
-    : _mode(pre), _base(p.reg()), _offset(p.offset()) { }
+    : _base(p.reg()), _offset(p.offset()), _mode(pre) { }
   Address(Post p)
-    : _mode(p.idx_reg() == NULL ? post : post_reg), _base(p.reg()),
-      _offset(p.offset()), _target(0), _index(p.idx_reg()) { }
+    : _base(p.reg()),  _index(p.idx_reg()), _offset(p.offset()),
+      _mode(p.idx_reg() == NULL ? post : post_reg), _target(0) { }
   Address(address target, RelocationHolder const& rspec)
     : _mode(literal),
       _rspec(rspec),
@@ -414,7 +413,7 @@ class Address {
   Address(address target, relocInfo::relocType rtype = relocInfo::external_word_type);
   Address(Register base, RegisterOrConstant index, extend ext = lsl())
     : _base (base),
-      _ext(ext), _offset(0), _target(0) {
+      _offset(0), _ext(ext), _target(0) {
     if (index.is_register()) {
       _mode = base_plus_offset_reg;
       _index = index.as_register();
@@ -486,8 +485,7 @@ class Address {
         if (size == 0) // It's a byte
           i->f(_ext.shift() >= 0, 12);
         else {
-          if (_ext.shift() > 0)
-            assert(_ext.shift() == (int)size, "bad shift");
+          assert(_ext.shift() <= 0 || _ext.shift() == (int)size, "bad shift");
           i->f(_ext.shift() > 0, 12);
         }
         i->f(0b10, 11, 10);
@@ -564,7 +562,7 @@ class Address {
 
   void lea(MacroAssembler *, Register) const;
 
-  static bool offset_ok_for_immed(long offset, uint shift);
+  static bool offset_ok_for_immed(int64_t offset, uint shift = 0);
 
   static bool offset_ok_for_sve_immed(long offset, int shift, int vl /* sve vector length */) {
     if (offset % vl == 0) {
@@ -1236,8 +1234,8 @@ public:
       /* The size bit is in bit 30, not 31 */
       sz = (operand_size)(sz == word ? 0b00:0b01);
     }
-    f(sz, 31, 30), f(0b001000, 29, 24), f(1, 23), f(a, 22), f(1, 21);
-    rf(Rs, 16), f(r, 15), f(0b11111, 14, 10), rf(Rn, 5), rf(Rt, 0);
+    f(sz, 31, 30), f(0b001000, 29, 24), f(not_pair ? 1 : 0, 23), f(a, 22), f(1, 21);
+    zrf(Rs, 16), f(r, 15), f(0b11111, 14, 10), srf(Rn, 5), zrf(Rt, 0);
   }
 
   // CAS
@@ -1870,12 +1868,16 @@ public:
   INSN(fdivs, 0b000, 0b00, 0b0001);
   INSN(fadds, 0b000, 0b00, 0b0010);
   INSN(fsubs, 0b000, 0b00, 0b0011);
+  INSN(fmaxs, 0b000, 0b00, 0b0100);
+  INSN(fmins, 0b000, 0b00, 0b0101);
   INSN(fnmuls, 0b000, 0b00, 0b1000);
 
   INSN(fmuld, 0b000, 0b01, 0b0000);
   INSN(fdivd, 0b000, 0b01, 0b0001);
   INSN(faddd, 0b000, 0b01, 0b0010);
   INSN(fsubd, 0b000, 0b01, 0b0011);
+  INSN(fmaxd, 0b000, 0b01, 0b0100);
+  INSN(fmind, 0b000, 0b01, 0b0101);
   INSN(fnmuld, 0b000, 0b01, 0b1000);
 
 #undef INSN
@@ -2383,7 +2385,7 @@ public:
 
   // FMLA/FMLS - Vector - Scalar
   INSN(fmlavs, 0, 0b0001);
-  INSN(fmlsvs, 0, 0b0001);
+  INSN(fmlsvs, 0, 0b0101);
   // FMULX - Vector - Scalar
   INSN(fmulxvs, 1, 0b1001);
 
