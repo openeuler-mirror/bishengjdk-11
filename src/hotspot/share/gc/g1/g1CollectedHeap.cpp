@@ -1069,6 +1069,9 @@ void G1CollectedHeap::prepare_heap_for_mutators() {
   // Rebuild the strong code root lists for each region
   rebuild_strong_code_roots();
 
+  // Purge code root memory
+  purge_code_root_memory();
+
   // Start a new incremental collection set for the next pause
   start_new_collection_set();
 
@@ -2231,6 +2234,10 @@ ParallelObjectIterator* G1CollectedHeap::parallel_object_iterator(uint thread_nu
 void G1CollectedHeap::object_iterate_parallel(ObjectClosure* cl, uint worker_id, HeapRegionClaimer* claimer) {
   IterateObjectClosureRegionClosure blk(cl);
   heap_region_par_iterate_from_worker_offset(&blk, claimer, worker_id);
+}
+
+void G1CollectedHeap::keep_alive(oop obj) {
+  G1BarrierSet::enqueue(obj);
 }
 
 void G1CollectedHeap::heap_region_iterate(HeapRegionClosure* cl) const {

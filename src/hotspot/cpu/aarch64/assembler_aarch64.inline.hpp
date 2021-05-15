@@ -30,7 +30,8 @@
 #include "asm/codeBuffer.hpp"
 #include "code/codeCache.hpp"
 
-inline bool Address::offset_ok_for_immed(long offset, uint shift = 0) {
+
+inline bool Address::offset_ok_for_immed(int64_t offset, uint shift) {
   uint mask = (1 << shift) - 1;
   if (offset < 0 || (offset & mask) != 0) {
     // Unscaled signed offset, encoded in a signed imm9 field.
