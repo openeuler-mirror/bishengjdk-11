@@ -107,5 +107,7 @@ define_pd_global(intx, InlineSmallCode,          1000);
   product(bool, UseConservativeFence, true,                             \
           "Extend i for r and o for w in the pred/succ flags of fence;" \
           "Extend fence.i to fence.i + fence.")                         \
+  product(bool, AvoidUnalignedAccesses, true,                           \
+          "Avoid generating unaligned memory accesses")
 
 #endif // CPU_RISCV64_VM_GLOBALS_RISCV64_HPP
