@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -243,6 +243,7 @@ void LIR_Assembler::arraycopy_type_check(Register src, Register src_pos, Registe
 }
 
 void LIR_Assembler::arraycopy_assert(Register src, Register dst, Register tmp, ciArrayKlass *default_type, int flags) {
+  assert(default_type != NULL, "NULL default_type!");
   BasicType basic_type = default_type->element_type()->basic_type();
   if (basic_type == T_ARRAY) { basic_type = T_OBJECT; }
   if (basic_type != T_OBJECT || !(flags & LIR_OpArrayCopy::type_check)) {
@@ -360,7 +361,7 @@ void LIR_Assembler::arraycopy_prepare_params(Register src, Register src_pos, Reg
 }
 
 void LIR_Assembler::arraycopy_checkcast_prepare_params(Register src, Register src_pos, Register length,
-                                        Register dst, Register dst_pos, BasicType basic_type) {
+                                                       Register dst, Register dst_pos, BasicType basic_type) {
   arraycopy_prepare_params(src, src_pos, length, dst, dst_pos, basic_type);
   __ load_klass(c_rarg4, dst);
   __ ld(c_rarg4, Address(c_rarg4, ObjArrayKlass::element_klass_offset()));

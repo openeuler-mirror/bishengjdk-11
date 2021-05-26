@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2015, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -233,9 +233,9 @@ class MacroAssembler: public Assembler {
   static bool needs_explicit_null_check(intptr_t offset);
 
   // idiv variant which deals with MINLONG as dividend and -1 as divisor
-  int corrected_idivl(Register result, Register ra, Register rb,
+  int corrected_idivl(Register result, Register rs1, Register rs2,
                       bool want_remainder);
-  int corrected_idivq(Register result, Register ra, Register rb,
+  int corrected_idivq(Register result, Register rs1, Register rs2,
                       bool want_remainder);
 
   // interface method calling
@@ -486,8 +486,8 @@ class MacroAssembler: public Assembler {
   void pop_call_clobbered_registers();
   void pusha();
   void popa();
-  void push_CPU_state();
-  void pop_CPU_state();
+  void push_CPU_state(bool save_vectors = false, int vector_size_in_bytes = 0);
+  void pop_CPU_state(bool restore_vectors = false, int vector_size_in_bytes = 0);
 
   // if heap base register is used - reinit it with the correct value
   void reinit_heapbase();
@@ -504,6 +504,11 @@ class MacroAssembler: public Assembler {
   void andrw(Register Rd, Register Rs1, Register Rs2);
   void orrw(Register Rd, Register Rs1, Register Rs2);
   void xorrw(Register Rd, Register Rs1, Register Rs2);
+
+  // vext
+  void vmnot_m(VectorRegister vd, VectorRegister vs);
+  void vncvt_x_x_w(VectorRegister vd, VectorRegister vs, VectorMask vm = unmasked);
+  void vfneg_v(VectorRegister vd, VectorRegister vs);
 
   // grev
   void reverseb16(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2= t1);  // reverse bytes in 16-bit and move to lower
@@ -537,7 +542,10 @@ class MacroAssembler: public Assembler {
                     enum operand_size size,
                     Assembler::Aqrl acquire, Assembler::Aqrl release,
                     Register result);
-
+  void cmpxchg_narrow_value_helper(Register addr, Register expected,
+                                   Register new_val,
+                                   enum operand_size size,
+                                   Register tmp1, Register tmp2, Register tmp3);
   void cmpxchg_narrow_value(Register addr, Register expected,
                             Register new_val,
                             enum operand_size size,
@@ -623,44 +631,47 @@ class MacroAssembler: public Assembler {
 
 #ifdef COMPILER2
   void spill(Register Rx, bool is64, int offset) {
-    if (is64) {
-      sd(Rx, Address(sp, offset));
-    } else {
-      sw(Rx, Address(sp, offset));
-    }
+    is64 ? sd(Rx, Address(sp, offset))
+         : sw(Rx, Address(sp, offset));
   }
 
   void spill(FloatRegister Rx, bool is64, int offset) {
-    if (is64) {
-      fsd(Rx, Address(sp, offset));
-    } else {
-      fsw(Rx, Address(sp, offset));
-    }
+    is64 ? fsd(Rx, Address(sp, offset))
+         : fsw(Rx, Address(sp, offset));
+  }
+
+  void spill(VectorRegister Vx, int offset) {
+    add(t0, sp, offset);
+    vs1r_v(Vx, t0);
   }
 
   void unspill(Register Rx, bool is64, int offset) {
-    if (is64) {
-      ld(Rx, Address(sp, offset));
-    } else {
-      lw(Rx, Address(sp, offset));
-    }
+    is64 ? ld(Rx, Address(sp, offset))
+         : lw(Rx, Address(sp, offset));
   }
 
   void unspillu(Register Rx, bool is64, int offset) {
-    if (is64) {
-      ld(Rx, Address(sp, offset));
-    } else {
-      lwu(Rx, Address(sp, offset));
-    }
+    is64 ? ld(Rx, Address(sp, offset))
+         : lwu(Rx, Address(sp, offset));
   }
 
   void unspill(FloatRegister Rx, bool is64, int offset) {
-    if (is64) {
-      fld(Rx, Address(sp, offset));
-    } else {
-      flw(Rx, Address(sp, offset));
-    }
+    is64 ? fld(Rx, Address(sp, offset))
+         : flw(Rx, Address(sp, offset));
   }
+
+  void unspill(VectorRegister Vx, int offset) {
+    add(t0, sp, offset);
+    vl1r_v(Vx, t0);
+  }
+
+  void spill_copy_vector_stack_to_stack(int src_offset, int dst_offset,
+                                        int vec_reg_size_in_bytes) {
+    assert(vec_reg_size_in_bytes % 16 == 0, "unexpected vector reg size");
+    unspill(v0, src_offset);
+    spill(v0, dst_offset);
+  }
+
 #endif // COMPILER2
 
   void clear_upper_bits(Register r, unsigned upper_bits) {
@@ -712,8 +723,8 @@ class MacroAssembler: public Assembler {
                       Register tmp3, Register tmp4,
                       Register tmp5, Register tmp6,
                       Register result, int ae);
-  void string_indexof_linearscan(Register str1, Register str2,
-                                 Register cnt1, Register cnt2,
+  void string_indexof_linearscan(Register haystack, Register needle,
+                                 Register haystack_len, Register needle_len,
                                  Register tmp1, Register tmp2,
                                  Register tmp3, Register tmp4,
                                  int needle_con_cnt, Register result, int ae);
@@ -746,6 +757,18 @@ class MacroAssembler: public Assembler {
   void enc_cmpUEqNeLeGt_imm0_branch(int cmpFlag, Register op1, Label& L, bool is_far = false);
   void enc_cmpEqNe_imm0_branch(int cmpFlag, Register op1, Label& L, bool is_far = false);
 
+  // intrinsic methods implemented by vector instructions
+  void string_equals_v(Register a1, Register a2, Register result, Register cnt1, int elem_size);
+  void arrays_equals_v(Register a1, Register a2, Register result, Register cnt1, int elem_size);
+  void string_compare_v(Register str1, Register str2, Register cnt1, Register cnt2,
+                        Register result, Register tmp1, Register tmp2, int encForm);
+
+  void clear_array_v(Register base, Register cnt);
+  void byte_array_inflate_v(Register src, Register dst, Register len, Register tmp);
+  void char_array_compress_v(Register src, Register dst, Register len, Register result, Register tmp);
+  void encode_iso_array_v(Register src, Register dst, Register len, Register result, Register tmp);
+
+  void has_negatives_v(Register ary, Register len, Register result, Register tmp);
 #endif
 
   // Here the float instructions with safe deal with some exceptions.
@@ -762,30 +785,68 @@ class MacroAssembler: public Assembler {
   void flt_d_u(Register result, FloatRegister Rs1, FloatRegister Rs2);
   void fle_s_u(Register result, FloatRegister Rs1, FloatRegister Rs2);
   void fle_d_u(Register result, FloatRegister Rs1, FloatRegister Rs2);
+
+  // vector load/store unit-stride instructions
+  void vlex_v(VectorRegister vd, Register base, Assembler::SEW sew, VectorMask vm = unmasked) {
+    switch (sew) {
+      case Assembler::e64:
+        vle64_v(vd, base, vm);
+        break;
+      case Assembler::e32:
+        vle32_v(vd, base, vm);
+        break;
+      case Assembler::e16:
+        vle16_v(vd, base, vm);
+        break;
+      case Assembler::e8: // fall through
+      default:
+        vle8_v(vd, base, vm);
+        break;
+    }
+  }
+
+  void vsex_v(VectorRegister store_data, Register base, Assembler::SEW sew, VectorMask vm = unmasked) {
+    switch (sew) {
+      case Assembler::e64:
+        vse64_v(store_data, base, vm);
+        break;
+      case Assembler::e32:
+        vse32_v(store_data, base, vm);
+        break;
+      case Assembler::e16:
+        vse16_v(store_data, base, vm);
+        break;
+      case Assembler::e8: // fall through
+      default:
+        vse8_v(store_data, base, vm);
+        break;
+    }
+  }
+
   static const int zero_words_block_size;
 
   void cast_primitive_type(BasicType type, Register Rt) {
     switch (type) {
-    case T_BOOLEAN:
-      sltu(Rt, zr, Rt);
-      break;
-    case T_CHAR   :
-      zero_ext(Rt, Rt, registerSize - 16);
-      break;
-    case T_BYTE   :
-      sign_ext(Rt, Rt, registerSize - 8);
-      break;
-    case T_SHORT  :
-      sign_ext(Rt, Rt, registerSize - 16);
-      break;
-    case T_INT    :
-      addw(Rt, Rt, zr);
-      break;
-    case T_LONG   : /* nothing to do */        break;
-    case T_VOID   : /* nothing to do */        break;
-    case T_FLOAT  : /* nothing to do */        break;
-    case T_DOUBLE : /* nothing to do */        break;
-    default: ShouldNotReachHere();
+      case T_BOOLEAN:
+        sltu(Rt, zr, Rt);
+        break;
+      case T_CHAR   :
+        zero_ext(Rt, Rt, registerSize - 16);
+        break;
+      case T_BYTE   :
+        sign_ext(Rt, Rt, registerSize - 8);
+        break;
+      case T_SHORT  :
+        sign_ext(Rt, Rt, registerSize - 16);
+        break;
+      case T_INT    :
+        addw(Rt, Rt, zr);
+        break;
+      case T_LONG   : /* nothing to do */        break;
+      case T_VOID   : /* nothing to do */        break;
+      case T_FLOAT  : /* nothing to do */        break;
+      case T_DOUBLE : /* nothing to do */        break;
+      default: ShouldNotReachHere();
     }
   }
 
@@ -826,8 +887,17 @@ private:
       ld(dest, Address(dest, offset));
     }
   }
+
+  int bitset_to_regs(unsigned int bitset, unsigned char* regs);
+  Address add_memory_helper(const Address dst);
+
   void load_reserved(Register addr, enum operand_size size, Assembler::Aqrl acquire);
   void store_conditional(Register addr, Register new_val, enum operand_size size, Assembler::Aqrl release);
+
+#ifdef COMPILER2
+  void element_compare(Register a1, Register a2, Register result, Register cnt, Register tmp1, Register tmp2,
+                       VectorRegister vr1, VectorRegister vr2, VectorRegister vrs, bool islatin, Label &DONE);
+#endif // COMPILER2
 };
 
 #ifdef ASSERT

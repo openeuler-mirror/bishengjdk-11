@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -165,139 +165,139 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
   address entry_point = NULL;
   Register continuation = lr;
   switch (kind) {
-  case Interpreter::java_lang_math_abs:
-    entry_point = __ pc();
-    __ fld(f10, Address(esp));
-    __ fabs_d(f10, f10);
-    __ mv(sp, x30); // Restore caller's SP
-    break;
-  case Interpreter::java_lang_math_sqrt:
-    entry_point = __ pc();
-    __ fld(f10, Address(esp));
-    __ fsqrt_d(f10, f10);
-    __ mv(sp, x30);
-    break;
-  case Interpreter::java_lang_math_sin :
-    entry_point = __ pc();
-    __ fld(f10, Address(esp));
-    __ mv(sp, x30);
-    __ mv(x9, lr);
-    continuation = x9;  // The first callee-saved register
-    if (StubRoutines::dsin() == NULL) {
-      fn = CAST_FROM_FN_PTR(address, SharedRuntime::dsin);
-    } else {
-      fn = CAST_FROM_FN_PTR(address, StubRoutines::dsin());
-    }
-    __ mv(t0, fn);
-    __ jalr(t0);
-    break;
-  case Interpreter::java_lang_math_cos :
-    entry_point = __ pc();
-    __ fld(f10, Address(esp));
-    __ mv(sp, x30);
-    __ mv(x9, lr);
-    continuation = x9;  // The first callee-saved register
-    if (StubRoutines::dcos() == NULL) {
-      fn = CAST_FROM_FN_PTR(address, SharedRuntime::dcos);
-    } else {
-      fn = CAST_FROM_FN_PTR(address, StubRoutines::dcos());
-    }
-    __ mv(t0, fn);
-    __ jalr(t0);
-    break;
-  case Interpreter::java_lang_math_tan :
-    entry_point = __ pc();
-    __ fld(f10, Address(esp));
-    __ mv(sp, x30);
-    __ mv(x9, lr);
-    continuation = x9;  // The first callee-saved register
-    if (StubRoutines::dtan() == NULL) {
-      fn = CAST_FROM_FN_PTR(address, SharedRuntime::dtan);
-    } else {
-      fn = CAST_FROM_FN_PTR(address, StubRoutines::dtan());
-    }
-    __ mv(t0, fn);
-    __ jalr(t0);
-    break;
-  case Interpreter::java_lang_math_log :
-    entry_point = __ pc();
-    __ fld(f10, Address(esp));
-    __ mv(sp, x30);
-    __ mv(x9, lr);
-    continuation = x9;  // The first callee-saved register
-    if (StubRoutines::dlog() == NULL) {
-      fn = CAST_FROM_FN_PTR(address, SharedRuntime::dlog);
-    } else {
-      fn = CAST_FROM_FN_PTR(address, StubRoutines::dlog());
-    }
-    __ mv(t0, fn);
-    __ jalr(t0);
-    break;
-  case Interpreter::java_lang_math_log10 :
-    entry_point = __ pc();
-    __ fld(f10, Address(esp));
-    __ mv(sp, x30);
-    __ mv(x9, lr);
-    continuation = x9;  // The first callee-saved register
-    if (StubRoutines::dlog10() == NULL) {
-      fn = CAST_FROM_FN_PTR(address, SharedRuntime::dlog10);
-    } else {
-      fn = CAST_FROM_FN_PTR(address, StubRoutines::dlog10());
-    }
-    __ mv(t0, fn);
-    __ jalr(t0);
-    break;
-  case Interpreter::java_lang_math_exp :
-    entry_point = __ pc();
-    __ fld(f10, Address(esp));
-    __ mv(sp, x30);
-    __ mv(x9, lr);
-    continuation = x9;  // The first callee-saved register
-    if (StubRoutines::dexp() == NULL) {
-      fn = CAST_FROM_FN_PTR(address, SharedRuntime::dexp);
-    } else {
-      fn = CAST_FROM_FN_PTR(address, StubRoutines::dexp());
-    }
-    __ mv(t0, fn);
-    __ jalr(t0);
-    break;
-  case Interpreter::java_lang_math_pow :
-    entry_point = __ pc();
-    __ mv(x9, lr);
-    continuation = x9;
-    __ fld(f10, Address(esp, 2 * Interpreter::stackElementSize));
-    __ fld(f11, Address(esp));
-    __ mv(sp, x30);
-    if (StubRoutines::dpow() == NULL) {
-      fn = CAST_FROM_FN_PTR(address, SharedRuntime::dpow);
-    } else {
-      fn = CAST_FROM_FN_PTR(address, StubRoutines::dpow());
-    }
-    __ mv(t0, fn);
-    __ jalr(t0);
-    break;
-  case Interpreter::java_lang_math_fmaD :
-    if (UseFMA) {
+    case Interpreter::java_lang_math_abs:
       entry_point = __ pc();
-      __ fld(f10, Address(esp, 4 * Interpreter::stackElementSize));
-      __ fld(f11, Address(esp, 2 * Interpreter::stackElementSize));
-      __ fld(f12, Address(esp));
-      __ fmadd_d(f10, f10, f11, f12);
+      __ fld(f10, Address(esp));
+      __ fabs_d(f10, f10);
       __ mv(sp, x30); // Restore caller's SP
-    }
-    break;
-  case Interpreter::java_lang_math_fmaF :
-    if (UseFMA) {
+      break;
+    case Interpreter::java_lang_math_sqrt:
       entry_point = __ pc();
-      __ flw(f10, Address(esp, 2 * Interpreter::stackElementSize));
-      __ flw(f11, Address(esp, Interpreter::stackElementSize));
-      __ flw(f12, Address(esp));
-      __ fmadd_s(f10, f10, f11, f12);
-      __ mv(sp, x30); // Restore caller's SP
-    }
-    break;
-  default:
-    ;
+      __ fld(f10, Address(esp));
+      __ fsqrt_d(f10, f10);
+      __ mv(sp, x30);
+      break;
+    case Interpreter::java_lang_math_sin :
+      entry_point = __ pc();
+      __ fld(f10, Address(esp));
+      __ mv(sp, x30);
+      __ mv(x9, lr);
+      continuation = x9;  // The first callee-saved register
+      if (StubRoutines::dsin() == NULL) {
+        fn = CAST_FROM_FN_PTR(address, SharedRuntime::dsin);
+      } else {
+        fn = CAST_FROM_FN_PTR(address, StubRoutines::dsin());
+      }
+      __ mv(t0, fn);
+      __ jalr(t0);
+      break;
+    case Interpreter::java_lang_math_cos :
+      entry_point = __ pc();
+      __ fld(f10, Address(esp));
+      __ mv(sp, x30);
+      __ mv(x9, lr);
+      continuation = x9;  // The first callee-saved register
+      if (StubRoutines::dcos() == NULL) {
+        fn = CAST_FROM_FN_PTR(address, SharedRuntime::dcos);
+      } else {
+        fn = CAST_FROM_FN_PTR(address, StubRoutines::dcos());
+      }
+      __ mv(t0, fn);
+      __ jalr(t0);
+      break;
+    case Interpreter::java_lang_math_tan :
+      entry_point = __ pc();
+      __ fld(f10, Address(esp));
+      __ mv(sp, x30);
+      __ mv(x9, lr);
+      continuation = x9;  // The first callee-saved register
+      if (StubRoutines::dtan() == NULL) {
+        fn = CAST_FROM_FN_PTR(address, SharedRuntime::dtan);
+      } else {
+        fn = CAST_FROM_FN_PTR(address, StubRoutines::dtan());
+      }
+      __ mv(t0, fn);
+      __ jalr(t0);
+      break;
+    case Interpreter::java_lang_math_log :
+      entry_point = __ pc();
+      __ fld(f10, Address(esp));
+      __ mv(sp, x30);
+      __ mv(x9, lr);
+      continuation = x9;  // The first callee-saved register
+      if (StubRoutines::dlog() == NULL) {
+        fn = CAST_FROM_FN_PTR(address, SharedRuntime::dlog);
+      } else {
+        fn = CAST_FROM_FN_PTR(address, StubRoutines::dlog());
+      }
+      __ mv(t0, fn);
+      __ jalr(t0);
+      break;
+    case Interpreter::java_lang_math_log10 :
+      entry_point = __ pc();
+      __ fld(f10, Address(esp));
+      __ mv(sp, x30);
+      __ mv(x9, lr);
+      continuation = x9;  // The first callee-saved register
+      if (StubRoutines::dlog10() == NULL) {
+        fn = CAST_FROM_FN_PTR(address, SharedRuntime::dlog10);
+      } else {
+        fn = CAST_FROM_FN_PTR(address, StubRoutines::dlog10());
+      }
+      __ mv(t0, fn);
+      __ jalr(t0);
+      break;
+    case Interpreter::java_lang_math_exp :
+      entry_point = __ pc();
+      __ fld(f10, Address(esp));
+      __ mv(sp, x30);
+      __ mv(x9, lr);
+      continuation = x9;  // The first callee-saved register
+      if (StubRoutines::dexp() == NULL) {
+        fn = CAST_FROM_FN_PTR(address, SharedRuntime::dexp);
+      } else {
+        fn = CAST_FROM_FN_PTR(address, StubRoutines::dexp());
+      }
+      __ mv(t0, fn);
+      __ jalr(t0);
+      break;
+    case Interpreter::java_lang_math_pow :
+      entry_point = __ pc();
+      __ mv(x9, lr);
+      continuation = x9;
+      __ fld(f10, Address(esp, 2 * Interpreter::stackElementSize));
+      __ fld(f11, Address(esp));
+      __ mv(sp, x30);
+      if (StubRoutines::dpow() == NULL) {
+        fn = CAST_FROM_FN_PTR(address, SharedRuntime::dpow);
+      } else {
+        fn = CAST_FROM_FN_PTR(address, StubRoutines::dpow());
+      }
+      __ mv(t0, fn);
+      __ jalr(t0);
+      break;
+    case Interpreter::java_lang_math_fmaD :
+      if (UseFMA) {
+        entry_point = __ pc();
+        __ fld(f10, Address(esp, 4 * Interpreter::stackElementSize));
+        __ fld(f11, Address(esp, 2 * Interpreter::stackElementSize));
+        __ fld(f12, Address(esp));
+        __ fmadd_d(f10, f10, f11, f12);
+        __ mv(sp, x30); // Restore caller's SP
+      }
+      break;
+    case Interpreter::java_lang_math_fmaF :
+      if (UseFMA) {
+        entry_point = __ pc();
+        __ flw(f10, Address(esp, 2 * Interpreter::stackElementSize));
+        __ flw(f11, Address(esp, Interpreter::stackElementSize));
+        __ flw(f12, Address(esp));
+        __ fmadd_s(f10, f10, f11, f12);
+        __ mv(sp, x30); // Restore caller's SP
+      }
+      break;
+    default:
+      ;
   }
   if (entry_point != NULL) {
     __ jr(continuation);
@@ -739,14 +739,8 @@ void TemplateInterpreterGenerator::lock_method() {
   const int entry_size = frame::interpreter_frame_monitor_size() * wordSize;
 
 #ifdef ASSERT
-  {
-    Label L;
-    __ lwu(x10, access_flags);
-    __ andi(t0, x10, JVM_ACC_SYNCHRONIZED);
-    __ bnez(t0, L);
-    __ stop("method doesn't need synchronization");
-    __ bind(L);
-  }
+  __ lwu(x10, access_flags);
+  __ verify_access_flags(x10, JVM_ACC_SYNCHRONIZED, "method doesn't need synchronization", false);
 #endif // ASSERT
 
   // get synchronization object
@@ -1015,20 +1009,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // make sure method is native & not abstract
 #ifdef ASSERT
   __ lwu(x10, access_flags);
-  {
-    Label L;
-    __ andi(t0, x10, JVM_ACC_NATIVE);
-    __ bnez(t0, L);
-    __ stop("tried to execute non-native method as native");
-    __ bind(L);
-  }
-  {
-    Label L;
-    __ andi(t0, x10, JVM_ACC_ABSTRACT);
-    __ beqz(t0, L);
-    __ stop("tried to execute abstract method in interpreter");
-    __ bind(L);
-  }
+  __ verify_access_flags(x10, JVM_ACC_NATIVE, "tried to execute non-native method as native", false);
+  __ verify_access_flags(x10, JVM_ACC_ABSTRACT, "tried to execute abstract method in interpreter");
 #endif
 
   // Since at this point in the method invocation the exception
@@ -1064,28 +1046,14 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   } else {
     // no synchronization necessary
 #ifdef ASSERT
-    {
-      Label L;
-      __ lwu(x10, access_flags);
-      __ andi(t0, x10, JVM_ACC_SYNCHRONIZED);
-      __ beqz(t0, L);
-      __ stop("method needs synchronization");
-      __ bind(L);
-    }
+    __ lwu(x10, access_flags);
+    __ verify_access_flags(x10, JVM_ACC_SYNCHRONIZED, "method needs synchronization");
 #endif
   }
 
   // start execution
 #ifdef ASSERT
-  {
-    Label L;
-    const Address monitor_block_top(fp,
-                                    frame::interpreter_frame_monitor_block_top_offset * wordSize);
-    __ ld(t0, monitor_block_top);
-    __ beq(esp, t0, L);
-    __ stop("broken stack frame setup in interpreter");
-    __ bind(L);
-  }
+  __ verify_frame_setup();
 #endif
 
   // jvmti support
@@ -1181,7 +1149,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   {
     Label L;
     __ lwu(t, Address(xthread, JavaThread::thread_state_offset()));
-    __ addi(t0, zr, _thread_in_Java);
+    __ addi(t0, zr, (u1)_thread_in_Java);
     __ beq(t, t0, L);
     __ stop("Wrong thread state in native stub");
     __ bind(L);
@@ -1379,7 +1347,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // remove frame anchor
   __ leave();
 
-  // resture sender sp
+  // restore sender sp
   __ mv(sp, esp);
 
   __ ret();
@@ -1459,20 +1427,8 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // make sure method is not native & not abstract
 #ifdef ASSERT
   __ lwu(x10, access_flags);
-  {
-    Label L;
-    __ andi(t0, x10, JVM_ACC_NATIVE);
-    __ beqz(t0, L);
-    __ stop("tried to execute native method as non-native");
-    __ bind(L);
-  }
- {
-    Label L;
-    __ andi(t0, x10, JVM_ACC_ABSTRACT);
-    __ beqz(t0, L);
-    __ stop("tried to execute abstract method in interpreter");
-    __ bind(L);
-  }
+  __ verify_access_flags(x10, JVM_ACC_NATIVE, "tried to execute native method as non-native");
+  __ verify_access_flags(x10, JVM_ACC_ABSTRACT, "tried to execute abstract method in interpreter");
 #endif
 
   // Since at this point in the method invocation the exception
@@ -1482,7 +1438,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // will check this flag.
 
   const Address do_not_unlock_if_synchronized(xthread,
-    in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()));
+                                              in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()));
   __ mv(t1, true);
   __ sb(t1, do_not_unlock_if_synchronized);
 
@@ -1524,28 +1480,14 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   } else {
     // no synchronization necessary
 #ifdef ASSERT
-    {
-      Label L;
-      __ lwu(x10, access_flags);
-      __ andi(t0, x10, JVM_ACC_SYNCHRONIZED);
-      __ beqz(t0, L);
-      __ stop("method needs synchronization");
-      __ bind(L);
-    }
+    __ lwu(x10, access_flags);
+    __ verify_access_flags(x10, JVM_ACC_SYNCHRONIZED, "method needs synchronization");
 #endif
   }
 
   // start execution
 #ifdef ASSERT
-  {
-    Label L;
-     const Address monitor_block_top(fp,
-                 frame::interpreter_frame_monitor_block_top_offset * wordSize);
-    __ ld(t0, monitor_block_top);
-    __ beq(esp, t0, L);
-    __ stop("broken stack frame setup in interpreter");
-    __ bind(L);
-  }
+  __ verify_frame_setup();
 #endif
 
   // jvmti support

@@ -84,6 +84,7 @@ Matcher::Matcher()
   idealreg2spillmask  [Op_RegF] = NULL;
   idealreg2spillmask  [Op_RegD] = NULL;
   idealreg2spillmask  [Op_RegP] = NULL;
+  idealreg2spillmask  [Op_VecA] = NULL;
   idealreg2spillmask  [Op_VecS] = NULL;
   idealreg2spillmask  [Op_VecD] = NULL;
   idealreg2spillmask  [Op_VecX] = NULL;
@@ -110,6 +111,7 @@ Matcher::Matcher()
   idealreg2mhdebugmask[Op_RegF] = NULL;
   idealreg2mhdebugmask[Op_RegD] = NULL;
   idealreg2mhdebugmask[Op_RegP] = NULL;
+  idealreg2mhdebugmask[Op_VecA] = NULL;
   idealreg2mhdebugmask[Op_VecS] = NULL;
   idealreg2mhdebugmask[Op_VecD] = NULL;
   idealreg2mhdebugmask[Op_VecX] = NULL;
@@ -424,7 +426,7 @@ static RegMask *init_input_masks( uint size, RegMask &ret_adr, RegMask &fp ) {
 void Matcher::init_first_stack_mask() {
 
   // Allocate storage for spill masks as masks for the appropriate load type.
-  RegMask *rms = (RegMask*)C->comp_arena()->Amalloc_D(sizeof(RegMask) * (3*6+5));
+  RegMask *rms = (RegMask*)C->comp_arena()->Amalloc_D(sizeof(RegMask) * (3*6+6));
 
   idealreg2spillmask  [Op_RegN] = &rms[0];
   idealreg2spillmask  [Op_RegI] = &rms[1];
@@ -447,11 +449,12 @@ void Matcher::init_first_stack_mask() {
   idealreg2mhdebugmask[Op_RegD] = &rms[16];
   idealreg2mhdebugmask[Op_RegP] = &rms[17];
 
-  idealreg2spillmask  [Op_VecS] = &rms[18];
-  idealreg2spillmask  [Op_VecD] = &rms[19];
-  idealreg2spillmask  [Op_VecX] = &rms[20];
-  idealreg2spillmask  [Op_VecY] = &rms[21];
-  idealreg2spillmask  [Op_VecZ] = &rms[22];
+  idealreg2spillmask  [Op_VecA] = &rms[18];
+  idealreg2spillmask  [Op_VecS] = &rms[19];
+  idealreg2spillmask  [Op_VecD] = &rms[20];
+  idealreg2spillmask  [Op_VecX] = &rms[21];
+  idealreg2spillmask  [Op_VecY] = &rms[22];
+  idealreg2spillmask  [Op_VecZ] = &rms[23];
 
   OptoReg::Name i;
 
@@ -478,6 +481,7 @@ void Matcher::init_first_stack_mask() {
   // Keep spill masks aligned.
   aligned_stack_mask.clear_to_pairs();
   assert(aligned_stack_mask.is_AllStack(), "should be infinite stack");
+  RegMask scalable_stack_mask = aligned_stack_mask;
 
   *idealreg2spillmask[Op_RegP] = *idealreg2regmask[Op_RegP];
 #ifdef _LP64
@@ -548,6 +552,26 @@ void Matcher::init_first_stack_mask() {
     *idealreg2spillmask[Op_VecZ] = *idealreg2regmask[Op_VecZ];
      idealreg2spillmask[Op_VecZ]->OR(aligned_stack_mask);
   }
+
+  if (Matcher::supports_scalable_vector()) {
+    int k = 1;
+    OptoReg::Name in = OptoReg::add(_in_arg_limit, -1);
+    // Exclude last input arg stack slots to avoid spilling vector register there,
+    // otherwise vector spills could stomp over stack slots in caller frame.
+    for (; (in >= init_in) && (k < scalable_vector_reg_size(T_FLOAT)); k++) {
+      scalable_stack_mask.Remove(in);
+      in = OptoReg::add(in, -1);
+    }
+
+    // For VecA
+     scalable_stack_mask.clear_to_sets(RegMask::SlotsPerVecA);
+     assert(scalable_stack_mask.is_AllStack(), "should be infinite stack");
+    *idealreg2spillmask[Op_VecA] = *idealreg2regmask[Op_VecA];
+     idealreg2spillmask[Op_VecA]->OR(scalable_stack_mask);
+  } else {
+    *idealreg2spillmask[Op_VecA] = RegMask::Empty;
+  }
+
    if (UseFPUForSpilling) {
      // This mask logic assumes that the spill operations are
      // symmetric and that the registers involved are the same size.
@@ -872,6 +896,11 @@ void Matcher::init_spill_mask( Node *ret ) {
   idealreg2regmask[Op_RegP] = &spillP->out_RegMask();
 
   // Vector regmasks.
+  if (Matcher::supports_scalable_vector()) {
+    TypeVect::VECTA = TypeVect::make(T_BYTE, Matcher::scalable_vector_reg_size(T_BYTE));;
+    MachNode *spillVectA = match_tree(new LoadVectorNode(NULL,mem,fp,atp,TypeVect::VECTA));
+    idealreg2regmask[Op_VecA] = &spillVectA->out_RegMask();
+  }
   if (Matcher::vector_size_supported(T_BYTE,4)) {
     TypeVect::VECTS = TypeVect::make(T_BYTE, 4);
     MachNode *spillVectS = match_tree(new LoadVectorNode(NULL,mem,fp,atp,TypeVect::VECTS));

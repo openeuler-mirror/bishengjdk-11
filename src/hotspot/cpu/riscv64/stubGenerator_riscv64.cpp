@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -303,13 +303,13 @@ class StubGenerator: public StubCodeGenerator {
     __ ld(j_rarg2, result);
     Label is_long, is_float, is_double, exit;
     __ ld(j_rarg1, result_type);
-    __ li(t0, T_OBJECT);
+    __ li(t0, (u1)T_OBJECT);
     __ beq(j_rarg1, t0, is_long);
-    __ li(t0, T_LONG);
+    __ li(t0, (u1)T_LONG);
     __ beq(j_rarg1, t0, is_long);
-    __ li(t0, T_FLOAT);
+    __ li(t0, (u1)T_FLOAT);
     __ beq(j_rarg1, t0, is_float);
-    __ li(t0, T_DOUBLE);
+    __ li(t0, (u1)T_DOUBLE);
     __ beq(j_rarg1, t0, is_double);
 
     // handle T_INT case
@@ -599,8 +599,7 @@ class StubGenerator: public StubCodeGenerator {
   //      x29 < MacroAssembler::zero_words_block_size.
 
   address generate_zero_blocks() {
-    Label store_pair, loop_store_pair, done;
-    Label base_aligned;
+    Label done;
 
     const Register base = x28, cnt = x29;
 
@@ -662,7 +661,7 @@ class StubGenerator: public StubCodeGenerator {
     assert_different_registers(s, d, count, t0);
 
     Label again, drain;
-    const char *stub_name = NULL;
+    const char* stub_name = NULL;
     if (direction == copy_forwards) {
       stub_name = "forward_copy_longs";
     } else {
@@ -796,29 +795,33 @@ class StubGenerator: public StubCodeGenerator {
   // step, which can be positive or negative depending on the direction
   // of copy.  If is_aligned is false, we align the source address.
   //
-  //
-  // if (is_aligned) {
-  //   goto copy8;
-  // }
-  // bool is_backwards = step < 0;
-  // int granularity = uabs(step);
-  // count = count * granularity;
-
-  // if (is_backwards) {
-  //   s += count;
-  //   d += count;
-  // }
-  // if (count < 16) {
-  //   goto copy_small;
-  // }
-
-  // if ((dst % 8) == (src % 8)) {
-  //   aligned;
-  //   goto copy8;
-  // }
-  // copy_small:
-  //   load element one by one;
-  // done; 
+  /*
+   * if (is_aligned) {
+   *   goto copy_8_bytes;
+   * }
+   * bool is_backwards = step < 0;
+   * int granularity = uabs(step);
+   * count = count  *  granularity;   * count bytes
+   *
+   * if (is_backwards) {
+   *   s += count;
+   *   d += count;
+   * }
+   *
+   * count limit maybe greater than 16, for better performance
+   * if (count < 16) {
+   *   goto copy_small;
+   * }
+   *
+   * if ((dst % 8) == (src % 8)) {
+   *   aligned;
+   *   goto copy8;
+   * }
+   *
+   * copy_small:
+   *   load element one by one;
+   * done;
+   */
 
   typedef void (MacroAssembler::*copy_insn)(Register Rd, const Address &adr, Register temp);
 
@@ -828,7 +831,7 @@ class StubGenerator: public StubCodeGenerator {
     int granularity = uabs(step);
 
     const Register src = x30, dst = x31, cnt = x15, tmp3 = x16, tmp4 = x17;
-   
+
     Label same_aligned;
     Label copy8, copy_small, done;
 
@@ -850,7 +853,7 @@ class StubGenerator: public StubCodeGenerator {
         ld_arr = (copy_insn)&MacroAssembler::ld;
         st_arr = (copy_insn)&MacroAssembler::sd;
         break;
-      default:
+      default :
         ShouldNotReachHere();
     }
 
@@ -884,8 +887,8 @@ class StubGenerator: public StubCodeGenerator {
       __ addi(src, src, step);
       __ addi(dst, dst, step);
     }
-    (_masm->*ld_arr)(tmp3, Address(src, 0), t0);
-    (_masm->*st_arr)(tmp3, Address(dst, 0), t0);
+    (_masm->*ld_arr)(tmp3, Address(src), t0);
+    (_masm->*st_arr)(tmp3, Address(dst), t0);
     if (!is_backwards) {
       __ addi(src, src, step);
       __ addi(dst, dst, step);
@@ -899,8 +902,8 @@ class StubGenerator: public StubCodeGenerator {
       __ addi(src, src, -wordSize);
       __ addi(dst, dst, -wordSize);
     }
-    __ ld(tmp3, Address(src, 0), t0);
-    __ sd(tmp3, Address(dst, 0), t0);
+    __ ld(tmp3, Address(src));
+    __ sd(tmp3, Address(dst));
     if (!is_backwards) {
       __ addi(src, src, wordSize);
       __ addi(dst, dst, wordSize);
@@ -969,8 +972,8 @@ class StubGenerator: public StubCodeGenerator {
   //   disjoint_int_copy_entry is set to the no-overlap entry point
   //   used by generate_conjoint_int_oop_copy().
   //
-  address generate_disjoint_copy(size_t size, bool aligned, bool is_oop, address *entry,
-                                 const char *name, bool dest_uninitialized = false) {
+  address generate_disjoint_copy(size_t size, bool aligned, bool is_oop, address* entry,
+                                 const char* name, bool dest_uninitialized = false) {
     const Register s = c_rarg0, d = c_rarg1, count = c_rarg2;
     RegSet saved_reg = RegSet::of(s, d, count);
     __ align(CodeEntryAlignment);
@@ -1032,7 +1035,7 @@ class StubGenerator: public StubCodeGenerator {
   // cache line boundaries will still be loaded and stored atomicly.
   //
   address generate_conjoint_copy(size_t size, bool aligned, bool is_oop, address nooverlap_target,
-                                 address *entry, const char *name,
+                                 address* entry, const char* name,
                                  bool dest_uninitialized = false) {
     const Register s = c_rarg0, d = c_rarg1, count = c_rarg2;
     RegSet saved_regs = RegSet::of(s, d, count);
@@ -1107,7 +1110,7 @@ class StubGenerator: public StubCodeGenerator {
   //   disjoint_byte_copy_entry is set to the no-overlap entry point
   //   used by generate_conjoint_byte_copy().
   //
-  address generate_disjoint_byte_copy(bool aligned, address *entry, const char *name) {
+  address generate_disjoint_byte_copy(bool aligned, address* entry, const char* name) {
     const bool not_oop = false;
     return generate_disjoint_copy(sizeof (jbyte), aligned, not_oop, entry, name);
   }
@@ -1128,7 +1131,7 @@ class StubGenerator: public StubCodeGenerator {
   // and stored atomically.
   //
   address generate_conjoint_byte_copy(bool aligned, address nooverlap_target,
-                                      address *entry, const char *name) {
+                                      address* entry, const char* name) {
     const bool not_oop = false;
     return generate_conjoint_copy(sizeof (jbyte), aligned, not_oop, nooverlap_target, entry, name);
   }
@@ -1153,7 +1156,7 @@ class StubGenerator: public StubCodeGenerator {
   //   used by generate_conjoint_short_copy().
   //
   address generate_disjoint_short_copy(bool aligned,
-                                       address *entry, const char *name) {
+                                       address* entry, const char* name) {
     const bool not_oop = false;
     return generate_disjoint_copy(sizeof (jshort), aligned, not_oop, entry, name);
   }
@@ -1174,7 +1177,7 @@ class StubGenerator: public StubCodeGenerator {
   // and stored atomically.
   //
   address generate_conjoint_short_copy(bool aligned, address nooverlap_target,
-                                       address *entry, const char *name) {
+                                       address* entry, const char* name) {
     const bool not_oop = false;
     return generate_conjoint_copy(sizeof (jshort), aligned, not_oop, nooverlap_target, entry, name);
   }
@@ -1197,8 +1200,8 @@ class StubGenerator: public StubCodeGenerator {
   //   disjoint_int_copy_entry is set to the no-overlap entry point
   //   used by generate_conjoint_int_oop_copy().
   //
-  address generate_disjoint_int_copy(bool aligned, address *entry,
-                                     const char *name, bool dest_uninitialized = false) {
+  address generate_disjoint_int_copy(bool aligned, address* entry,
+                                     const char* name, bool dest_uninitialized = false) {
     const bool not_oop = false;
     return generate_disjoint_copy(sizeof (jint), aligned, not_oop, entry, name);
   }
@@ -1218,7 +1221,7 @@ class StubGenerator: public StubCodeGenerator {
   // cache line boundaries will still be loaded and stored atomicly.
   //
   address generate_conjoint_int_copy(bool aligned, address nooverlap_target,
-                                     address *entry, const char *name,
+                                     address* entry, const char* name,
                                      bool dest_uninitialized = false) {
     const bool not_oop = false;
     return generate_conjoint_copy(sizeof (jint), aligned, not_oop, nooverlap_target, entry, name);
@@ -1239,8 +1242,8 @@ class StubGenerator: public StubCodeGenerator {
   //   disjoint_oop_copy_entry or disjoint_long_copy_entry is set to the
   //   no-overlap entry point used by generate_conjoint_long_oop_copy().
   //
-  address generate_disjoint_long_copy(bool aligned, address *entry,
-                                      const char *name, bool dest_uninitialized = false) {
+  address generate_disjoint_long_copy(bool aligned, address* entry,
+                                      const char* name, bool dest_uninitialized = false) {
     const bool not_oop = false;
     return generate_disjoint_copy(sizeof (jlong), aligned, not_oop, entry, name);
   }
@@ -1256,8 +1259,8 @@ class StubGenerator: public StubCodeGenerator {
   //   c_rarg2   - element count, treated as size_t, can be zero
   //
   address generate_conjoint_long_copy(bool aligned,
-                                      address nooverlap_target, address *entry,
-                                      const char *name, bool dest_uninitialized = false) {
+                                      address nooverlap_target, address* entry,
+                                      const char* name, bool dest_uninitialized = false) {
     const bool not_oop = false;
     return generate_conjoint_copy(sizeof (jlong), aligned, not_oop, nooverlap_target, entry, name);
   }
@@ -1276,8 +1279,8 @@ class StubGenerator: public StubCodeGenerator {
   //   disjoint_oop_copy_entry or disjoint_long_copy_entry is set to the
   //   no-overlap entry point used by generate_conjoint_long_oop_copy().
   //
-  address generate_disjoint_oop_copy(bool aligned, address *entry,
-                                     const char *name, bool dest_uninitialized) {
+  address generate_disjoint_oop_copy(bool aligned, address* entry,
+                                     const char* name, bool dest_uninitialized) {
     const bool is_oop = true;
     const size_t size = UseCompressedOops ? sizeof (jint) : sizeof (jlong);
     return generate_disjoint_copy(size, aligned, is_oop, entry, name, dest_uninitialized);
@@ -1294,8 +1297,8 @@ class StubGenerator: public StubCodeGenerator {
   //   c_rarg2   - element count, treated as size_t, can be zero
   //
   address generate_conjoint_oop_copy(bool aligned,
-                                     address nooverlap_target, address *entry,
-                                     const char *name, bool dest_uninitialized) {
+                                     address nooverlap_target, address* entry,
+                                     const char* name, bool dest_uninitialized) {
     const bool is_oop = true;
     const size_t size = UseCompressedOops ? sizeof (jint) : sizeof (jlong);
     return generate_conjoint_copy(size, aligned, is_oop, nooverlap_target, entry,
@@ -1335,7 +1338,7 @@ class StubGenerator: public StubCodeGenerator {
   //    x10 ==  0  -  success
   //    x10 == -1^K - failure, where K is partial transfer count
   //
-  address generate_checkcast_copy(const char *name, address *entry,
+  address generate_checkcast_copy(const char* name, address* entry,
                                   bool dest_uninitialized = false) {
     Label L_load_element, L_store_element, L_do_card_marks, L_done, L_done_pop;
 
@@ -1506,7 +1509,7 @@ class StubGenerator: public StubCodeGenerator {
   // Examines the alignment of the operands and dispatches
   // to a long, int, short, or byte copy loop.
   //
-  address generate_unsafe_copy(const char *name,
+  address generate_unsafe_copy(const char* name,
                                address byte_copy_entry,
                                address short_copy_entry,
                                address int_copy_entry,
@@ -1562,7 +1565,7 @@ class StubGenerator: public StubCodeGenerator {
   //    x10 ==  0  -  success
   //    x10 == -1^K - failure, where K is partial transfer count
   //
-  address generate_generic_copy(const char *name,
+  address generate_generic_copy(const char* name,
                                 address byte_copy_entry, address short_copy_entry,
                                 address int_copy_entry, address oop_copy_entry,
                                 address long_copy_entry, address checkcast_copy_entry) {
@@ -1855,7 +1858,7 @@ class StubGenerator: public StubCodeGenerator {
   //   value: c_rarg1
   //   count: c_rarg2 treated as signed
   //
-  address generate_fill(BasicType t, bool aligned, const char *name) {
+  address generate_fill(BasicType t, bool aligned, const char* name) {
     __ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
@@ -1972,7 +1975,6 @@ class StubGenerator: public StubCodeGenerator {
     // Remaining count is less than 8 bytes. Fill it by a single store.
     // Note that the total length is no less than 8 bytes.
     if (t == T_BYTE || t == T_SHORT) {
-      Label L_exit1;
       __ beqz(count, L_exit1);
       __ slli(tmp_reg, count, shift);
       __ add(to, to, tmp_reg); // points to the end
@@ -2078,7 +2080,7 @@ class StubGenerator: public StubCodeGenerator {
     //*** jlong
     // It is always aligned
     StubRoutines::_arrayof_jlong_disjoint_arraycopy  = generate_disjoint_long_copy(true, &entry,
-                                                                                  "arrayof_jlong_disjoint_arraycopy");
+                                                                                   "arrayof_jlong_disjoint_arraycopy");
     StubRoutines::_arrayof_jlong_arraycopy           = generate_conjoint_long_copy(true, entry, &entry_jlong_arraycopy,
                                                                                    "arrayof_jlong_arraycopy");
     StubRoutines::_jlong_disjoint_arraycopy          = StubRoutines::_arrayof_jlong_disjoint_arraycopy;
@@ -2195,43 +2197,25 @@ class StubGenerator: public StubCodeGenerator {
     __ bnez(tmp4, DIFF2);
   }
 
-  // code for comparing 16 characters of strings with Latin1 and Utf16 encoding
-  void compare_string_16_x_LU(Register tmpL, Register tmpU, Label &DIFF1,
+  // code for comparing 8 characters of strings with Latin1 and Utf16 encoding
+  void compare_string_8_x_LU(Register tmpL, Register tmpU, Label &DIFF1,
                               Label &DIFF2) {
-    const Register cnt1 = x12, tmp1 = x28, tmp2 = x29, tmp3 = x30, tmp4 = x7;
+    const Register strU = x12, curU = x7, strL = x29, tmp = x30;
+    __ ld(tmpL, Address(strL));
+    __ addi(strL, strL, 8);
+    __ ld(tmpU, Address(strU));
+    __ addi(strU, strU, 8);
+    __ inflate_lo32(tmp, tmpL);
+    __ mv(t0, tmp);
+    __ xorr(tmp, curU, t0);
+    __ bnez(tmp, DIFF2);
 
-    __ ld(tmpL, Address(tmp2));
-    __ addi(tmp2, tmp2, 8);
-    __ ld(tmpU, Address(cnt1));
-    __ addi(cnt1, cnt1, 8);
-    __ inflate_lo32(tmp3, tmpL);
-    __ mv(t0, tmp3);
-    // now we have 32 bytes of characters
-    __ xorr(tmp3, tmp4, t0);
-    __ bnez(tmp3, DIFF2);
-
-    __ ld(tmp4, Address(cnt1));
-    __ addi(cnt1, cnt1, 8);
-    __ inflate_hi32(tmp3, tmpL);
-    __ mv(t0, tmp3);
-    __ xorr(tmp3, tmpU, t0);
-    __ bnez(tmp3, DIFF1);
-
-    __ ld(tmpL, Address(tmp2));
-    __ addi(tmp2, tmp2, 8);
-    __ ld(tmpU, Address(cnt1));
-    __ addi(cnt1, cnt1, 8);
-    __ inflate_lo32(tmp3, tmpL);
-    __ mv(t0, tmp3);
-    __ xorr(tmp3, tmp4, t0);
-    __ bnez(tmp3, DIFF2);
-
-    __ ld(tmp4, Address(cnt1));
-    __ addi(cnt1, cnt1, 8);
-    __ inflate_hi32(tmp3, tmpL);
-    __ mv(t0, tmp3);
-    __ xorr(tmp3, tmpU, t0);
-    __ bnez(tmp3, DIFF1);
+    __ ld(curU, Address(strU));
+    __ addi(strU, strU, 8);
+    __ inflate_hi32(tmp, tmpL);
+    __ mv(t0, tmp);
+    __ xorr(tmp, tmpU, t0);
+    __ bnez(tmp, DIFF1);
   }
 
   // x10  = result
@@ -2290,7 +2274,8 @@ class StubGenerator: public StubCodeGenerator {
     __ bltz(cnt2, TAIL);
     __ bind(SMALL_LOOP); // smaller loop
       __ sub(cnt2, cnt2, 16);
-      compare_string_16_x_LU(tmpL, tmpU, DIFF1, DIFF2);
+      compare_string_8_x_LU(tmpL, tmpU, DIFF1, DIFF2);
+      compare_string_8_x_LU(tmpL, tmpU, DIFF1, DIFF2);
       __ bgez(cnt2, SMALL_LOOP);
       __ addi(t0, cnt2, 16);
       __ beqz(t0, LOAD_LAST);
@@ -2299,7 +2284,9 @@ class StubGenerator: public StubCodeGenerator {
       __ add(cnt1, cnt1, t0); // Address of 8 bytes before last 4 characters in UTF-16 string
       __ add(tmp2, tmp2, cnt2); // Address of 16 bytes before last 4 characters in Latin1 string
       __ ld(tmp4, Address(cnt1, -8));
-      compare_string_16_x_LU(tmpL, tmpU, DIFF1, DIFF2); // last 16 characters before last load
+      // last 16 characters before last load
+      compare_string_8_x_LU(tmpL, tmpU, DIFF1, DIFF2);
+      compare_string_8_x_LU(tmpL, tmpU, DIFF1, DIFF2);
       __ j(LOAD_LAST);
     __ bind(DIFF2);
       __ mv(tmpU, tmp4);
@@ -2307,7 +2294,7 @@ class StubGenerator: public StubCodeGenerator {
       __ mv(tmpL, t0);
       __ j(CALCULATE_DIFFERENCE);
     __ bind(LOAD_LAST);
-      // Last 4 UTF-16 characters are already pre-loaded into tmp4 by compare_string_16_x_LU.
+      // Last 4 UTF-16 characters are already pre-loaded into tmp4 by compare_string_8_x_LU.
       // No need to load it again
       __ mv(tmpU, tmp4);
       __ ld(tmpL, Address(strL));
@@ -2831,7 +2818,6 @@ class StubGenerator: public StubCodeGenerator {
                                                 throw_NullPointerException_at_call));
     // arraycopy stubs used by compilers
     generate_arraycopy_stubs();
-
 
 #ifdef COMPILER2
     generate_compare_long_strings();

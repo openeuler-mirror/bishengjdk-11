@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2018, Red Hat, Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 only, as
@@ -72,12 +73,12 @@ LIR_Opr ShenandoahBarrierSetC1::atomic_cmpxchg_at_resolved(LIRAccess& access, LI
       cmp_value.load_item();
       new_value.load_item();
 
-      LIR_Opr t1 = gen->new_register(T_OBJECT);
-      LIR_Opr t2 = gen->new_register(T_OBJECT);
+      LIR_Opr tmp1 = gen->new_register(T_OBJECT);
+      LIR_Opr tmp2 = gen->new_register(T_OBJECT);
       LIR_Opr addr = access.resolved_addr()->as_address_ptr()->base();
       LIR_Opr result = gen->new_register(T_INT);
 
-      __ append(new LIR_OpShenandoahCompareAndSwap(addr, cmp_value.result(), new_value.result(), t1, t2, result));
+      __ append(new LIR_OpShenandoahCompareAndSwap(addr, cmp_value.result(), new_value.result(), tmp1, tmp2, result));
       return result;
     }
   }
@@ -102,9 +103,9 @@ LIR_Opr ShenandoahBarrierSetC1::atomic_xchg_at_resolved(LIRAccess& access, LIRIt
 
   if (access.is_oop()) {
     result = load_reference_barrier(access.gen(), result, LIR_OprFact::addressConst(0));
-    LIR_Opr tmp = gen->new_register(type);
-    __ move(result, tmp);
-    result = tmp;
+    LIR_Opr tmp_opr = gen->new_register(type);
+    __ move(result, tmp_opr);
+    result = tmp_opr;
     if (ShenandoahSATBBarrier) {
       pre_barrier(access.gen(), access.access_emit_info(), access.decorators(), LIR_OprFact::illegalOpr,
                   result /* pre_val */);

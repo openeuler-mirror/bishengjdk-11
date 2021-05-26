@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -163,16 +163,15 @@ void TemplateTable::patch_bytecode(Bytecodes::Code bc, Register bc_reg,
   Label L_patch_done;
 
   switch (bc) {
-  case Bytecodes::_fast_aputfield:
-  case Bytecodes::_fast_bputfield:
-  case Bytecodes::_fast_zputfield:
-  case Bytecodes::_fast_cputfield:
-  case Bytecodes::_fast_dputfield:
-  case Bytecodes::_fast_fputfield:
-  case Bytecodes::_fast_iputfield:
-  case Bytecodes::_fast_lputfield:
-  case Bytecodes::_fast_sputfield:
-    {
+    case Bytecodes::_fast_aputfield:  // fall through
+    case Bytecodes::_fast_bputfield:  // fall through
+    case Bytecodes::_fast_zputfield:  // fall through
+    case Bytecodes::_fast_cputfield:  // fall through
+    case Bytecodes::_fast_dputfield:  // fall through
+    case Bytecodes::_fast_fputfield:  // fall through
+    case Bytecodes::_fast_iputfield:  // fall through
+    case Bytecodes::_fast_lputfield:  // fall through
+    case Bytecodes::_fast_sputfield: {
       // We skip bytecode quickening for putfield instructions when
       // the put_code written to the constant pool cache is zero.
       // This is required so that every execution of this instruction
@@ -183,14 +182,14 @@ void TemplateTable::patch_bytecode(Bytecodes::Code bc, Register bc_reg,
       __ get_cache_and_index_and_bytecode_at_bcp(temp_reg, bc_reg, temp_reg, byte_no, 1);
       __ mv(bc_reg, bc);
       __ beqz(temp_reg, L_patch_done);
+      break;
     }
-    break;
-  default:
-    assert(byte_no == -1, "sanity");
-    // the pair bytecodes have already done the load.
-    if (load_bc_into_bc_reg) {
-      __ mv(bc_reg, bc);
-    }
+    default:
+      assert(byte_no == -1, "sanity");
+      // the pair bytecodes have already done the load.
+      if (load_bc_into_bc_reg) {
+        __ mv(bc_reg, bc);
+      }
   }
 
   if (JvmtiExport::can_post_breakpoint()) {
@@ -256,18 +255,17 @@ void TemplateTable::fconst(int value)
   static float fBuf[2] = {1.0, 2.0};
   __ mv(t0, (intptr_t)fBuf);
   switch (value) {
-  case 0:
-    __ fmv_w_x(f10, zr);
-    break;
-  case 1:
-    __ flw(f10, t0, 0);
-    break;
-  case 2:
-    __ flw(f10, t0, sizeof(float));
-    break;
-  default:
-    ShouldNotReachHere();
-    break;
+    case 0:
+      __ fmv_w_x(f10, zr);
+      break;
+    case 1:
+      __ flw(f10, t0, 0);
+      break;
+    case 2:
+      __ flw(f10, t0, sizeof(float));
+      break;
+    default:
+      ShouldNotReachHere();
   }
 }
 
@@ -277,18 +275,17 @@ void TemplateTable::dconst(int value)
   static double dBuf[2] = {1.0, 2.0};
   __ mv(t0, (intptr_t)dBuf);
   switch (value) {
-  case 0:
-    __ fmv_d_x(f10, zr);
-    break;
-  case 1:
-    __ fld(f10, t0, 0);
-    break;
-  case 2:
-    __ fld(f10, t0, sizeof(double));
-    break;
-  default:
-    ShouldNotReachHere();
-    break;
+    case 0:
+      __ fmv_d_x(f10, zr);
+      break;
+    case 1:
+      __ fld(f10, t0, 0);
+      break;
+    case 2:
+      __ fld(f10, t0, sizeof(double));
+      break;
+    default:
+      ShouldNotReachHere();
   }
 }
 
@@ -329,16 +326,16 @@ void TemplateTable::ldc(bool wide)
   __ membar(MacroAssembler::LoadLoad | MacroAssembler::LoadStore);
 
   // unresolved class - get the resolved class
-  __ mv(t1, JVM_CONSTANT_UnresolvedClass);
+  __ mv(t1, (u1)JVM_CONSTANT_UnresolvedClass);
   __ beq(x13, t1, call_ldc);
 
   // unresolved class in error state - call into runtime to throw the error
   // from the first resolution attempt
-  __ mv(t1, JVM_CONSTANT_UnresolvedClassInError);
+  __ mv(t1, (u1)JVM_CONSTANT_UnresolvedClassInError);
   __ beq(x13, t1, call_ldc);
 
   // resolved class - need to call vm to get java mirror of the class
-  __ mv(t1, JVM_CONSTANT_Class);
+  __ mv(t1, (u1)JVM_CONSTANT_Class);
   __ bne(x13, t1, notClass);
 
   __ bind(call_ldc);
@@ -349,7 +346,7 @@ void TemplateTable::ldc(bool wide)
   __ j(Done);
 
   __ bind(notClass);
-  __ mv(t1, JVM_CONSTANT_Float);
+  __ mv(t1, (u1)JVM_CONSTANT_Float);
   __ bne(x13, t1, notFloat);
 
   // ftos
@@ -361,7 +358,7 @@ void TemplateTable::ldc(bool wide)
 
   __ bind(notFloat);
 
-  __ mv(t1, JVM_CONSTANT_Integer);
+  __ mv(t1, (u1)JVM_CONSTANT_Integer);
   __ bne(x13, t1, notInt);
 
   // itos
@@ -492,89 +489,87 @@ void TemplateTable::condy_helper(Label& Done)
   __ srli(flags, flags, registerSize - ConstantPoolCacheEntry::tos_state_bits); // (1 << 5) - 4 --> 28~31==> flags:0~3
 
   switch (bytecode()) {
-    case Bytecodes::_ldc:
-    case Bytecodes::_ldc_w:
-      {
-        // tos in (itos, ftos, stos, btos, ctos, ztos)
-        Label notInt, notFloat, notShort, notByte, notChar, notBool;
-        __ mv(t1, itos);
-        __ bne(flags, t1, notInt);
-        // itos
-        __ lw(x10, field);
-        __ push(itos);
-        __ j(Done);
+    case Bytecodes::_ldc:   // fall through
+    case Bytecodes::_ldc_w: {
+      // tos in (itos, ftos, stos, btos, ctos, ztos)
+      Label notInt, notFloat, notShort, notByte, notChar, notBool;
+      __ mv(t1, itos);
+      __ bne(flags, t1, notInt);
+      // itos
+      __ lw(x10, field);
+      __ push(itos);
+      __ j(Done);
 
-        __ bind(notInt);
-        __ mv(t1, ftos);
-        __ bne(flags, t1, notFloat);
-        // ftos
-        __ load_float(field);
-        __ push(ftos);
-        __ j(Done);
+      __ bind(notInt);
+      __ mv(t1, ftos);
+      __ bne(flags, t1, notFloat);
+      // ftos
+      __ load_float(field);
+      __ push(ftos);
+      __ j(Done);
 
-        __ bind(notFloat);
-        __ mv(t1, stos);
-        __ bne(flags, t1, notShort);
-        // stos
-        __ load_signed_short(x10, field);
-        __ push(stos);
-        __ j(Done);
+      __ bind(notFloat);
+      __ mv(t1, stos);
+      __ bne(flags, t1, notShort);
+      // stos
+      __ load_signed_short(x10, field);
+      __ push(stos);
+      __ j(Done);
 
-        __ bind(notShort);
-        __ mv(t1, btos);
-        __ bne(flags, t1, notByte);
-        // btos
-        __ load_signed_byte(x10, field);
-        __ push(btos);
-        __ j(Done);
+      __ bind(notShort);
+      __ mv(t1, btos);
+      __ bne(flags, t1, notByte);
+      // btos
+      __ load_signed_byte(x10, field);
+      __ push(btos);
+      __ j(Done);
 
-        __ bind(notByte);
-        __ mv(t1, ctos);
-        __ bne(flags, t1, notChar);
-        // ctos
-        __ load_unsigned_short(x10, field);
-        __ push(ctos);
-        __ j(Done);
+      __ bind(notByte);
+      __ mv(t1, ctos);
+      __ bne(flags, t1, notChar);
+      // ctos
+      __ load_unsigned_short(x10, field);
+      __ push(ctos);
+      __ j(Done);
 
-        __ bind(notChar);
-        __ mv(t1, ztos);
-        __ bne(flags, t1, notBool);
-        // ztos
-        __ load_signed_byte(x10, field);
-        __ push(ztos);
-        __ j(Done);
+      __ bind(notChar);
+      __ mv(t1, ztos);
+      __ bne(flags, t1, notBool);
+      // ztos
+      __ load_signed_byte(x10, field);
+      __ push(ztos);
+      __ j(Done);
 
-        __ bind(notBool);
-        break;
-      }
+      __ bind(notBool);
+      break;
+    }
 
-    case Bytecodes::_ldc2_w:
-      {
-        Label notLong, notDouble;
-        __ mv(t1, ltos);
-        __ bne(flags, t1, notLong);
-        // ltos
-        __ ld(x10, field);
-        __ push(ltos);
-        __ j(Done);
+    case Bytecodes::_ldc2_w: {
+      Label notLong, notDouble;
+      __ mv(t1, ltos);
+      __ bne(flags, t1, notLong);
+      // ltos
+      __ ld(x10, field);
+      __ push(ltos);
+      __ j(Done);
 
-        __ bind(notLong);
-        __ mv(t1, dtos);
-        __ bne(flags, t1, notDouble);
-        // dtos
-        __ load_double(field);
-        __ push(dtos);
-        __ j(Done);
+      __ bind(notLong);
+      __ mv(t1, dtos);
+      __ bne(flags, t1, notDouble);
+      // dtos
+      __ load_double(field);
+      __ push(dtos);
+      __ j(Done);
 
-         __ bind(notDouble);
-        break;
-      }
+      __ bind(notDouble);
+      break;
+    }
 
     default:
       ShouldNotReachHere();
-    }
+  }
 
-    __ stop("bad ldc/condy");
+  __ stop("bad ldc/condy");
 }
 
 void TemplateTable::locals_index(Register reg, int offset)
@@ -1362,16 +1357,16 @@ void TemplateTable::iop2(Operation op)
   // x10 <== x11 op x10
   __ pop_i(x11);
   switch (op) {
-  case add  : __ addw(x10, x11, x10);  break;
-  case sub  : __ subw(x10, x11, x10);  break;
-  case mul  : __ mulw(x10, x11, x10);  break;
-  case _and : __ andrw(x10, x11, x10); break;
-  case _or  : __ orrw(x10, x11, x10);  break;
-  case _xor : __ xorrw(x10, x11, x10); break;
-  case shl  : __ sllw(x10, x11, x10);  break;
-  case shr  : __ sraw(x10, x11, x10);  break;
-  case ushr : __ srlw(x10, x11, x10);  break;
-  default   : ShouldNotReachHere();
+    case add  : __ addw(x10, x11, x10);  break;
+    case sub  : __ subw(x10, x11, x10);  break;
+    case mul  : __ mulw(x10, x11, x10);  break;
+    case _and : __ andrw(x10, x11, x10); break;
+    case _or  : __ orrw(x10, x11, x10);  break;
+    case _xor : __ xorrw(x10, x11, x10); break;
+    case shl  : __ sllw(x10, x11, x10);  break;
+    case shr  : __ sraw(x10, x11, x10);  break;
+    case ushr : __ srlw(x10, x11, x10);  break;
+    default   : ShouldNotReachHere();
   }
 }
 
@@ -1381,13 +1376,13 @@ void TemplateTable::lop2(Operation op)
   // x10 <== x11 op x10
   __ pop_l(x11);
   switch (op) {
-  case add  : __ add(x10, x11, x10);  break;
-  case sub  : __ sub(x10, x11, x10);  break;
-  case mul  : __ mul(x10, x11, x10);  break;
-  case _and : __ andr(x10, x11, x10); break;
-  case _or  : __ orr(x10, x11, x10);  break;
-  case _xor : __ xorr(x10, x11, x10); break;
-  default   : ShouldNotReachHere();
+    case add  : __ add(x10, x11, x10);  break;
+    case sub  : __ sub(x10, x11, x10);  break;
+    case mul  : __ mul(x10, x11, x10);  break;
+    case _and : __ andr(x10, x11, x10); break;
+    case _or  : __ orr(x10, x11, x10);  break;
+    case _xor : __ xorr(x10, x11, x10); break;
+    default   : ShouldNotReachHere();
   }
 }
 
@@ -1482,30 +1477,29 @@ void TemplateTable::fop2(Operation op)
 {
   transition(ftos, ftos);
   switch (op) {
-  case add:
-    __ pop_f(f11);
-    __ fadd_s(f10, f11, f10);
-    break;
-  case sub:
-    __ pop_f(f11);
-    __ fsub_s(f10, f11, f10);
-    break;
-  case mul:
-    __ pop_f(f11);
-    __ fmul_s(f10, f11, f10);
-    break;
-  case div:
-    __ pop_f(f11);
-    __ fdiv_s(f10, f11, f10);
-    break;
-  case rem:
-    __ fmv_s(f11, f10);
-    __ pop_f(f10);
-    __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::frem));
-    break;
-  default:
-    ShouldNotReachHere();
-    break;
+    case add:
+      __ pop_f(f11);
+      __ fadd_s(f10, f11, f10);
+      break;
+    case sub:
+      __ pop_f(f11);
+      __ fsub_s(f10, f11, f10);
+      break;
+    case mul:
+      __ pop_f(f11);
+      __ fmul_s(f10, f11, f10);
+      break;
+    case div:
+      __ pop_f(f11);
+      __ fdiv_s(f10, f11, f10);
+      break;
+    case rem:
+      __ fmv_s(f11, f10);
+      __ pop_f(f10);
+      __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::frem));
+      break;
+    default:
+      ShouldNotReachHere();
   }
 }
 
@@ -1513,30 +1507,29 @@ void TemplateTable::dop2(Operation op)
 {
   transition(dtos, dtos);
   switch (op) {
-  case add:
-    __ pop_d(f11);
-    __ fadd_d(f10, f11, f10);
-    break;
-  case sub:
-    __ pop_d(f11);
-    __ fsub_d(f10, f11, f10);
-    break;
-  case mul:
-    __ pop_d(f11);
-    __ fmul_d(f10, f11, f10);
-    break;
-  case div:
-    __ pop_d(f11);
-    __ fdiv_d(f10, f11, f10);
-    break;
-  case rem:
-    __ fmv_d(f11, f10);
-    __ pop_d(f10);
-    __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::drem));
-    break;
-  default:
-    ShouldNotReachHere();
-    break;
+    case add:
+      __ pop_d(f11);
+      __ fadd_d(f10, f11, f10);
+      break;
+    case sub:
+      __ pop_d(f11);
+      __ fsub_d(f10, f11, f10);
+      break;
+    case mul:
+      __ pop_d(f11);
+      __ fmul_d(f10, f11, f10);
+      break;
+    case div:
+      __ pop_d(f11);
+      __ fdiv_d(f10, f11, f10);
+      break;
+    case rem:
+      __ fmv_d(f11, f10);
+      __ pop_d(f10);
+      __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::drem));
+      break;
+    default:
+      ShouldNotReachHere();
   }
 }
 
@@ -1596,40 +1589,40 @@ void TemplateTable::convert()
     TosState tos_in  = ilgl;
     TosState tos_out = ilgl;
     switch (bytecode()) {
-    case Bytecodes::_i2l: // fall through
-    case Bytecodes::_i2f: // fall through
-    case Bytecodes::_i2d: // fall through
-    case Bytecodes::_i2b: // fall through
-    case Bytecodes::_i2c: // fall through
-    case Bytecodes::_i2s: tos_in = itos; break;
-    case Bytecodes::_l2i: // fall through
-    case Bytecodes::_l2f: // fall through
-    case Bytecodes::_l2d: tos_in = ltos; break;
-    case Bytecodes::_f2i: // fall through
-    case Bytecodes::_f2l: // fall through
-    case Bytecodes::_f2d: tos_in = ftos; break;
-    case Bytecodes::_d2i: // fall through
-    case Bytecodes::_d2l: // fall through
-    case Bytecodes::_d2f: tos_in = dtos; break;
-    default             : ShouldNotReachHere();
+      case Bytecodes::_i2l: // fall through
+      case Bytecodes::_i2f: // fall through
+      case Bytecodes::_i2d: // fall through
+      case Bytecodes::_i2b: // fall through
+      case Bytecodes::_i2c: // fall through
+      case Bytecodes::_i2s: tos_in = itos; break;
+      case Bytecodes::_l2i: // fall through
+      case Bytecodes::_l2f: // fall through
+      case Bytecodes::_l2d: tos_in = ltos; break;
+      case Bytecodes::_f2i: // fall through
+      case Bytecodes::_f2l: // fall through
+      case Bytecodes::_f2d: tos_in = ftos; break;
+      case Bytecodes::_d2i: // fall through
+      case Bytecodes::_d2l: // fall through
+      case Bytecodes::_d2f: tos_in = dtos; break;
+      default             : ShouldNotReachHere();
     }
     switch (bytecode()) {
-    case Bytecodes::_l2i: // fall through
-    case Bytecodes::_f2i: // fall through
-    case Bytecodes::_d2i: // fall through
-    case Bytecodes::_i2b: // fall through
-    case Bytecodes::_i2c: // fall through
-    case Bytecodes::_i2s: tos_out = itos; break;
-    case Bytecodes::_i2l: // fall through
-    case Bytecodes::_f2l: // fall through
-    case Bytecodes::_d2l: tos_out = ltos; break;
-    case Bytecodes::_i2f: // fall through
-    case Bytecodes::_l2f: // fall through
-    case Bytecodes::_d2f: tos_out = ftos; break;
-    case Bytecodes::_i2d: // fall through
-    case Bytecodes::_l2d: // fall through
-    case Bytecodes::_f2d: tos_out = dtos; break;
-    default             : ShouldNotReachHere();
+      case Bytecodes::_l2i: // fall through
+      case Bytecodes::_f2i: // fall through
+      case Bytecodes::_d2i: // fall through
+      case Bytecodes::_i2b: // fall through
+      case Bytecodes::_i2c: // fall through
+      case Bytecodes::_i2s: tos_out = itos; break;
+      case Bytecodes::_i2l: // fall through
+      case Bytecodes::_f2l: // fall through
+      case Bytecodes::_d2l: tos_out = ltos; break;
+      case Bytecodes::_i2f: // fall through
+      case Bytecodes::_l2f: // fall through
+      case Bytecodes::_d2f: tos_out = ftos; break;
+      case Bytecodes::_i2d: // fall through
+      case Bytecodes::_l2d: // fall through
+      case Bytecodes::_f2d: tos_out = dtos; break;
+      default             : ShouldNotReachHere();
     }
     transition(tos_in, tos_out);
   }
@@ -1637,53 +1630,53 @@ void TemplateTable::convert()
 
   // Conversion
   switch (bytecode()) {
-  case Bytecodes::_i2l:
-    __ sign_ext(x10, x10, registerSize - 32);
-    break;
-  case Bytecodes::_i2f:
-    __ fcvt_s_w(f10, x10);
-    break;
-  case Bytecodes::_i2d:
-    __ fcvt_d_w(f10, x10);
-    break;
-  case Bytecodes::_i2b:
-    __ sign_ext(x10, x10, registerSize - 8);
-    break;
-  case Bytecodes::_i2c:
-    __ zero_ext(x10, x10, registerSize - 16);
-    break;
-  case Bytecodes::_i2s:
-    __ sign_ext(x10, x10, registerSize - 16);
-    break;
-  case Bytecodes::_l2i:
-    __ addw(x10, x10, zr);
-    break;
-  case Bytecodes::_l2f:
-    __ fcvt_s_l(f10, x10);
-    break;
-  case Bytecodes::_l2d:
-    __ fcvt_d_l(f10, x10);
-    break;
-  case Bytecodes::_f2i:
-    __ fcvt_w_s_safe(x10, f10);
-    break;
-  case Bytecodes::_f2l:
-    __ fcvt_l_s_safe(x10, f10);
-    break;
-  case Bytecodes::_f2d:
-    __ fcvt_d_s(f10, f10);
-    break;
-  case Bytecodes::_d2i:
-    __ fcvt_w_d_safe(x10, f10);
-    break;
-  case Bytecodes::_d2l:
-    __ fcvt_l_d_safe(x10, f10);
-    break;
-  case Bytecodes::_d2f:
-    __ fcvt_s_d(f10, f10);
-    break;
-  default:
-    ShouldNotReachHere();
+    case Bytecodes::_i2l:
+      __ sign_ext(x10, x10, registerSize - 32);
+      break;
+    case Bytecodes::_i2f:
+      __ fcvt_s_w(f10, x10);
+      break;
+    case Bytecodes::_i2d:
+      __ fcvt_d_w(f10, x10);
+      break;
+    case Bytecodes::_i2b:
+      __ sign_ext(x10, x10, registerSize - 8);
+      break;
+    case Bytecodes::_i2c:
+      __ zero_ext(x10, x10, registerSize - 16);
+      break;
+    case Bytecodes::_i2s:
+      __ sign_ext(x10, x10, registerSize - 16);
+      break;
+    case Bytecodes::_l2i:
+      __ addw(x10, x10, zr);
+      break;
+    case Bytecodes::_l2f:
+      __ fcvt_s_l(f10, x10);
+      break;
+    case Bytecodes::_l2d:
+      __ fcvt_d_l(f10, x10);
+      break;
+    case Bytecodes::_f2i:
+      __ fcvt_w_s_safe(x10, f10);
+      break;
+    case Bytecodes::_f2l:
+      __ fcvt_l_s_safe(x10, f10);
+      break;
+    case Bytecodes::_f2d:
+      __ fcvt_d_s(f10, f10);
+      break;
+    case Bytecodes::_d2i:
+      __ fcvt_w_d_safe(x10, f10);
+      break;
+    case Bytecodes::_d2l:
+      __ fcvt_l_d_safe(x10, f10);
+      break;
+    case Bytecodes::_d2f:
+      __ fcvt_s_d(f10, f10);
+      break;
+    default:
+      ShouldNotReachHere();
   }
 }
 
@@ -1780,7 +1773,6 @@ void TemplateTable::branch(bool is_jsr, bool is_wide)
     // x12: target offset
     __ bgtz(x12, dispatch); // count only if backward branch
 
-    // ECN: FIXME: This code smells
     // check if MethodCounters exists
     Label has_counters;
     __ ld(t0, Address(xmethod, Method::method_counters_offset()));
@@ -1944,26 +1936,26 @@ void TemplateTable::if_0cmp(Condition cc)
 
   __ addw(x10, x10, zr);
   switch (cc) {
-  case equal:
-    __ bnez(x10, not_taken);
-    break;
-  case not_equal:
-    __ beqz(x10, not_taken);
-    break;
-  case less:
-    __ bgez(x10, not_taken);
-    break;
-  case less_equal:
-    __ bgtz(x10, not_taken);
-    break;
-  case greater:
-    __ blez(x10, not_taken);
-    break;
-  case greater_equal:
-    __ bltz(x10, not_taken);
-    break;
-  default:
-    break;
+    case equal:
+      __ bnez(x10, not_taken);
+      break;
+    case not_equal:
+      __ beqz(x10, not_taken);
+      break;
+    case less:
+      __ bgez(x10, not_taken);
+      break;
+    case less_equal:
+      __ bgtz(x10, not_taken);
+      break;
+    case greater:
+      __ blez(x10, not_taken);
+      break;
+    case greater_equal:
+      __ bltz(x10, not_taken);
+      break;
+    default:
+      break;
   }
 
   branch(false, false);
@@ -1979,26 +1971,26 @@ void TemplateTable::if_icmp(Condition cc)
   __ pop_i(x11);
   __ addw(x10, x10, zr);
   switch (cc) {
-  case equal:
-    __ bne(x11, x10, not_taken);
-    break;
-  case not_equal:
-    __ beq(x11, x10, not_taken);
-    break;
-  case less:
-    __ bge(x11, x10, not_taken);
-    break;
-  case less_equal:
-    __ bgt(x11, x10, not_taken);
-    break;
-  case greater:
-    __ ble(x11, x10, not_taken);
-    break;
-  case greater_equal:
-    __ blt(x11, x10, not_taken);
-    break;
-  default:
-    break;
+    case equal:
+      __ bne(x11, x10, not_taken);
+      break;
+    case not_equal:
+      __ beq(x11, x10, not_taken);
+      break;
+    case less:
+      __ bge(x11, x10, not_taken);
+      break;
+    case less_equal:
+      __ bgt(x11, x10, not_taken);
+      break;
+    case greater:
+      __ ble(x11, x10, not_taken);
+      break;
+    case greater_equal:
+      __ blt(x11, x10, not_taken);
+      break;
+    default:
+      break;
   }
 
   branch(false, false);
@@ -2213,15 +2205,15 @@ void TemplateTable::fast_binaryswitch() {
     __ ld(temp, Address(temp, 0));
     __ grevw(temp, temp); // reverse bytes in word (32bit) and sign-extend
 
-    Label done, greater;
-    __ bge(key, temp, greater);
+    Label L_done, L_greater;
+    __ bge(key, temp, L_greater);
     // if [key < array[h].fast_match()] then j = h
     __ mv(j, h);
-    __ j(done);
-    __ bind(greater);
+    __ j(L_done);
+    __ bind(L_greater);
     // if [key >= array[h].fast_match()] then i = h
     __ mv(i, h);
-    __ bind(done);
+    __ bind(L_done);
 
     // while [i + 1 < j]
     __ bind(entry);
@@ -2346,8 +2338,8 @@ void TemplateTable::resolve_cache_and_index(int byte_no,
 
   Bytecodes::Code code = bytecode();
   switch (code) {
-  case Bytecodes::_nofast_getfield: code = Bytecodes::_getfield; break;
-  case Bytecodes::_nofast_putfield: code = Bytecodes::_putfield; break;
+    case Bytecodes::_nofast_getfield: code = Bytecodes::_getfield; break;
+    case Bytecodes::_nofast_putfield: code = Bytecodes::_putfield; break;
   }
 
   assert(byte_no == f1_byte || byte_no == f2_byte, "byte_no out of range");
@@ -2530,7 +2522,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   __ j(Done);
 
   __ bind(notByte);
-  __ sub(t0, flags, ztos);
+  __ sub(t0, flags, (u1)ztos);
   __ bnez(t0, notBool);
 
   // ztos (same code as btos)
@@ -2544,7 +2536,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   __ j(Done);
 
   __ bind(notBool);
-  __ sub(t0, flags, atos);
+  __ sub(t0, flags, (u1)atos);
   __ bnez(t0, notObj);
   // atos
   do_oop_load(_masm, field, x10, IN_HEAP);
@@ -2555,7 +2547,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   __ j(Done);
 
   __ bind(notObj);
-  __ sub(t0, flags, itos);
+  __ sub(t0, flags, (u1)itos);
   __ bnez(t0, notInt);
   // itos
   __ access_load_at(T_INT, IN_HEAP, x10, field, noreg, noreg);
@@ -2568,7 +2560,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   __ j(Done);
 
   __ bind(notInt);
-  __ sub(t0, flags, ctos);
+  __ sub(t0, flags, (u1)ctos);
   __ bnez(t0, notChar);
   // ctos
   __ access_load_at(T_CHAR, IN_HEAP, x10, field, noreg, noreg);
@@ -2580,7 +2572,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   __ j(Done);
 
   __ bind(notChar);
-  __ sub(t0, flags, stos);
+  __ sub(t0, flags, (u1)stos);
   __ bnez(t0, notShort);
   // stos
   __ access_load_at(T_SHORT, IN_HEAP, x10, field, noreg, noreg);
@@ -2592,7 +2584,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   __ j(Done);
 
   __ bind(notShort);
-  __ sub(t0, flags, ltos);
+  __ sub(t0, flags, (u1)ltos);
   __ bnez(t0, notLong);
   // ltos
   __ access_load_at(T_LONG, IN_HEAP, x10, field, noreg, noreg);
@@ -2604,7 +2596,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   __ j(Done);
 
   __ bind(notLong);
-  __ sub(t0, flags, ftos);
+  __ sub(t0, flags, (u1)ftos);
   __ bnez(t0, notFloat);
   // ftos
   __ access_load_at(T_FLOAT, IN_HEAP, noreg /* ftos */, field, noreg, noreg);
@@ -2617,7 +2609,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
   __ bind(notFloat);
 #ifdef ASSERT
-  __ sub(t0, flags, dtos);
+  __ sub(t0, flags, (u1)dtos);
   __ bnez(t0, notDouble);
 #endif
   // dtos
@@ -2772,7 +2764,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   }
 
   __ bind(notByte);
-  __ sub(t0, flags, ztos);
+  __ sub(t0, flags, (u1)ztos);
   __ bnez(t0, notBool);
 
   // ztos
@@ -2792,7 +2784,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   }
 
   __ bind(notBool);
-  __ sub(t0, flags, atos);
+  __ sub(t0, flags, (u1)atos);
   __ bnez(t0, notObj);
 
   // atos
@@ -2813,7 +2805,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   }
 
   __ bind(notObj);
-  __ sub(t0, flags, itos);
+  __ sub(t0, flags, (u1)itos);
   __ bnez(t0, notInt);
 
   // itos
@@ -2833,7 +2825,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   }
 
   __ bind(notInt);
-  __ sub(t0, flags, ctos);
+  __ sub(t0, flags, (u1)ctos);
   __ bnez(t0, notChar);
 
   // ctos
@@ -2853,7 +2845,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   }
 
   __ bind(notChar);
-  __ sub(t0, flags, stos);
+  __ sub(t0, flags, (u1)stos);
   __ bnez(t0, notShort);
 
   // stos
@@ -2873,7 +2865,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   }
 
   __ bind(notShort);
-  __ sub(t0, flags, ltos);
+  __ sub(t0, flags, (u1)ltos);
   __ bnez(t0, notLong);
 
   // ltos
@@ -2893,7 +2885,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   }
 
   __ bind(notLong);
-  __ sub(t0, flags, ftos);
+  __ sub(t0, flags, (u1)ftos);
   __ bnez(t0, notFloat);
 
   // ftos
@@ -2914,7 +2906,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
 
   __ bind(notFloat);
 #ifdef ASSERT
-  __ sub(t0, flags, dtos);
+  __ sub(t0, flags, (u1)dtos);
   __ bnez(t0, notDouble);
 #endif
 
@@ -2981,18 +2973,18 @@ void TemplateTable::jvmti_post_fast_field_mod()
     // to do it for every data type, we use the saved values as the
     // jvalue object.
     switch (bytecode()) {          // load values into the jvalue object
-    case Bytecodes::_fast_aputfield: __ push_ptr(x10); break;
-    case Bytecodes::_fast_bputfield: // fall through
-    case Bytecodes::_fast_zputfield: // fall through
-    case Bytecodes::_fast_sputfield: // fall through
-    case Bytecodes::_fast_cputfield: // fall through
-    case Bytecodes::_fast_iputfield: __ push_i(x10); break;
-    case Bytecodes::_fast_dputfield: __ push_d(); break;
-    case Bytecodes::_fast_fputfield: __ push_f(); break;
-    case Bytecodes::_fast_lputfield: __ push_l(x10); break;
+      case Bytecodes::_fast_aputfield: __ push_ptr(x10); break;
+      case Bytecodes::_fast_bputfield: // fall through
+      case Bytecodes::_fast_zputfield: // fall through
+      case Bytecodes::_fast_sputfield: // fall through
+      case Bytecodes::_fast_cputfield: // fall through
+      case Bytecodes::_fast_iputfield: __ push_i(x10); break;
+      case Bytecodes::_fast_dputfield: __ push_d(); break;
+      case Bytecodes::_fast_fputfield: __ push_f(); break;
+      case Bytecodes::_fast_lputfield: __ push_l(x10); break;
 
-    default:
-      ShouldNotReachHere();
+      default:
+        ShouldNotReachHere();
     }
     __ mv(c_rarg3, esp);             // points to jvalue on the stack
     // access constant pool cache entry
@@ -3007,15 +2999,16 @@ void TemplateTable::jvmti_post_fast_field_mod()
                x9, c_rarg2, c_rarg3);
 
     switch (bytecode()) {             // restore tos values
-    case Bytecodes::_fast_aputfield: __ pop_ptr(x10); break;
-    case Bytecodes::_fast_bputfield: // fall through
-    case Bytecodes::_fast_zputfield: // fall through
-    case Bytecodes::_fast_sputfield: // fall through
-    case Bytecodes::_fast_cputfield: // fall through
-    case Bytecodes::_fast_iputfield: __ pop_i(x10); break;
-    case Bytecodes::_fast_dputfield: __ pop_d(); break;
-    case Bytecodes::_fast_fputfield: __ pop_f(); break;
-    case Bytecodes::_fast_lputfield: __ pop_l(x10); break;
+      case Bytecodes::_fast_aputfield: __ pop_ptr(x10); break;
+      case Bytecodes::_fast_bputfield: // fall through
+      case Bytecodes::_fast_zputfield: // fall through
+      case Bytecodes::_fast_sputfield: // fall through
+      case Bytecodes::_fast_cputfield: // fall through
+      case Bytecodes::_fast_iputfield: __ pop_i(x10); break;
+      case Bytecodes::_fast_dputfield: __ pop_d(); break;
+      case Bytecodes::_fast_fputfield: __ pop_f(); break;
+      case Bytecodes::_fast_lputfield: __ pop_l(x10); break;
+      default: break;
     }
     __ bind(L2);
   }
@@ -3050,8 +3043,6 @@ void TemplateTable::fast_storefield(TosState state)
     __ bind(notVolatile);
   }
 
-  Label notVolatile;
-
   // Get object from stack
   pop_and_check_object(x12);
 
@@ -3061,35 +3052,35 @@ void TemplateTable::fast_storefield(TosState state)
 
   // access field
   switch (bytecode()) {
-  case Bytecodes::_fast_aputfield:
-    do_oop_store(_masm, field, x10, IN_HEAP);
-    break;
-  case Bytecodes::_fast_lputfield:
-    __ access_store_at(T_LONG, IN_HEAP, field, x10, noreg, noreg);
-    break;
-  case Bytecodes::_fast_iputfield:
-    __ access_store_at(T_INT, IN_HEAP, field, x10, noreg, noreg);
-    break;
-  case Bytecodes::_fast_zputfield:
-    __ access_store_at(T_BOOLEAN, IN_HEAP, field, x10, noreg, noreg);
-    break;
-  case Bytecodes::_fast_bputfield:
-    __ access_store_at(T_BYTE, IN_HEAP, field, x10, noreg, noreg);
-    break;
-  case Bytecodes::_fast_sputfield:
-    __ access_store_at(T_SHORT, IN_HEAP, field, x10, noreg, noreg);
-    break;
-  case Bytecodes::_fast_cputfield:
-    __ access_store_at(T_CHAR, IN_HEAP, field, x10, noreg, noreg);
-    break;
-  case Bytecodes::_fast_fputfield:
-    __ access_store_at(T_FLOAT, IN_HEAP, field, noreg /* ftos */, noreg, noreg);
-    break;
-  case Bytecodes::_fast_dputfield:
-    __ access_store_at(T_DOUBLE, IN_HEAP, field, noreg /* dtos */, noreg, noreg);
-    break;
-  default:
-    ShouldNotReachHere();
+    case Bytecodes::_fast_aputfield:
+      do_oop_store(_masm, field, x10, IN_HEAP);
+      break;
+    case Bytecodes::_fast_lputfield:
+      __ access_store_at(T_LONG, IN_HEAP, field, x10, noreg, noreg);
+      break;
+    case Bytecodes::_fast_iputfield:
+      __ access_store_at(T_INT, IN_HEAP, field, x10, noreg, noreg);
+      break;
+    case Bytecodes::_fast_zputfield:
+      __ access_store_at(T_BOOLEAN, IN_HEAP, field, x10, noreg, noreg);
+      break;
+    case Bytecodes::_fast_bputfield:
+      __ access_store_at(T_BYTE, IN_HEAP, field, x10, noreg, noreg);
+      break;
+    case Bytecodes::_fast_sputfield:
+      __ access_store_at(T_SHORT, IN_HEAP, field, x10, noreg, noreg);
+      break;
+    case Bytecodes::_fast_cputfield:
+      __ access_store_at(T_CHAR, IN_HEAP, field, x10, noreg, noreg);
+      break;
+    case Bytecodes::_fast_fputfield:
+      __ access_store_at(T_FLOAT, IN_HEAP, field, noreg /* ftos */, noreg, noreg);
+      break;
+    case Bytecodes::_fast_dputfield:
+      __ access_store_at(T_DOUBLE, IN_HEAP, field, noreg /* dtos */, noreg, noreg);
+      break;
+    default:
+      ShouldNotReachHere();
   }
 
   {
@@ -3155,34 +3146,34 @@ void TemplateTable::fast_accessfield(TosState state)
 
   // access field
   switch (bytecode()) {
-  case Bytecodes::_fast_agetfield:
-    do_oop_load(_masm, field, x10, IN_HEAP);
-    __ verify_oop(x10);
-    break;
-  case Bytecodes::_fast_lgetfield:
-    __ access_load_at(T_LONG, IN_HEAP, x10, field, noreg, noreg);
-    break;
-  case Bytecodes::_fast_igetfield:
-    __ access_load_at(T_INT, IN_HEAP, x10, field, noreg, noreg);
-    __ addw(x10, x10, zr); // signed extended
-    break;
-  case Bytecodes::_fast_bgetfield:
-    __ access_load_at(T_BYTE, IN_HEAP, x10, field, noreg, noreg);
-    break;
-  case Bytecodes::_fast_sgetfield:
-    __ access_load_at(T_SHORT, IN_HEAP, x10, field, noreg, noreg);
-    break;
-  case Bytecodes::_fast_cgetfield:
-    __ access_load_at(T_CHAR, IN_HEAP, x10, field, noreg, noreg);
-    break;
-  case Bytecodes::_fast_fgetfield:
-    __ access_load_at(T_FLOAT, IN_HEAP, noreg /* ftos */, field, noreg, noreg);
-    break;
-  case Bytecodes::_fast_dgetfield:
-    __ access_load_at(T_DOUBLE, IN_HEAP, noreg /* dtos */, field, noreg, noreg);
-    break;
-  default:
-    ShouldNotReachHere();
+    case Bytecodes::_fast_agetfield:
+      do_oop_load(_masm, field, x10, IN_HEAP);
+      __ verify_oop(x10);
+      break;
+    case Bytecodes::_fast_lgetfield:
+      __ access_load_at(T_LONG, IN_HEAP, x10, field, noreg, noreg);
+      break;
+    case Bytecodes::_fast_igetfield:
+      __ access_load_at(T_INT, IN_HEAP, x10, field, noreg, noreg);
+      __ addw(x10, x10, zr); // signed extended
+      break;
+    case Bytecodes::_fast_bgetfield:
+      __ access_load_at(T_BYTE, IN_HEAP, x10, field, noreg, noreg);
+      break;
+    case Bytecodes::_fast_sgetfield:
+      __ access_load_at(T_SHORT, IN_HEAP, x10, field, noreg, noreg);
+      break;
+    case Bytecodes::_fast_cgetfield:
+      __ access_load_at(T_CHAR, IN_HEAP, x10, field, noreg, noreg);
+      break;
+    case Bytecodes::_fast_fgetfield:
+      __ access_load_at(T_FLOAT, IN_HEAP, noreg /* ftos */, field, noreg, noreg);
+      break;
+    case Bytecodes::_fast_dgetfield:
+      __ access_load_at(T_DOUBLE, IN_HEAP, noreg /* dtos */, field, noreg, noreg);
+      break;
+    default:
+      ShouldNotReachHere();
   }
   {
     Label notVolatile;
@@ -3219,22 +3210,22 @@ void TemplateTable::fast_xaccess(TosState state)
   __ addi(xbcp, xbcp, 1);
   __ null_check(x10);
   switch (state) {
-  case itos:
-    __ add(x10, x10, x11);
-    __ access_load_at(T_INT, IN_HEAP, x10, Address(x10, 0), noreg, noreg);
-    __ addw(x10, x10, zr); // signed extended
-    break;
-  case atos:
-    __ add(x10, x10, x11);
-    do_oop_load(_masm, Address(x10, 0), x10, IN_HEAP);
-    __ verify_oop(x10);
-    break;
-  case ftos:
-    __ add(t0, x10, x11);
-    __ access_load_at(T_FLOAT, IN_HEAP, noreg /* ftos */, Address(t0), noreg, noreg);
-    break;
-  default:
-    ShouldNotReachHere();
+    case itos:
+      __ add(x10, x10, x11);
+      __ access_load_at(T_INT, IN_HEAP, x10, Address(x10, 0), noreg, noreg);
+      __ addw(x10, x10, zr); // signed extended
+      break;
+    case atos:
+      __ add(x10, x10, x11);
+      do_oop_load(_masm, Address(x10, 0), x10, IN_HEAP);
+      __ verify_oop(x10);
+      break;
+    case ftos:
+      __ add(t0, x10, x11);
+      __ access_load_at(T_FLOAT, IN_HEAP, noreg /* ftos */, Address(t0), noreg, noreg);
+      break;
+    default:
+      ShouldNotReachHere();
   }
 
   {
@@ -3503,7 +3494,7 @@ void TemplateTable::invokeinterface(int byte_no) {
                              xmethod, x30,
                              no_such_interface);
 
-  // xmethod,: methodOop to call
+  // xmethod: methodOop to call
   // x12: receiver
   // Check for abstract method error
   // Note: This should be done more efficiently via a throw_abstract_method_error
@@ -3606,7 +3597,7 @@ void TemplateTable::_new() {
   __ membar(MacroAssembler::AnyAny);
   __ lbu(t0, t0);
   __ membar(MacroAssembler::LoadLoad | MacroAssembler::LoadStore);
-  __ sub(t1, t0, JVM_CONSTANT_Class);
+  __ sub(t1, t0, (u1)JVM_CONSTANT_Class);
   __ bnez(t1, slow_case);
 
   // get InstanceKlass
@@ -3615,7 +3606,7 @@ void TemplateTable::_new() {
   // make sure klass is initialized & doesn't have finalizer
   // make sure klass is fully initialized
   __ lbu(t0, Address(x14, InstanceKlass::init_state_offset()));
-  __ sub(t1, t0, InstanceKlass::fully_initialized);
+  __ sub(t1, t0, (u1)InstanceKlass::fully_initialized);
   __ bnez(t1, slow_case);
 
   // get instance_size in InstanceKlass (scaled to a count of bytes)
@@ -3753,7 +3744,7 @@ void TemplateTable::checkcast()
   __ membar(MacroAssembler::AnyAny);
   __ lbu(x11, x11);
   __ membar(MacroAssembler::LoadLoad | MacroAssembler::LoadStore);
-  __ sub(t0, x11, JVM_CONSTANT_Class);
+  __ sub(t0, x11, (u1)JVM_CONSTANT_Class);
   __ beqz(t0, quicked);
 
   __ push(atos); // save receiver for result, and for GC
@@ -3809,7 +3800,7 @@ void TemplateTable::instanceof() {
   __ membar(MacroAssembler::AnyAny);
   __ lbu(x11, x11);
   __ membar(MacroAssembler::LoadLoad | MacroAssembler::LoadStore);
-  __ sub(t0, x11, JVM_CONSTANT_Class);
+  __ sub(t0, x11, (u1)JVM_CONSTANT_Class);
   __ beqz(t0, quicked);
 
   __ push(atos); // save receiver for result, and for GC

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_RISCV64_VM_VM_VERSION_EXT_RISCV64_HPP
-#define CPU_RISCV64_VM_VM_VERSION_EXT_RISCV64_HPP
+#ifndef CPU_RISCV64_VM_VERSION_EXT_RISCV64_HPP
+#define CPU_RISCV64_VM_VERSION_EXT_RISCV64_HPP
 
 #include "utilities/macros.hpp"
 #include "vm_version_riscv64.hpp"
@@ -52,4 +52,4 @@ class VM_Version_Ext : public VM_Version {
 
 };
 
-#endif // CPU_RISCV64_VM_VM_VERSION_EXT_RISCV64_HPP
+#endif // CPU_RISCV64_VM_VERSION_EXT_RISCV64_HPP

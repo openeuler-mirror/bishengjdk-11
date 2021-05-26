@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2015, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -272,6 +272,12 @@ class InterpreterMacroAssembler: public MacroAssembler {
     set_last_Java_frame(esp, fp, (address) pc(), t0);
     MacroAssembler::_call_Unimplemented(call_site);
   }
+
+#ifdef ASSERT
+  void verify_access_flags(Register access_flags, uint32_t flag_bits,
+                           const char* msg, bool stop_by_hit = true);
+  void verify_frame_setup();
+#endif
 };
 
 #endif // CPU_RISCV64_VM_INTERP_MASM_RISCV64_64_HPP

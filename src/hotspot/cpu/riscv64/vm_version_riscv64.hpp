@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1997, 2016, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_RISCV64_VM_VM_VERSION_RISCV64_HPP
-#define CPU_RISCV64_VM_VM_VERSION_RISCV64_HPP
+#ifndef CPU_RISCV64_VM_VERSION_RISCV64_HPP
+#define CPU_RISCV64_VM_VERSION_RISCV64_HPP
 
 #include "runtime/globals_extension.hpp"
 #include "runtime/vm_version.hpp"
@@ -35,7 +35,20 @@ public:
   // Initialization
   static void initialize();
 
+  static bool is_checkvext_fault(address pc) {
+    return pc != NULL && pc == _checkvext_fault_pc;
+  }
+
+  static address continuation_for_checkvext_fault(address pc) {
+    assert(_checkvext_continuation_pc != NULL, "not initialized");
+    return _checkvext_continuation_pc;
+  }
+
+  static address _checkvext_fault_pc;
+  static address _checkvext_continuation_pc;
+
 protected:
+  static int _initial_vector_length;
   static void get_processor_features();
 
 #ifdef COMPILER2
@@ -44,4 +57,4 @@ private:
 #endif // COMPILER2
 };
 
-#endif // CPU_RISCV64_VM_VM_VERSION_RISCV64_HPP
+#endif // CPU_RISCV64_VM_VERSION_RISCV64_HPP

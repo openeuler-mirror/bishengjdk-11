@@ -239,8 +239,8 @@ public class ReservedStackTest {
         return Platform.isAix() ||
             (Platform.isLinux() &&
              (Platform.isPPC() || Platform.isS390x() || Platform.isX64() ||
-              Platform.isX86())) ||
-            Platform.isOSX() || Platform.isRiscv64() ||
+              Platform.isX86() || Platform.isRiscv64())) ||
+            Platform.isOSX() ||
             Platform.isSolaris();
     }
 

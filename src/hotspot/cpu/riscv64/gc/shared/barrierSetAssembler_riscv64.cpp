@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -41,35 +41,35 @@ void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators,
   bool in_native = (decorators & IN_NATIVE) != 0;
   bool is_not_null = (decorators & IS_NOT_NULL) != 0;
   switch (type) {
-  case T_OBJECT:
-  case T_ARRAY: {
-    if (in_heap) {
-      if (UseCompressedOops) {
-        __ lwu(dst, src);
-        if (is_not_null) {
-          __ decode_heap_oop_not_null(dst);
+    case T_OBJECT:  // fall through
+    case T_ARRAY: {
+      if (in_heap) {
+        if (UseCompressedOops) {
+          __ lwu(dst, src);
+          if (is_not_null) {
+            __ decode_heap_oop_not_null(dst);
+          } else {
+            __ decode_heap_oop(dst);
+          }
         } else {
-          __ decode_heap_oop(dst);
+          __ ld(dst, src);
         }
       } else {
+        assert(in_native, "why else?");
         __ ld(dst, src);
       }
-    } else {
-      assert(in_native, "why else?");
-      __ ld(dst, src);
+      break;
     }
-    break;
-  }
-  case T_BOOLEAN: __ load_unsigned_byte (dst, src); break;
-  case T_BYTE:    __ load_signed_byte   (dst, src); break;
-  case T_CHAR:    __ load_unsigned_short(dst, src); break;
-  case T_SHORT:   __ load_signed_short  (dst, src); break;
-  case T_INT:     __ lw                 (dst, src); break;
-  case T_LONG:    __ ld                 (dst, src); break;
-  case T_ADDRESS: __ ld                 (dst, src); break;
-  case T_FLOAT:   __ flw                (f10, src); break;
-  case T_DOUBLE:  __ fld                (f10, src); break;
-  default: Unimplemented();
+    case T_BOOLEAN: __ load_unsigned_byte (dst, src); break;
+    case T_BYTE:    __ load_signed_byte   (dst, src); break;
+    case T_CHAR:    __ load_unsigned_short(dst, src); break;
+    case T_SHORT:   __ load_signed_short  (dst, src); break;
+    case T_INT:     __ lw                 (dst, src); break;
+    case T_LONG:    __ ld                 (dst, src); break;
+    case T_ADDRESS: __ ld                 (dst, src); break;
+    case T_FLOAT:   __ flw                (f10, src); break;
+    case T_DOUBLE:  __ fld                (f10, src); break;
+    default: Unimplemented();
   }
 }
 
@@ -79,38 +79,38 @@ void BarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet decorators
   bool in_heap = (decorators & IN_HEAP) != 0;
   bool in_native = (decorators & IN_NATIVE) != 0;
   switch (type) {
-  case T_OBJECT:
-  case T_ARRAY: {
-    val = val == noreg ? zr : val;
-    if (in_heap) {
-      if (UseCompressedOops) {
-        assert(!dst.uses(val), "not enough registers");
-        if (val != zr) {
-          __ encode_heap_oop(val);
+    case T_OBJECT: // fall through
+    case T_ARRAY: {
+      val = val == noreg ? zr : val;
+      if (in_heap) {
+        if (UseCompressedOops) {
+          assert(!dst.uses(val), "not enough registers");
+          if (val != zr) {
+            __ encode_heap_oop(val);
+          }
+          __ sw(val, dst);
+        } else {
+          __ sd(val, dst);
         }
-        __ sw(val, dst);
       } else {
+        assert(in_native, "why else?");
         __ sd(val, dst);
       }
-    } else {
-      assert(in_native, "why else?");
-      __ sd(val, dst);
+      break;
     }
-    break;
-  }
-  case T_BOOLEAN:
-    __ andi(val, val, 0x1);  // boolean is true if LSB is 1
-    __ sb(val, dst);
-    break;
-  case T_BYTE:    __ sb(val, dst); break;
-  case T_CHAR:    __ sh(val, dst); break;
-  case T_SHORT:   __ sh(val, dst); break;
-  case T_INT:     __ sw(val, dst); break;
-  case T_LONG:    __ sd(val, dst); break;
-  case T_ADDRESS: __ sd(val, dst); break;
-  case T_FLOAT:   __ fsw(f10,  dst); break;
-  case T_DOUBLE:  __ fsd(f10,  dst); break;
-  default: Unimplemented();
+    case T_BOOLEAN:
+      __ andi(val, val, 0x1);  // boolean is true if LSB is 1
+      __ sb(val, dst);
+      break;
+    case T_BYTE:    __ sb(val, dst); break;
+    case T_CHAR:    __ sh(val, dst); break;
+    case T_SHORT:   __ sh(val, dst); break;
+    case T_INT:     __ sw(val, dst); break;
+    case T_LONG:    __ sd(val, dst); break;
+    case T_ADDRESS: __ sd(val, dst); break;
+    case T_FLOAT:   __ fsw(f10,  dst); break;
+    case T_DOUBLE:  __ fsd(f10,  dst); break;
+    default: Unimplemented();
   }
 
 }

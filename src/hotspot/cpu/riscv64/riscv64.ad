@@ -1,7 +1,7 @@
 //
 // Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
 // Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
-// Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+// Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
 // DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 //
 // This code is free software; you can redistribute it and/or modify it
@@ -70,7 +70,7 @@ register %{
 //
 //   x7, x9-x17, x28-x31 volatile (caller save)
 //   x0-x4, x8, x27 system (no save, no allocate)
-//   x5-x6 invisible to the allocator (so we can use them as temporary regs)
+//   x5-x6 non-allocatable (so we can use them as temporary regs)
 
 //
 // as regards Java usage. we don't use any callee save registers
@@ -90,9 +90,9 @@ reg_def R3      ( NS,  NS,  Op_RegI, 3,  x3->as_VMReg()         ); // gp
 reg_def R3_H    ( NS,  NS,  Op_RegI, 3,  x3->as_VMReg()->next() );
 reg_def R4      ( NS,  NS,  Op_RegI, 4,  x4->as_VMReg()         ); // tp
 reg_def R4_H    ( NS,  NS,  Op_RegI, 4,  x4->as_VMReg()->next() );
-reg_def R5      ( NS,  SOC, Op_RegI, 5,  x5->as_VMReg()         ); // t0
+reg_def R5      ( NS,  SOC, Op_RegI, 5,  x5->as_VMReg()         ); // t0, non-allocatable
 reg_def R5_H    ( NS,  SOC, Op_RegI, 5,  x5->as_VMReg()->next() );
-reg_def R6      ( SOC, SOC, Op_RegI, 6,  x6->as_VMReg()         ); // t1
+reg_def R6      ( SOC, SOC, Op_RegI, 6,  x6->as_VMReg()         ); // t1, non-allocatable
 reg_def R6_H    ( SOC, SOC, Op_RegI, 6,  x6->as_VMReg()->next() );
 reg_def R7      ( SOC, SOC, Op_RegI, 7,  x7->as_VMReg()         );
 reg_def R7_H    ( SOC, SOC, Op_RegI, 7,  x7->as_VMReg()->next() );
@@ -134,8 +134,8 @@ reg_def R25     ( SOC, SOE, Op_RegI, 25, x25->as_VMReg()        );
 reg_def R25_H   ( SOC, SOE, Op_RegI, 25, x25->as_VMReg()->next());
 reg_def R26     ( SOC, SOE, Op_RegI, 26, x26->as_VMReg()        );
 reg_def R26_H   ( SOC, SOE, Op_RegI, 26, x26->as_VMReg()->next());
-reg_def R27     ( SOC,  SOE, Op_RegI, 27, x27->as_VMReg()        ); // heapbase
-reg_def R27_H   ( SOC,  SOE, Op_RegI, 27, x27->as_VMReg()->next());
+reg_def R27     ( SOC, SOE, Op_RegI, 27, x27->as_VMReg()        ); // heapbase
+reg_def R27_H   ( SOC, SOE, Op_RegI, 27, x27->as_VMReg()->next());
 reg_def R28     ( SOC, SOC, Op_RegI, 28, x28->as_VMReg()        );
 reg_def R28_H   ( SOC, SOC, Op_RegI, 28, x28->as_VMReg()->next());
 reg_def R29     ( SOC, SOC, Op_RegI, 29, x29->as_VMReg()        );
@@ -148,6 +148,22 @@ reg_def R31_H   ( SOC, SOC, Op_RegI, 31, x31->as_VMReg()->next());
 // ----------------------------
 // Float/Double Registers
 // ----------------------------
+
+// Double Registers
+
+// The rules of ADL require that double registers be defined in pairs.
+// Each pair must be two 32-bit values, but not necessarily a pair of
+// single float registers. In each pair, ADLC-assigned register numbers
+// must be adjacent, with the lower number even. Finally, when the
+// CPU stores such a register pair to memory, the word associated with
+// the lower ADLC-assigned number must be stored to the lower address.
+
+// RISCV64 has 32 floating-point registers. Each can store a single
+// or double precision floating-point value.
+
+// for Java use float registers v0-v15 are always save on call whereas
+// the platform ABI treats v8-v15 as callee save). float registers
+// v16-v31 are SOC as per the platform spec
 
 reg_def F0    ( SOC, SOC, Op_RegF,  0,  f0->as_VMReg()          );
 reg_def F0_H  ( SOC, SOC, Op_RegF,  0,  f0->as_VMReg()->next()  );
@@ -214,23 +230,176 @@ reg_def F30_H ( SOC, SOC, Op_RegF,  30, f30->as_VMReg()->next() );
 reg_def F31   ( SOC, SOC, Op_RegF,  31, f31->as_VMReg()         );
 reg_def F31_H ( SOC, SOC, Op_RegF,  31, f31->as_VMReg()->next() );
 
-// Double Registers
+// ----------------------------
+// Vector Registers
+// ----------------------------
 
-// The rules of ADL require that double registers be defined in pairs.
-// Each pair must be two 32-bit values, but not necessarily a pair of
-// single float registers. In each pair, ADLC-assigned register numbers
-// must be adjacent, with the lower number even. Finally, when the
-// CPU stores such a register pair to memory, the word associated with
-// the lower ADLC-assigned number must be stored to the lower address.
+// For RVV vector registers, we simply extend vector register size to 4
+// 'logical' slots. This is nominally 128 bits but it actually covers
+// all possible 'physical' RVV vector register lengths from 128 ~ 1024
+// bits. The 'physical' RVV vector register length is detected during
+// startup, so the register allocator is able to identify the correct
+// number of bytes needed for an RVV spill/unspill.
 
-// RISCV64 has 32 floating-point registers. Each can store a vector of
-// single or double precision floating-point values up to 8 * 32
-// floats, 4 * 64 bit floats or 2 * 128 bit floats.  We currently only
-// use the first float or double element of the vector.
+reg_def V0    ( SOC, SOC, Op_VecA, 0,  v0->as_VMReg()           );
+reg_def V0_H  ( SOC, SOC, Op_VecA, 0,  v0->as_VMReg()->next()   );
+reg_def V0_J  ( SOC, SOC, Op_VecA, 0,  v0->as_VMReg()->next(2)  );
+reg_def V0_K  ( SOC, SOC, Op_VecA, 0,  v0->as_VMReg()->next(3)  );
 
-// for Java use float registers v0-v15 are always save on call whereas
-// the platform ABI treats v8-v15 as callee save). float registers
-// v16-v31 are SOC as per the platform spec
+reg_def V1    ( SOC, SOC, Op_VecA, 1,  v1->as_VMReg() 	        );
+reg_def V1_H  ( SOC, SOC, Op_VecA, 1,  v1->as_VMReg()->next()   );
+reg_def V1_J  ( SOC, SOC, Op_VecA, 1,  v1->as_VMReg()->next(2)  );
+reg_def V1_K  ( SOC, SOC, Op_VecA, 1,  v1->as_VMReg()->next(3)  );
+
+reg_def V2    ( SOC, SOC, Op_VecA, 2,  v2->as_VMReg()           );
+reg_def V2_H  ( SOC, SOC, Op_VecA, 2,  v2->as_VMReg()->next()   );
+reg_def V2_J  ( SOC, SOC, Op_VecA, 2,  v2->as_VMReg()->next(2)  );
+reg_def V2_K  ( SOC, SOC, Op_VecA, 2,  v2->as_VMReg()->next(3)  );
+
+reg_def V3    ( SOC, SOC, Op_VecA, 3,  v3->as_VMReg()           );
+reg_def V3_H  ( SOC, SOC, Op_VecA, 3,  v3->as_VMReg()->next()   );
+reg_def V3_J  ( SOC, SOC, Op_VecA, 3,  v3->as_VMReg()->next(2)  );
+reg_def V3_K  ( SOC, SOC, Op_VecA, 3,  v3->as_VMReg()->next(3)  );
+
+reg_def V4    ( SOC, SOC, Op_VecA, 4,  v4->as_VMReg()           );
+reg_def V4_H  ( SOC, SOC, Op_VecA, 4,  v4->as_VMReg()->next()   );
+reg_def V4_J  ( SOC, SOC, Op_VecA, 4,  v4->as_VMReg()->next(2)  );
+reg_def V4_K  ( SOC, SOC, Op_VecA, 4,  v4->as_VMReg()->next(3)  );
+
+reg_def V5    ( SOC, SOC, Op_VecA, 5,  v5->as_VMReg() 	        );
+reg_def V5_H  ( SOC, SOC, Op_VecA, 5,  v5->as_VMReg()->next()   );
+reg_def V5_J  ( SOC, SOC, Op_VecA, 5,  v5->as_VMReg()->next(2)  );
+reg_def V5_K  ( SOC, SOC, Op_VecA, 5,  v5->as_VMReg()->next(3)  );
+
+reg_def V6    ( SOC, SOC, Op_VecA, 6,  v6->as_VMReg()           );
+reg_def V6_H  ( SOC, SOC, Op_VecA, 6,  v6->as_VMReg()->next()   );
+reg_def V6_J  ( SOC, SOC, Op_VecA, 6,  v6->as_VMReg()->next(2)  );
+reg_def V6_K  ( SOC, SOC, Op_VecA, 6,  v6->as_VMReg()->next(3)  );
+
+reg_def V7    ( SOC, SOC, Op_VecA, 7,  v7->as_VMReg() 	        );
+reg_def V7_H  ( SOC, SOC, Op_VecA, 7,  v7->as_VMReg()->next()   );
+reg_def V7_J  ( SOC, SOC, Op_VecA, 7,  v7->as_VMReg()->next(2)  );
+reg_def V7_K  ( SOC, SOC, Op_VecA, 7,  v7->as_VMReg()->next(3)  );
+
+reg_def V8    ( SOC, SOC, Op_VecA, 8,  v8->as_VMReg()           );
+reg_def V8_H  ( SOC, SOC, Op_VecA, 8,  v8->as_VMReg()->next()   );
+reg_def V8_J  ( SOC, SOC, Op_VecA, 8,  v8->as_VMReg()->next(2)  );
+reg_def V8_K  ( SOC, SOC, Op_VecA, 8,  v8->as_VMReg()->next(3)  );
+
+reg_def V9    ( SOC, SOC, Op_VecA, 9,  v9->as_VMReg()           );
+reg_def V9_H  ( SOC, SOC, Op_VecA, 9,  v9->as_VMReg()->next()   );
+reg_def V9_J  ( SOC, SOC, Op_VecA, 9,  v9->as_VMReg()->next(2)  );
+reg_def V9_K  ( SOC, SOC, Op_VecA, 9,  v9->as_VMReg()->next(3)  );
+
+reg_def V10   ( SOC, SOC, Op_VecA, 10, v10->as_VMReg()          );
+reg_def V10_H ( SOC, SOC, Op_VecA, 10, v10->as_VMReg()->next()  );
+reg_def V10_J ( SOC, SOC, Op_VecA, 10, v10->as_VMReg()->next(2) );
+reg_def V10_K ( SOC, SOC, Op_VecA, 10, v10->as_VMReg()->next(3) );
+
+reg_def V11   ( SOC, SOC, Op_VecA, 11, v11->as_VMReg()          );
+reg_def V11_H ( SOC, SOC, Op_VecA, 11, v11->as_VMReg()->next()  );
+reg_def V11_J ( SOC, SOC, Op_VecA, 11, v11->as_VMReg()->next(2) );
+reg_def V11_K ( SOC, SOC, Op_VecA, 11, v11->as_VMReg()->next(3) );
+
+reg_def V12   ( SOC, SOC, Op_VecA, 12, v12->as_VMReg()          );
+reg_def V12_H ( SOC, SOC, Op_VecA, 12, v12->as_VMReg()->next()  );
+reg_def V12_J ( SOC, SOC, Op_VecA, 12, v12->as_VMReg()->next(2) );
+reg_def V12_K ( SOC, SOC, Op_VecA, 12, v12->as_VMReg()->next(3) );
+
+reg_def V13   ( SOC, SOC, Op_VecA, 13, v13->as_VMReg()          );
+reg_def V13_H ( SOC, SOC, Op_VecA, 13, v13->as_VMReg()->next()  );
+reg_def V13_J ( SOC, SOC, Op_VecA, 13, v13->as_VMReg()->next(2) );
+reg_def V13_K ( SOC, SOC, Op_VecA, 13, v13->as_VMReg()->next(3) );
+
+reg_def V14   ( SOC, SOC, Op_VecA, 14, v14->as_VMReg()          );
+reg_def V14_H ( SOC, SOC, Op_VecA, 14, v14->as_VMReg()->next()  );
+reg_def V14_J ( SOC, SOC, Op_VecA, 14, v14->as_VMReg()->next(2) );
+reg_def V14_K ( SOC, SOC, Op_VecA, 14, v14->as_VMReg()->next(3) );
+
+reg_def V15   ( SOC, SOC, Op_VecA, 15, v15->as_VMReg()          );
+reg_def V15_H ( SOC, SOC, Op_VecA, 15, v15->as_VMReg()->next()  );
+reg_def V15_J ( SOC, SOC, Op_VecA, 15, v15->as_VMReg()->next(2) );
+reg_def V15_K ( SOC, SOC, Op_VecA, 15, v15->as_VMReg()->next(3) );
+
+reg_def V16   ( SOC, SOC, Op_VecA, 16, v16->as_VMReg()          );
+reg_def V16_H ( SOC, SOC, Op_VecA, 16, v16->as_VMReg()->next()  );
+reg_def V16_J ( SOC, SOC, Op_VecA, 16, v16->as_VMReg()->next(2) );
+reg_def V16_K ( SOC, SOC, Op_VecA, 16, v16->as_VMReg()->next(3) );
+
+reg_def V17   ( SOC, SOC, Op_VecA, 17, v17->as_VMReg()          );
+reg_def V17_H ( SOC, SOC, Op_VecA, 17, v17->as_VMReg()->next()  );
+reg_def V17_J ( SOC, SOC, Op_VecA, 17, v17->as_VMReg()->next(2) );
+reg_def V17_K ( SOC, SOC, Op_VecA, 17, v17->as_VMReg()->next(3) );
+
+reg_def V18   ( SOC, SOC, Op_VecA, 18, v18->as_VMReg()          );
+reg_def V18_H ( SOC, SOC, Op_VecA, 18, v18->as_VMReg()->next()  );
+reg_def V18_J ( SOC, SOC, Op_VecA, 18, v18->as_VMReg()->next(2) );
+reg_def V18_K ( SOC, SOC, Op_VecA, 18, v18->as_VMReg()->next(3) );
+
+reg_def V19   ( SOC, SOC, Op_VecA, 19, v19->as_VMReg()          );
+reg_def V19_H ( SOC, SOC, Op_VecA, 19, v19->as_VMReg()->next()  );
+reg_def V19_J ( SOC, SOC, Op_VecA, 19, v19->as_VMReg()->next(2) );
+reg_def V19_K ( SOC, SOC, Op_VecA, 19, v19->as_VMReg()->next(3) );
+
+reg_def V20   ( SOC, SOC, Op_VecA, 20, v20->as_VMReg()          );
+reg_def V20_H ( SOC, SOC, Op_VecA, 20, v20->as_VMReg()->next()  );
+reg_def V20_J ( SOC, SOC, Op_VecA, 20, v20->as_VMReg()->next(2) );
+reg_def V20_K ( SOC, SOC, Op_VecA, 20, v20->as_VMReg()->next(3) );
+
+reg_def V21   ( SOC, SOC, Op_VecA, 21, v21->as_VMReg()          );
+reg_def V21_H ( SOC, SOC, Op_VecA, 21, v21->as_VMReg()->next()  );
+reg_def V21_J ( SOC, SOC, Op_VecA, 21, v21->as_VMReg()->next(2) );
+reg_def V21_K ( SOC, SOC, Op_VecA, 21, v21->as_VMReg()->next(3) );
+
+reg_def V22   ( SOC, SOC, Op_VecA, 22, v22->as_VMReg()          );
+reg_def V22_H ( SOC, SOC, Op_VecA, 22, v22->as_VMReg()->next()  );
+reg_def V22_J ( SOC, SOC, Op_VecA, 22, v22->as_VMReg()->next(2) );
+reg_def V22_K ( SOC, SOC, Op_VecA, 22, v22->as_VMReg()->next(3) );
+
+reg_def V23   ( SOC, SOC, Op_VecA, 23, v23->as_VMReg()          );
+reg_def V23_H ( SOC, SOC, Op_VecA, 23, v23->as_VMReg()->next()  );
+reg_def V23_J ( SOC, SOC, Op_VecA, 23, v23->as_VMReg()->next(2) );
+reg_def V23_K ( SOC, SOC, Op_VecA, 23, v23->as_VMReg()->next(3) );
+
+reg_def V24   ( SOC, SOC, Op_VecA, 24, v24->as_VMReg()          );
+reg_def V24_H ( SOC, SOC, Op_VecA, 24, v24->as_VMReg()->next()  );
+reg_def V24_J ( SOC, SOC, Op_VecA, 24, v24->as_VMReg()->next(2) );
+reg_def V24_K ( SOC, SOC, Op_VecA, 24, v24->as_VMReg()->next(3) );
+
+reg_def V25   ( SOC, SOC, Op_VecA, 25, v25->as_VMReg()          );
+reg_def V25_H ( SOC, SOC, Op_VecA, 25, v25->as_VMReg()->next()  );
+reg_def V25_J ( SOC, SOC, Op_VecA, 25, v25->as_VMReg()->next(2) );
+reg_def V25_K ( SOC, SOC, Op_VecA, 25, v25->as_VMReg()->next(3) );
+
+reg_def V26   ( SOC, SOC, Op_VecA, 26, v26->as_VMReg()          );
+reg_def V26_H ( SOC, SOC, Op_VecA, 26, v26->as_VMReg()->next()  );
+reg_def V26_J ( SOC, SOC, Op_VecA, 26, v26->as_VMReg()->next(2) );
+reg_def V26_K ( SOC, SOC, Op_VecA, 26, v26->as_VMReg()->next(3) );
+
+reg_def V27   ( SOC, SOC, Op_VecA, 27, v27->as_VMReg()          );
+reg_def V27_H ( SOC, SOC, Op_VecA, 27, v27->as_VMReg()->next()  );
+reg_def V27_J ( SOC, SOC, Op_VecA, 27, v27->as_VMReg()->next(2) );
+reg_def V27_K ( SOC, SOC, Op_VecA, 27, v27->as_VMReg()->next(3) );
+
+reg_def V28   ( SOC, SOC, Op_VecA, 28, v28->as_VMReg()          );
+reg_def V28_H ( SOC, SOC, Op_VecA, 28, v28->as_VMReg()->next()  );
+reg_def V28_J ( SOC, SOC, Op_VecA, 28, v28->as_VMReg()->next(2) );
+reg_def V28_K ( SOC, SOC, Op_VecA, 28, v28->as_VMReg()->next(3) );
+
+reg_def V29   ( SOC, SOC, Op_VecA, 29, v29->as_VMReg()          );
+reg_def V29_H ( SOC, SOC, Op_VecA, 29, v29->as_VMReg()->next()  );
+reg_def V29_J ( SOC, SOC, Op_VecA, 29, v29->as_VMReg()->next(2) );
+reg_def V29_K ( SOC, SOC, Op_VecA, 29, v29->as_VMReg()->next(3) );
+
+reg_def V30   ( SOC, SOC, Op_VecA, 30, v30->as_VMReg()          );
+reg_def V30_H ( SOC, SOC, Op_VecA, 30, v30->as_VMReg()->next()  );
+reg_def V30_J ( SOC, SOC, Op_VecA, 30, v30->as_VMReg()->next(2) );
+reg_def V30_K ( SOC, SOC, Op_VecA, 30, v30->as_VMReg()->next(3) );
+
+reg_def V31   ( SOC, SOC, Op_VecA, 31, v31->as_VMReg()          );
+reg_def V31_H ( SOC, SOC, Op_VecA, 31, v31->as_VMReg()->next()  );
+reg_def V31_J ( SOC, SOC, Op_VecA, 31, v31->as_VMReg()->next(2) );
+reg_def V31_K ( SOC, SOC, Op_VecA, 31, v31->as_VMReg()->next(3) );
 
 // Specify priority of register selection within phases of register
 // allocation.  Highest priority is first.  A useful heuristic is to
@@ -323,6 +492,40 @@ alloc_class chunk1(
     F27, F27_H,
 );
 
+alloc_class chunk2(
+    V0, V0_H, V0_J, V0_K,
+    V1, V1_H, V1_J, V1_K,
+    V2, V2_H, V2_J, V2_K,
+    V3, V3_H, V3_J, V3_K,
+    V4, V4_H, V4_J, V4_K,
+    V5, V5_H, V5_J, V5_K,
+    V6, V6_H, V6_J, V6_K,
+    V7, V7_H, V7_J, V7_K,
+    V8, V8_H, V8_J, V8_K,
+    V9, V9_H, V9_J, V9_K,
+    V10, V10_H, V10_J, V10_K,
+    V11, V11_H, V11_J, V11_K,
+    V12, V12_H, V12_J, V12_K,
+    V13, V13_H, V13_J, V13_K,
+    V14, V14_H, V14_J, V14_K,
+    V15, V15_H, V15_J, V15_K,
+    V16, V16_H, V16_J, V16_K,
+    V17, V17_H, V17_J, V17_K,
+    V18, V18_H, V18_J, V18_K,
+    V19, V19_H, V19_J, V19_K,
+    V20, V20_H, V20_J, V20_K,
+    V21, V21_H, V21_J, V21_K,
+    V22, V22_H, V22_J, V22_K,
+    V23, V23_H, V23_J, V23_K,
+    V24, V24_H, V24_J, V24_K,
+    V25, V25_H, V25_J, V25_K,
+    V26, V26_H, V26_J, V26_K,
+    V27, V27_H, V27_J, V27_K,
+    V28, V28_H, V28_J, V28_K,
+    V29, V29_H, V29_J, V29_K,
+    V30, V30_H, V30_J, V30_K,
+    V31, V31_H, V31_J, V31_K,
+);
 
 //----------Architecture Description Register Classes--------------------------
 // Several register classes are automatically defined based upon information in
@@ -620,12 +823,39 @@ reg_class double_reg(
     F31, F31_H
 );
 
-// Class for all 64bit vector registers
-reg_class vectord_reg(
-);
-
-// Class for all 128bit vector registers
-reg_class vectorx_reg(
+// Class for all RVV vector registers
+reg_class vectora_reg(
+    V1, V1_H, V1_J, V1_K,
+    V2, V2_H, V2_J, V2_K,
+    V3, V3_H, V3_J, V3_K,
+    V4, V4_H, V4_J, V4_K,
+    V5, V5_H, V5_J, V5_K,
+    V6, V6_H, V6_J, V6_K,
+    V7, V7_H, V7_J, V7_K,
+    V8, V8_H, V8_J, V8_K,
+    V9, V9_H, V9_J, V9_K,
+    V10, V10_H, V10_J, V10_K,
+    V11, V11_H, V11_J, V11_K,
+    V12, V12_H, V12_J, V12_K,
+    V13, V13_H, V13_J, V13_K,
+    V14, V14_H, V14_J, V14_K,
+    V15, V15_H, V15_J, V15_K,
+    V16, V16_H, V16_J, V16_K,
+    V17, V17_H, V17_J, V17_K,
+    V18, V18_H, V18_J, V18_K,
+    V19, V19_H, V19_J, V19_K,
+    V20, V20_H, V20_J, V20_K,
+    V21, V21_H, V21_J, V21_K,
+    V22, V22_H, V22_J, V22_K,
+    V23, V23_H, V23_J, V23_K,
+    V24, V24_H, V24_J, V24_K,
+    V25, V25_H, V25_J, V25_K,
+    V26, V26_H, V26_J, V26_K,
+    V27, V27_H, V27_J, V27_K,
+    V28, V28_H, V28_J, V28_K,
+    V29, V29_H, V29_J, V29_K,
+    V30, V30_H, V30_J, V30_K,
+    V31, V31_H, V31_J, V31_K
 );
 
 // Class for 64 bit register f0
@@ -654,6 +884,31 @@ reg_class r6_reg(
 );
 
 reg_class int_r6_reg(R6);
+
+// class for vector register v1
+reg_class v1_reg(
+    V1, V1_H, V1_J, V1_K
+);
+
+// class for vector register v2
+reg_class v2_reg(
+    V2, V2_H, V2_J, V2_K
+);
+
+// class for vector register v3
+reg_class v3_reg(
+    V3, V3_H, V3_J, V3_K
+);
+
+// class for vector register v4
+reg_class v4_reg(
+    V4, V4_H, V4_J, V4_K
+);
+
+// class for vector register v5
+reg_class v5_reg(
+    V5, V5_H, V5_J, V5_K
+);
 %}
 
 //----------DEFINITION BLOCK---------------------------------------------------
@@ -677,7 +932,8 @@ reg_class int_r6_reg(R6);
 definitions %{
   // The default cost (of a register move instruction).
   int_def DEFAULT_COST         (  100,               100);
-  int_def ALU_COST             (  100,  1 * DEFAULT_COST);          // unknown, const, arith, shift, slt, multi, auipc, nop, logical, move
+  int_def ALU_COST             (  100,  1 * DEFAULT_COST);          // unknown, const, arith, shift, slt,
+                                                                    // multi, auipc, nop, logical, move
   int_def LOAD_COST            (  300,  3 * DEFAULT_COST);          // load, fpload
   int_def STORE_COST           (  100,  1 * DEFAULT_COST);          // store, fpstore
   int_def XFER_COST            (  300,  3 * DEFAULT_COST);          // mfc, mtc, fcvt, fmove, fcmp
@@ -704,6 +960,7 @@ source_hpp %{
 #include "gc/shared/cardTableBarrierSet.hpp"
 #include "gc/shared/collectedHeap.hpp"
 #include "opto/addnode.hpp"
+#include "opto/convertnode.hpp"
 
 extern RegMask _ANY_REG32_mask;
 extern RegMask _ANY_REG_mask;
@@ -835,39 +1092,39 @@ bool unnecessary_storestore(const Node *storecm)
 bool is_CAS(int opcode, bool maybe_volatile)
 {
   switch(opcode) {
-  // We handle these
-  case Op_CompareAndSwapI:
-  case Op_CompareAndSwapL:
-  case Op_CompareAndSwapP:
-  case Op_CompareAndSwapN:
-  case Op_CompareAndSwapB:
-  case Op_CompareAndSwapS:
-  case Op_GetAndSetI:
-  case Op_GetAndSetL:
-  case Op_GetAndSetP:
-  case Op_GetAndSetN:
-  case Op_GetAndAddI:
-  case Op_GetAndAddL:
+    // We handle these
+    case Op_CompareAndSwapI:
+    case Op_CompareAndSwapL:
+    case Op_CompareAndSwapP:
+    case Op_CompareAndSwapN:
+    case Op_CompareAndSwapB:
+    case Op_CompareAndSwapS:
+    case Op_GetAndSetI:
+    case Op_GetAndSetL:
+    case Op_GetAndSetP:
+    case Op_GetAndSetN:
+    case Op_GetAndAddI:
+    case Op_GetAndAddL:
 #if INCLUDE_SHENANDOAHGC
-  case Op_ShenandoahCompareAndSwapP:
-  case Op_ShenandoahCompareAndSwapN:
+    case Op_ShenandoahCompareAndSwapP:
+    case Op_ShenandoahCompareAndSwapN:
 #endif
-    return true;
-  case Op_CompareAndExchangeI:
-  case Op_CompareAndExchangeN:
-  case Op_CompareAndExchangeB:
-  case Op_CompareAndExchangeS:
-  case Op_CompareAndExchangeL:
-  case Op_CompareAndExchangeP:
-  case Op_WeakCompareAndSwapB:
-  case Op_WeakCompareAndSwapS:
-  case Op_WeakCompareAndSwapI:
-  case Op_WeakCompareAndSwapL:
-  case Op_WeakCompareAndSwapP:
-  case Op_WeakCompareAndSwapN:
-    return maybe_volatile;
-  default:
-    return false;
+      return true;
+    case Op_CompareAndExchangeI:
+    case Op_CompareAndExchangeN:
+    case Op_CompareAndExchangeB:
+    case Op_CompareAndExchangeS:
+    case Op_CompareAndExchangeL:
+    case Op_CompareAndExchangeP:
+    case Op_WeakCompareAndSwapB:
+    case Op_WeakCompareAndSwapS:
+   case Op_WeakCompareAndSwapI:
+    case Op_WeakCompareAndSwapL:
+    case Op_WeakCompareAndSwapP:
+    case Op_WeakCompareAndSwapN:
+      return maybe_volatile;
+    default:
+      return false;
   }
 }
 
@@ -1156,7 +1413,7 @@ int MachEpilogNode::safepoint_offset() const {
 
 // Figure out which register class each belongs in: rc_int, rc_float or
 // rc_stack.
-enum RC { rc_bad, rc_int, rc_float, rc_stack };
+enum RC { rc_bad, rc_int, rc_float, rc_vector, rc_stack };
 
 static enum RC rc_class(OptoReg::Name reg) {
 
@@ -1177,7 +1434,13 @@ static enum RC rc_class(OptoReg::Name reg) {
     return rc_float;
   }
 
-  // Between float regs & stack is the flags regs.
+  // we have 32 vector register * 4 halves
+  int slots_of_vector_registers = VectorRegisterImpl::max_slots_per_register * VectorRegisterImpl::number_of_registers;
+  if (reg < slots_of_int_registers + slots_of_float_registers + slots_of_vector_registers) {
+    return rc_vector;
+  }
+
+  // Between vector regs & stack is the flags regs.
   assert(OptoReg::is_stack(reg), "blow up if spilling flags");
 
   return rc_stack;
@@ -1215,76 +1478,97 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
   int src_offset = ra_->reg2offset(src_lo);
   int dst_offset = ra_->reg2offset(dst_lo);
 
-  if (bottom_type() == NULL || bottom_type()->isa_vect() != NULL) {
+  if (bottom_type() == NULL) {
     ShouldNotReachHere();
+  } else if (bottom_type()->isa_vect() != NULL) {
+    uint ireg = ideal_reg();
+    if (ireg == Op_VecA && cbuf) {
+      MacroAssembler _masm(cbuf);
+      int vector_reg_size_in_bytes = Matcher::scalable_vector_reg_size(T_BYTE);
+      if (src_lo_rc == rc_stack && dst_lo_rc == rc_stack) {
+        // stack to stack
+        __ spill_copy_vector_stack_to_stack(src_offset, dst_offset,
+                                            vector_reg_size_in_bytes);
+      } else if (src_lo_rc == rc_vector && dst_lo_rc == rc_stack) {
+        // vpr to stack
+        __ spill(as_VectorRegister(Matcher::_regEncode[src_lo]), ra_->reg2offset(dst_lo));
+      } else if (src_lo_rc == rc_stack && dst_lo_rc == rc_vector) {
+        // stack to vpr
+        __ unspill(as_VectorRegister(Matcher::_regEncode[dst_lo]), ra_->reg2offset(src_lo));
+      } else if (src_lo_rc == rc_vector && dst_lo_rc == rc_vector) {
+        // vpr to vpr
+        __ vmv1r_v(as_VectorRegister(Matcher::_regEncode[dst_lo]), as_VectorRegister(Matcher::_regEncode[src_lo]));
+      } else {
+        ShouldNotReachHere();
+      }
+    }
   } else if (cbuf != NULL) {
     MacroAssembler _masm(cbuf);
     switch (src_lo_rc) {
-    case rc_int:
-      if (dst_lo_rc == rc_int) {  // gpr --> gpr copy
-        __ mv(as_Register(Matcher::_regEncode[dst_lo]),
-            as_Register(Matcher::_regEncode[src_lo]));
-        if (!is64 && this->ideal_reg() != Op_RegI) // zero extended for narrow oop or klass
-          __ clear_upper_bits(as_Register(Matcher::_regEncode[dst_lo]), 32);
-      } else if (dst_lo_rc == rc_float) { // gpr --> fpr copy
-        if (is64) {
+      case rc_int:
+        if (dst_lo_rc == rc_int) {  // gpr --> gpr copy
+          __ mv(as_Register(Matcher::_regEncode[dst_lo]),
+                as_Register(Matcher::_regEncode[src_lo]));
+          if (!is64 && this->ideal_reg() != Op_RegI) // zero extended for narrow oop or klass
+            __ clear_upper_bits(as_Register(Matcher::_regEncode[dst_lo]), 32);
+        } else if (dst_lo_rc == rc_float) { // gpr --> fpr copy
+          if (is64) {
             __ fmv_d_x(as_FloatRegister(Matcher::_regEncode[dst_lo]),
-                     as_Register(Matcher::_regEncode[src_lo]));
-        } else {
+                       as_Register(Matcher::_regEncode[src_lo]));
+          } else {
             __ fmv_w_x(as_FloatRegister(Matcher::_regEncode[dst_lo]),
-                     as_Register(Matcher::_regEncode[src_lo]));
+                       as_Register(Matcher::_regEncode[src_lo]));
+          }
+        } else {                    // gpr --> stack spill
+          assert(dst_lo_rc == rc_stack, "spill to bad register class");
+          __ spill(as_Register(Matcher::_regEncode[src_lo]), is64, dst_offset);
         }
-      } else {                    // gpr --> stack spill
-        assert(dst_lo_rc == rc_stack, "spill to bad register class");
-        __ spill(as_Register(Matcher::_regEncode[src_lo]), is64, dst_offset);
-      }
-      break;
-    case rc_float:
-      if (dst_lo_rc == rc_int) {  // fpr --> gpr copy
-        if (is64) {
+        break;
+      case rc_float:
+        if (dst_lo_rc == rc_int) {  // fpr --> gpr copy
+          if (is64) {
             __ fmv_x_d(as_Register(Matcher::_regEncode[dst_lo]),
-                     as_FloatRegister(Matcher::_regEncode[src_lo]));
-        } else {
+                       as_FloatRegister(Matcher::_regEncode[src_lo]));
+          } else {
             __ fmv_x_w(as_Register(Matcher::_regEncode[dst_lo]),
-                     as_FloatRegister(Matcher::_regEncode[src_lo]));
-        }
-      } else if (dst_lo_rc == rc_float) { // fpr --> fpr copy
+                       as_FloatRegister(Matcher::_regEncode[src_lo]));
+          }
+        } else if (dst_lo_rc == rc_float) { // fpr --> fpr copy
           if (is64) {
             __ fmv_d(as_FloatRegister(Matcher::_regEncode[dst_lo]),
                      as_FloatRegister(Matcher::_regEncode[src_lo]));
-        } else {
+          } else {
             __ fmv_s(as_FloatRegister(Matcher::_regEncode[dst_lo]),
                      as_FloatRegister(Matcher::_regEncode[src_lo]));
+          }
+        } else {                    // fpr --> stack spill
+          assert(dst_lo_rc == rc_stack, "spill to bad register class");
+          __ spill(as_FloatRegister(Matcher::_regEncode[src_lo]),
+                   is64, dst_offset);
         }
-      } else {                    // fpr --> stack spill
-        assert(dst_lo_rc == rc_stack, "spill to bad register class");
-        __ spill(as_FloatRegister(Matcher::_regEncode[src_lo]),
-                 is64, dst_offset);
-      }
-      break;
-    case rc_stack:
-      if (dst_lo_rc == rc_int) {  // stack --> gpr load
-        if (this->ideal_reg() == Op_RegI) {
-          __ unspill(as_Register(Matcher::_regEncode[dst_lo]), is64, src_offset);
-        } else { // // zero extended for narrow oop or klass
-          __ unspillu(as_Register(Matcher::_regEncode[dst_lo]), is64, src_offset);
+        break;
+      case rc_stack:
+        if (dst_lo_rc == rc_int) {  // stack --> gpr load
+          if (this->ideal_reg() == Op_RegI) {
+            __ unspill(as_Register(Matcher::_regEncode[dst_lo]), is64, src_offset);
+          } else { // // zero extended for narrow oop or klass
+            __ unspillu(as_Register(Matcher::_regEncode[dst_lo]), is64, src_offset);
+          }
+        } else if (dst_lo_rc == rc_float) { // stack --> fpr load
+          __ unspill(as_FloatRegister(Matcher::_regEncode[dst_lo]),
+                     is64, src_offset);
+        } else {                    // stack --> stack copy
+          assert(dst_lo_rc == rc_stack, "spill to bad register class");
+          if (this->ideal_reg() == Op_RegI) {
+            __ unspill(t0, is64, src_offset);
+          } else { // zero extended for narrow oop or klass
+            __ unspillu(t0, is64, src_offset);
+          }
+          __ spill(t0, is64, dst_offset);
         }
-      } else if (dst_lo_rc == rc_float) { // stack --> fpr load
-        __ unspill(as_FloatRegister(Matcher::_regEncode[dst_lo]),
-                   is64, src_offset);
-      } else {                    // stack --> stack copy
-        assert(dst_lo_rc == rc_stack, "spill to bad register class");
-        if (this->ideal_reg() == Op_RegI) {
-          __ unspill(t0, is64, src_offset);
-        } else { // zero extended for narrow oop or klass
-          __ unspillu(t0, is64, src_offset);
-        }
-        __ spill(t0, is64, dst_offset);
-      }
-      break;
-    default:
-      assert(false, "bad rc_class for spill");
-      ShouldNotReachHere();
+        break;
+      default:
+        ShouldNotReachHere();
     }
   }
 
@@ -1300,8 +1584,14 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
     } else {
       st->print("%s", Matcher::regName[dst_lo]);
     }
-    if (bottom_type() == NULL || bottom_type()->isa_vect() != NULL) {
-      ShouldNotReachHere();
+    if (bottom_type()->isa_vect() != NULL) {
+      int vsize = 0;
+      if (ideal_reg() == Op_VecA) {
+        vsize = Matcher::scalable_vector_reg_size(T_BYTE) * 8;
+      } else {
+        ShouldNotReachHere();
+      }
+      st->print("\t# vector spill size = %d", vsize);
     } else {
       st->print("\t# spill size = %d", is64 ? 64 : 32);
     }
@@ -1450,22 +1740,32 @@ const bool Matcher::match_rule_supported(int opcode) {
   if (!has_match_rule(opcode)) {
     return false;
   }
-  return true;  // Per default match rules are supported.
+
+  switch (opcode) {
+    case Op_StrCompressedCopy: // fall through
+    case Op_StrInflatedCopy:   // fall through
+    case Op_HasNegatives:
+      return UseVExt;
+    case Op_EncodeISOArray:
+      return UseVExt && SpecialEncodeISOArray;
+  }
+
+  return true; // Per default match rules are supported.
 }
 
-const bool Matcher::match_rule_supported_vector(int opcode, int vlen) {
+// Identify extra cases that we might want to provide match rules for vector nodes and
+// other intrinsics guarded with vector length (vlen).
+const bool Matcher::match_rule_supported_vector(int opcode, int vlen, BasicType bt) {
+  if (!match_rule_supported(opcode) || !vector_size_supported(bt, vlen)) {
+    return false;
+  }
 
-  // TODO
-  // identify extra cases that we might want to provide match rules for
-  // e.g. Op_ vector nodes and other intrinsics while guarding with vlen
-  bool ret_value = match_rule_supported(opcode);
-  // Add rules here.
-
-  return ret_value;  // Per default match rules are supported.
+  return op_vec_supported(opcode);
 }
 
 const bool Matcher::has_predicated_vectors(void) {
-  return false;
+  return false;  // not supported
+
 }
 
 const int Matcher::float_pressure(int default_pressure_threshold) {
@@ -1514,12 +1814,12 @@ const bool Matcher::convL2FSupported(void) {
 
 // Vector width in bytes.
 const int Matcher::vector_width_in_bytes(BasicType bt) {
-  int size = MIN2(16, (int)MaxVectorSize);
-  // Minimum 2 values in vector
-  if (size < 2 * type2aelembytes(bt)) { size = 0; }
-  // But never < 4
-  if (size < 4) { size = 0; }
-  return size;
+  if (UseVExt) {
+    // The MaxVectorSize should have been set by detecting RVV max vector register size when check UseVExt.
+    // MaxVectorSize == VM_Version::_initial_vector_length
+    return MaxVectorSize;
+  }
+  return 0;
 }
 
 // Limits on vector size (number of elements) loaded into vector.
@@ -1527,18 +1827,16 @@ const int Matcher::max_vector_size(const BasicType bt) {
   return vector_width_in_bytes(bt) / type2aelembytes(bt);
 }
 const int Matcher::min_vector_size(const BasicType bt) {
-//  For the moment limit the vector size to 8 bytes
-    int size = 8 / type2aelembytes(bt);
-    if (size < 2) { size = 2; }
-    return size;
+  return max_vector_size(bt);
 }
 
 // Vector ideal reg.
 const uint Matcher::vector_ideal_reg(int len) {
-  switch(len) {
-    case  8: return Op_VecD;
-    case 16: return Op_VecX;
+  assert(MaxVectorSize >= len, "");
+  if (UseVExt) {
+    return Op_VecA;
   }
+
   ShouldNotReachHere();
   return 0;
 }
@@ -1547,9 +1845,21 @@ const uint Matcher::vector_shift_count_ideal_reg(int size) {
   switch(size) {
     case  8: return Op_VecD;
     case 16: return Op_VecX;
+    default:
+      if (size == vector_width_in_bytes(T_BYTE)) {
+        return Op_VecA;
+      }
   }
   ShouldNotReachHere();
   return 0;
+}
+
+const bool Matcher::supports_scalable_vector() {
+  return UseVExt;
+}
+
+const int Matcher::scalable_vector_reg_size(const BasicType bt) {
+  return Matcher::max_vector_size(bt);
 }
 
 // AES support not yet implemented
@@ -1882,20 +2192,6 @@ encode %{
     }
   %}
 
-  enc_class riscv64_enc_cmpxchgb(iRegINoSp res, memory mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3) %{
-    MacroAssembler _masm(&cbuf);
-    __ cmpxchg_narrow_value(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int8,
-                            /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register,
-                            /*result as bool*/ true, $tmp1$$Register, $tmp2$$Register, $tmp3$$Register);
-  %}
-
-  enc_class riscv64_enc_cmpxchgs(iRegINoSp res, memory mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3) %{
-    MacroAssembler _masm(&cbuf);
-    __ cmpxchg_narrow_value(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int16,
-                            /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register,
-                            /*result as bool*/ true, $tmp1$$Register, $tmp2$$Register, $tmp3$$Register);
-  %}
-
   enc_class riscv64_enc_cmpxchgw(iRegINoSp res, memory mem, iRegINoSp oldval, iRegINoSp newval) %{
     MacroAssembler _masm(&cbuf);
     __ cmpxchg(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int32,
@@ -1915,20 +2211,6 @@ encode %{
     __ cmpxchg(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int64,
                /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register,
                /*result as bool*/ true);
-  %}
-
-  enc_class riscv64_enc_cmpxchgb_acq(iRegINoSp res, memory mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3) %{
-    MacroAssembler _masm(&cbuf);
-    __ cmpxchg_narrow_value(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int8,
-                            /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register,
-                            /*result as bool*/ true, $tmp1$$Register, $tmp2$$Register, $tmp3$$Register);
-  %}
-
-  enc_class riscv64_enc_cmpxchgs_acq(iRegINoSp res, memory mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3) %{
-    MacroAssembler _masm(&cbuf);
-    __ cmpxchg_narrow_value(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int16,
-                            /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register,
-                            /*result as bool*/ true, $tmp1$$Register, $tmp2$$Register, $tmp3$$Register);
   %}
 
   enc_class riscv64_enc_cmpxchgw_acq(iRegINoSp res, memory mem, iRegINoSp oldval, iRegINoSp newval) %{
@@ -1964,13 +2246,13 @@ encode %{
     MacroAssembler _masm(&cbuf);
     Label* L = $lbl$$label;
     switch($cmp$$cmpcode) {
-    case(BoolTest::ge):
-      __ j(*L);
-      break;
-    case(BoolTest::lt):
-      break;
-    default:
-      Unimplemented();
+      case(BoolTest::ge):
+        __ j(*L);
+        break;
+      case(BoolTest::lt):
+        break;
+      default:
+        Unimplemented();
     }
   %}
 
@@ -2609,6 +2891,28 @@ operand immISub()
   interface(CONST_INTER);
 %}
 
+// 5 bit signed value.
+operand immI5()
+%{
+  predicate(n->get_int() <= 15 && n->get_int() >= -16);
+  match(ConI);
+
+  op_cost(0);
+  format %{ %}
+  interface(CONST_INTER);
+%}
+
+// 5 bit signed value (simm5)
+operand immL5()
+%{
+  predicate(n->get_long() <= 15 && n->get_long() >= -16);
+  match(ConL);
+
+  op_cost(0);
+  format %{ %}
+  interface(CONST_INTER);
+%}
+
 // Integer operands 64 bit
 // 64 bit immediate
 operand immL()
@@ -3132,6 +3436,67 @@ operand fRegD()
   interface(REG_INTER);
 %}
 
+// Generic vector class. This will be used for
+// all vector operands.
+operand vReg()
+%{
+  constraint(ALLOC_IN_RC(vectora_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vReg_V1()
+%{
+  constraint(ALLOC_IN_RC(v1_reg));
+  match(VecA);
+  match(vReg);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vReg_V2()
+%{
+  constraint(ALLOC_IN_RC(v2_reg));
+  match(VecA);
+  match(vReg);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vReg_V3()
+%{
+  constraint(ALLOC_IN_RC(v3_reg));
+  match(VecA);
+  match(vReg);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vReg_V4()
+%{
+  constraint(ALLOC_IN_RC(v4_reg));
+  match(VecA);
+  match(vReg);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vReg_V5()
+%{
+  constraint(ALLOC_IN_RC(v5_reg));
+  match(VecA);
+  match(vReg);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
 // Java Thread Register
 operand javaThread_RegP(iRegP reg)
 %{
@@ -3385,7 +3750,6 @@ operand cmpOpU()
 operand cmpOpEqNe()
 %{
   match(Bool);
-  match(CmpOp);
   op_cost(0);
   predicate(n->as_Bool()->_test._test == BoolTest::ne ||
             n->as_Bool()->_test._test == BoolTest::eq);
@@ -3406,7 +3770,6 @@ operand cmpOpEqNe()
 operand cmpOpULtGe()
 %{
   match(Bool);
-  match(CmpOpU);
   op_cost(0);
   predicate(n->as_Bool()->_test._test == BoolTest::lt ||
             n->as_Bool()->_test._test == BoolTest::ge);
@@ -3427,7 +3790,6 @@ operand cmpOpULtGe()
 operand cmpOpUEqNeLeGt()
 %{
   match(Bool);
-  match(CmpOpU);
   op_cost(0);
   predicate(n->as_Bool()->_test._test == BoolTest::ne ||
             n->as_Bool()->_test._test == BoolTest::eq ||
@@ -4512,7 +4874,7 @@ instruct loadConF0(fRegF dst, immF0 con) %{
 
   ins_cost(XFER_COST);
 
-  format %{ "fmv_w_x $dst, zr\t# float, #@loadConF0" %}
+  format %{ "fmv.w.x $dst, zr\t# float, #@loadConF0" %}
 
   ins_encode %{
     __ fmv_w_x(as_FloatRegister($dst$$reg), zr);
@@ -4542,7 +4904,7 @@ instruct loadConD0(fRegD dst, immD0 con) %{
 
   ins_cost(XFER_COST);
 
-  format %{ "fmv_d_x $dst, zr\t# double, #@loadConD0" %}
+  format %{ "fmv.d.x $dst, zr\t# double, #@loadConD0" %}
 
   ins_encode %{
     __ fmv_d_x(as_FloatRegister($dst$$reg), zr);
@@ -4843,7 +5205,7 @@ instruct loadPLocked(iRegPNoSp dst, indirect mem)
 
   ins_cost(ALU_COST * 2 + LOAD_COST);
 
-  format %{ "lr_d $dst, $mem\t# ptr load reserved, #@loadPLocked" %}
+  format %{ "lr.d $dst, $mem\t# ptr load reserved, #@loadPLocked" %}
 
   ins_encode %{
     __ la(t0, Address(as_Register($mem$$base), $mem$$disp));
@@ -4924,16 +5286,20 @@ instruct compareAndSwapB(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R1
 %{
   match(Set res (CompareAndSwapB mem (Binary oldval newval)));
 
-  effect(TEMP_DEF res, KILL cr, USE_KILL oldval, USE_KILL newval, TEMP tmp1, TEMP tmp2, TEMP tmp3);
-
   ins_cost(LOAD_COST + STORE_COST + ALU_COST * 10 + BRANCH_COST * 4);
+
+  effect(TEMP_DEF res, KILL cr, USE_KILL oldval, USE_KILL newval, TEMP tmp1, TEMP tmp2, TEMP tmp3);
 
   format %{
     "cmpxchg $mem, $oldval, $newval\t# (byte) if $mem == $oldval then $mem <-- $newval\n\t"
     "mv $res, $res == $oldval\t# $res <-- ($res == $oldval ? 1 : 0), #@compareAndSwapB"
   %}
 
-  ins_encode(riscv64_enc_cmpxchgb(res, mem, oldval, newval, tmp1, tmp2, tmp3));
+  ins_encode %{
+    __ cmpxchg_narrow_value(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int8,
+                            Assembler::relaxed /* acquire */, Assembler::rl /* release */, $res$$Register,
+                            true /* result as bool */, $tmp1$$Register, $tmp2$$Register, $tmp3$$Register);
+  %}
 
   ins_pipe(pipe_slow);
 %}
@@ -4942,16 +5308,20 @@ instruct compareAndSwapS(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R1
 %{
   match(Set res (CompareAndSwapS mem (Binary oldval newval)));
 
-  effect(TEMP_DEF res, KILL cr, USE_KILL oldval, USE_KILL newval, TEMP tmp1, TEMP tmp2, TEMP tmp3);
-
   ins_cost(LOAD_COST + STORE_COST + ALU_COST * 11 + BRANCH_COST * 4);
+
+  effect(TEMP_DEF res, KILL cr, USE_KILL oldval, USE_KILL newval, TEMP tmp1, TEMP tmp2, TEMP tmp3);
 
   format %{
     "cmpxchg $mem, $oldval, $newval\t# (short) if $mem == $oldval then $mem <-- $newval\n\t"
     "mv $res, $res == $oldval\t# $res <-- ($res == $oldval ? 1 : 0), #@compareAndSwapS"
   %}
 
-  ins_encode(riscv64_enc_cmpxchgs(res, mem, oldval, newval, tmp1, tmp2, tmp3));
+  ins_encode %{
+    __ cmpxchg_narrow_value(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int16,
+                            Assembler::relaxed /* acquire */, Assembler::rl /* release */, $res$$Register,
+                            true /* result as bool */, $tmp1$$Register, $tmp2$$Register, $tmp3$$Register);
+  %}
 
   ins_pipe(pipe_slow);
 %}
@@ -5021,27 +5391,33 @@ instruct compareAndSwapN(iRegINoSp res, indirect mem, iRegNNoSp oldval, iRegNNoS
 %}
 
 // alternative CompareAndSwapX when we are eliding barriers
-instruct compareAndSwapBAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct compareAndSwapBAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                            iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   predicate(needs_acquiring_load_exclusive(n));
 
   match(Set res (CompareAndSwapB mem (Binary oldval newval)));
 
-  effect(TEMP_DEF res, KILL cr, USE_KILL oldval, USE_KILL newval, TEMP tmp1, TEMP tmp2, TEMP tmp3);
-
   ins_cost(LOAD_COST + STORE_COST + ALU_COST * 10 + BRANCH_COST * 4);
+
+  effect(TEMP_DEF res, KILL cr, USE_KILL oldval, USE_KILL newval, TEMP tmp1, TEMP tmp2, TEMP tmp3);
 
   format %{
     "cmpxchg_acq $mem, $oldval, $newval\t# (byte) if $mem == $oldval then $mem <-- $newval\n\t"
     "mv $res, $res == $oldval\t# $res <-- ($res == $oldval ? 1 : 0), #@compareAndSwapBAcq"
   %}
 
-  ins_encode(riscv64_enc_cmpxchgb_acq(res, mem, oldval, newval, tmp1, tmp2, tmp3));
+  ins_encode %{
+    __ cmpxchg_narrow_value(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int8,
+                            Assembler::aq /* acquire */, Assembler::rl /* release */, $res$$Register,
+                            true /* result as bool */, $tmp1$$Register, $tmp2$$Register, $tmp3$$Register);
+  %}
 
   ins_pipe(pipe_slow);
 %}
 
-instruct compareAndSwapSAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct compareAndSwapSAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                            iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   predicate(needs_acquiring_load_exclusive(n));
 
@@ -5056,7 +5432,11 @@ instruct compareAndSwapSAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI
     "mv $res, $res == $oldval\t# $res <-- ($res == $oldval ? 1 : 0), #@compareAndSwapSAcq"
   %}
 
-  ins_encode(riscv64_enc_cmpxchgs_acq(res, mem, oldval, newval, tmp1, tmp2, tmp3));
+  ins_encode %{
+    __ cmpxchg_narrow_value(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int16,
+                            Assembler::aq /* acquire */, Assembler::rl /* release */, $res$$Register,
+                            true /* result as bool */, $tmp1$$Register, $tmp2$$Register, $tmp3$$Register);
+  %}
 
   ins_pipe(pipe_slow);
 %}
@@ -5139,7 +5519,8 @@ instruct compareAndSwapNAcq(iRegINoSp res, indirect mem, iRegNNoSp oldval, iRegN
 // no trailing StoreLoad barrier emitted by C2.  Unfortunately we
 // can't check the type of memory ordering here, so we always emit a
 // sc_d(w) with rl bit set.
-instruct compareAndExchangeB(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct compareAndExchangeB(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                             iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   match(Set res (CompareAndExchangeB mem (Binary oldval newval)));
 
@@ -5160,7 +5541,8 @@ instruct compareAndExchangeB(iRegINoSp res, indirect mem, iRegI_R12 oldval, iReg
   ins_pipe(pipe_slow);
 %}
 
-instruct compareAndExchangeS(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct compareAndExchangeS(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                             iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   match(Set res (CompareAndExchangeS mem (Binary oldval newval)));
 
@@ -5261,7 +5643,8 @@ instruct compareAndExchangeP(iRegPNoSp res, indirect mem, iRegP oldval, iRegP ne
   ins_pipe(pipe_slow);
 %}
 
-instruct compareAndExchangeBAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct compareAndExchangeBAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                                iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   predicate(needs_acquiring_load_exclusive(n));
 
@@ -5284,7 +5667,8 @@ instruct compareAndExchangeBAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, i
   ins_pipe(pipe_slow);
 %}
 
-instruct compareAndExchangeSAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct compareAndExchangeSAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                                iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   predicate(needs_acquiring_load_exclusive(n));
 
@@ -5395,7 +5779,8 @@ instruct compareAndExchangePAcq(iRegPNoSp res, indirect mem, iRegP oldval, iRegP
   ins_pipe(pipe_slow);
 %}
 
-instruct weakCompareAndSwapB(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct weakCompareAndSwapB(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                             iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   match(Set res (WeakCompareAndSwapB mem (Binary oldval newval)));
 
@@ -5418,7 +5803,8 @@ instruct weakCompareAndSwapB(iRegINoSp res, indirect mem, iRegI_R12 oldval, iReg
   ins_pipe(pipe_slow);
 %}
 
-instruct weakCompareAndSwapS(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct weakCompareAndSwapS(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                             iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   match(Set res (WeakCompareAndSwapS mem (Binary oldval newval)));
 
@@ -5454,7 +5840,7 @@ instruct weakCompareAndSwapI(iRegINoSp res, indirect mem, iRegI oldval, iRegI ne
 
   ins_encode %{
     __ cmpxchg_weak(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int32,
-               /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register);
+                    /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register);
     __ xori($res$$Register, $res$$Register, 1);
   %}
 
@@ -5474,7 +5860,7 @@ instruct weakCompareAndSwapL(iRegINoSp res, indirect mem, iRegL oldval, iRegL ne
 
   ins_encode %{
     __ cmpxchg_weak(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int64,
-               /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register);
+                    /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register);
     __ xori($res$$Register, $res$$Register, 1);
   %}
 
@@ -5494,7 +5880,7 @@ instruct weakCompareAndSwapN(iRegINoSp res, indirect mem, iRegN oldval, iRegN ne
 
   ins_encode %{
     __ cmpxchg_weak(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::uint32,
-               /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register);
+                    /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register);
     __ xori($res$$Register, $res$$Register, 1);
   %}
 
@@ -5514,14 +5900,15 @@ instruct weakCompareAndSwapP(iRegINoSp res, indirect mem, iRegP oldval, iRegP ne
 
   ins_encode %{
     __ cmpxchg_weak(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int64,
-               /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register);
+                    /*acquire*/ Assembler::relaxed, /*release*/ Assembler::rl, $res$$Register);
     __ xori($res$$Register, $res$$Register, 1);
   %}
 
   ins_pipe(pipe_slow);
 %}
 
-instruct weakCompareAndSwapBAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct weakCompareAndSwapBAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                                iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   predicate(needs_acquiring_load_exclusive(n));
 
@@ -5546,7 +5933,8 @@ instruct weakCompareAndSwapBAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, i
   ins_pipe(pipe_slow);
 %}
 
-instruct weakCompareAndSwapSAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval, iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
+instruct weakCompareAndSwapSAcq(iRegINoSp res, indirect mem, iRegI_R12 oldval, iRegI_R13 newval,
+                                iRegI tmp1, iRegI tmp2, iRegI tmp3, iRegL_R6 cr)
 %{
   predicate(needs_acquiring_load_exclusive(n));
 
@@ -5586,7 +5974,7 @@ instruct weakCompareAndSwapIAcq(iRegINoSp res, indirect mem, iRegI oldval, iRegI
 
   ins_encode %{
     __ cmpxchg_weak(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int32,
-               /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register);
+                    /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register);
     __ xori($res$$Register, $res$$Register, 1);
   %}
 
@@ -5608,7 +5996,7 @@ instruct weakCompareAndSwapLAcq(iRegINoSp res, indirect mem, iRegL oldval, iRegL
 
   ins_encode %{
     __ cmpxchg_weak(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int64,
-               /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register);
+                    /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register);
     __ xori($res$$Register, $res$$Register, 1);
   %}
 
@@ -5630,7 +6018,7 @@ instruct weakCompareAndSwapNAcq(iRegINoSp res, indirect mem, iRegN oldval, iRegN
 
   ins_encode %{
     __ cmpxchg_weak(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::uint32,
-               /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register);
+                    /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register);
     __ xori($res$$Register, $res$$Register, 1);
   %}
 
@@ -5652,7 +6040,7 @@ instruct weakCompareAndSwapPAcq(iRegINoSp res, indirect mem, iRegP oldval, iRegP
 
   ins_encode %{
     __ cmpxchg_weak(as_Register($mem$$base), $oldval$$Register, $newval$$Register, Assembler::int64,
-               /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register);
+                    /*acquire*/ Assembler::aq, /*release*/ Assembler::rl, $res$$Register);
     __ xori($res$$Register, $res$$Register, 1);
   %}
 
@@ -8011,15 +8399,16 @@ instruct cmpF3_reg_reg(iRegINoSp dst, fRegF op1, fRegF op2)
   match(Set dst (CmpF3 op1 op2));
 
   ins_cost(XFER_COST + BRANCH_COST + ALU_COST * 2);
-  format %{ "flt_s   $dst, $op2, $op1\t#@cmpF3_reg_reg\n\t"
+  format %{ "flt.s   $dst, $op2, $op1\t#@cmpF3_reg_reg\n\t"
             "bnez  $dst, done\n\t"
-            "flt_s  $dst, $op1, $op2\n\t"
+            "flt.s  $dst, $op1, $op2\n\t"
             "neg   $dst, $dst\t#@cmpF3_reg_reg"
   %}
 
   ins_encode %{
     // we want -1 for unordered or less than, 0 for equal and 1 for greater than.
-    __ float_compare(as_Register($dst$$reg), as_FloatRegister($op1$$reg), as_FloatRegister($op2$$reg), -1 /*unordered_result < 0*/);
+    __ float_compare(as_Register($dst$$reg), as_FloatRegister($op1$$reg),
+                     as_FloatRegister($op2$$reg), -1 /*unordered_result < 0*/);
   %}
 
   ins_pipe(pipe_class_default);
@@ -8030,9 +8419,9 @@ instruct cmpD3_reg_reg(iRegINoSp dst, fRegD op1, fRegD op2)
   match(Set dst (CmpD3 op1 op2));
 
   ins_cost(XFER_COST + BRANCH_COST + ALU_COST * 2);
-  format %{ "flt_d   $dst, $op2, $op1\t#@cmpD3_reg_reg\n\t"
+  format %{ "flt.d   $dst, $op2, $op1\t#@cmpD3_reg_reg\n\t"
             "bnez  $dst, done\n\t"
-            "flt_d  $dst, $op1, $op2\n\t"
+            "flt.d  $dst, $op1, $op2\n\t"
             "neg   $dst, $dst\t#@cmpD3_reg_reg"
   %}
 
@@ -8248,7 +8637,7 @@ instruct cmpU_branch(cmpOpU cmp, iRegI op1, iRegI op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label));
+                  as_Register($op2$$reg), *($lbl$$label));
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8268,7 +8657,7 @@ instruct cmpU_loop(cmpOpU cmp, iRegI op1, iRegI op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label));
+                  as_Register($op2$$reg), *($lbl$$label));
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8327,7 +8716,7 @@ instruct cmpUL_branch(cmpOpU cmp, iRegL op1, iRegL op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label));
+                  as_Register($op2$$reg), *($lbl$$label));
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8346,7 +8735,7 @@ instruct cmpUL_loop(cmpOpU cmp, iRegL op1, iRegL op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label));
+                  as_Register($op2$$reg), *($lbl$$label));
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8367,7 +8756,7 @@ instruct cmpP_branch(cmpOpU cmp, iRegP op1, iRegP op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label));
+                  as_Register($op2$$reg), *($lbl$$label));
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8387,7 +8776,7 @@ instruct cmpP_loop(cmpOpU cmp, iRegP op1, iRegP op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label));
+                  as_Register($op2$$reg), *($lbl$$label));
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8408,7 +8797,7 @@ instruct cmpN_branch(cmpOpU cmp, iRegN op1, iRegN op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label));
+                  as_Register($op2$$reg), *($lbl$$label));
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8428,7 +8817,7 @@ instruct cmpN_loop(cmpOpU cmp, iRegN op1, iRegN op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label));
+                  as_Register($op2$$reg), *($lbl$$label));
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8967,7 +9356,7 @@ instruct far_cmpN_loop(cmpOpU cmp, iRegN op1, iRegN op2, label lbl)
 
   ins_encode %{
     __ cmp_branch($cmp$$cmpcode | MacroAssembler::unsigned_branch_mask, as_Register($op1$$reg),
-                       as_Register($op2$$reg), *($lbl$$label), /* is_far */ true);
+                  as_Register($op2$$reg), *($lbl$$label), /* is_far */ true);
   %}
 
   ins_pipe(pipe_cmp_branch);
@@ -8985,7 +9374,7 @@ instruct far_cmpF_branch(cmpOp cmp, fRegF op1, fRegF op2, label lbl)
 
   ins_encode %{
     __ float_cmp_branch($cmp$$cmpcode, as_FloatRegister($op1$$reg), as_FloatRegister($op2$$reg),
-                       *($lbl$$label), /* is_far */ true);
+                        *($lbl$$label), /* is_far */ true);
   %}
 
   ins_pipe(pipe_class_compare);
@@ -9001,7 +9390,7 @@ instruct far_cmpF_loop(cmpOp cmp, fRegF op1, fRegF op2, label lbl)
 
   ins_encode %{
     __ float_cmp_branch($cmp$$cmpcode, as_FloatRegister($op1$$reg), as_FloatRegister($op2$$reg),
-                       *($lbl$$label), /* is_far */ true);
+                        *($lbl$$label), /* is_far */ true);
   %}
 
   ins_pipe(pipe_class_compare);
@@ -9327,14 +9716,14 @@ instruct far_cmpP_narrowOop_imm0_loop(cmpOpEqNe cmp, iRegN op1, immP0 zero, labe
 
 // ============================================================================
 // Conditional Move Instructions
-instruct cmovI_cmpI(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOp cop ) %{
+instruct cmovI_cmpI(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOp cop) %{
   match(Set dst (CMoveI (Binary cop (CmpI op1 op2)) (Binary dst src)));
   ins_cost(ALU_COST + BRANCH_COST);
 
-  format %{
-             "cmp$cop op1, op2\t#@cmpI\n\t"
-             "mv_t $dst, $src\t#@cmovI"
-         %}
+  format %{ "bneg$cop $op1, $op2, skip\t#@cmovI_cmpI\n\t"
+            "mv $dst, $src\n\t"
+            "skip:"
+  %}
 
   ins_encode %{
     Register op1 = as_Register($op1$$reg);
@@ -9351,14 +9740,14 @@ instruct cmovI_cmpI(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOp cop ) 
   ins_pipe(pipe_slow);
 %}
 
-instruct cmovI_cmpL(iRegINoSp dst, iRegI src, iRegL op1, iRegL op2, cmpOp cop ) %{
+instruct cmovI_cmpL(iRegINoSp dst, iRegI src, iRegL op1, iRegL op2, cmpOp cop) %{
   match(Set dst (CMoveI (Binary cop (CmpL op1 op2)) (Binary dst src)));
   ins_cost(ALU_COST + BRANCH_COST);
 
-  format %{
-             "cmp$cop op1, op2\t#@cmpL\n\t"
-             "mv_t $dst, $src\t#@cmovI"
-         %}
+  format %{ "bneg$cop $op1, $op2, skip\t#@cmovI_cmpL\n\t"
+            "mv $dst, $src\n\t"
+            "skip:"
+  %}
 
   ins_encode %{
     Register op1 = as_Register($op1$$reg);
@@ -9375,13 +9764,13 @@ instruct cmovI_cmpL(iRegINoSp dst, iRegI src, iRegL op1, iRegL op2, cmpOp cop ) 
   ins_pipe(pipe_slow);
 %}
 
-instruct cmovI_cmpU(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOpU cop ) %{
+instruct cmovI_cmpU(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOpU cop) %{
   match(Set dst (CMoveI (Binary cop (CmpU op1 op2)) (Binary dst src)));
   ins_cost(ALU_COST + BRANCH_COST);
-  format %{
-             "cmp$cop op1, op2\t#@cmpU\n\t"
-             "mv_t $dst, $src\t#@cmovI"
-         %}
+  format %{ "bneg$cop $op1, $op2, skip\t#@cmovI_cmpU\n\t"
+            "mv $dst, $src\n\t"
+            "skip:"
+  %}
 
   ins_encode %{
     Register op1 = as_Register($op1$$reg);
@@ -9533,7 +9922,7 @@ instruct partialSubtypeCheckVsZero(iRegP_R14 sub, iRegP_R10 super, iRegP_R12 tem
 instruct string_compareU(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_R14 cnt2,
                          iRegI_R10 result, iRegP_R28 tmp1, iRegL_R29 tmp2, iRegL_R30 tmp3, iRegL_R6 cr)
 %{
-  predicate(((StrCompNode *)n)->encoding() == StrIntrinsicNode::UU);
+  predicate(!UseVExt && ((StrCompNode *)n)->encoding() == StrIntrinsicNode::UU);
   match(Set result(StrComp(Binary str1 cnt1)(Binary str2 cnt2)));
   effect(KILL tmp1, KILL tmp2, KILL tmp3, USE_KILL str1, USE_KILL str2, USE_KILL cnt1, USE_KILL cnt2, KILL cr);
 
@@ -9551,7 +9940,7 @@ instruct string_compareU(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_R
 instruct string_compareL(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_R14 cnt2,
                          iRegI_R10 result, iRegP_R28 tmp1, iRegL_R29 tmp2, iRegL_R30 tmp3, iRegL_R6 cr)
 %{
-  predicate(((StrCompNode *)n)->encoding() == StrIntrinsicNode::LL);
+  predicate(!UseVExt && ((StrCompNode *)n)->encoding() == StrIntrinsicNode::LL);
   match(Set result(StrComp(Binary str1 cnt1)(Binary str2 cnt2)));
   effect(KILL tmp1, KILL tmp2, KILL tmp3, USE_KILL str1, USE_KILL str2, USE_KILL cnt1, USE_KILL cnt2, KILL cr);
 
@@ -9568,7 +9957,7 @@ instruct string_compareL(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_R
 instruct string_compareUL(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_R14 cnt2,
                           iRegI_R10 result, iRegP_R28 tmp1, iRegL_R29 tmp2, iRegL_R30 tmp3, iRegL_R6 cr)
 %{
-  predicate(((StrCompNode *)n)->encoding() == StrIntrinsicNode::UL);
+  predicate(!UseVExt && ((StrCompNode *)n)->encoding() == StrIntrinsicNode::UL);
   match(Set result(StrComp(Binary str1 cnt1)(Binary str2 cnt2)));
   effect(KILL tmp1, KILL tmp2, KILL tmp3, USE_KILL str1, USE_KILL str2, USE_KILL cnt1, USE_KILL cnt2, KILL cr);
 
@@ -9586,7 +9975,7 @@ instruct string_compareLU(iRegP_R11 str1, iRegI_R12 cnt1, iRegP_R13 str2, iRegI_
                           iRegI_R10 result, iRegP_R28 tmp1, iRegL_R29 tmp2, iRegL_R30 tmp3,
                           iRegL_R6 cr)
 %{
-  predicate(((StrCompNode *)n)->encoding() == StrIntrinsicNode::LU);
+  predicate(!UseVExt && ((StrCompNode *)n)->encoding() == StrIntrinsicNode::LU);
   match(Set result(StrComp(Binary str1 cnt1)(Binary str2 cnt2)));
   effect(KILL tmp1, KILL tmp2, KILL tmp3, USE_KILL str1, USE_KILL str2, USE_KILL cnt1, USE_KILL cnt2, KILL cr);
 
@@ -9768,6 +10157,7 @@ instruct stringL_indexof_char(iRegP_R11 str1, iRegI_R12 cnt1, iRegI_R13 ch,
 // clearing of an array
 instruct clearArray_reg_reg(iRegL_R29 cnt, iRegP_R28 base, Universe dummy, iRegL_R6 cr)
 %{
+  predicate(!UseVExt);
   match(Set dummy (ClearArray cnt base));
   effect(USE_KILL cnt, USE_KILL base, KILL cr);
 
@@ -9783,8 +10173,8 @@ instruct clearArray_reg_reg(iRegL_R29 cnt, iRegP_R28 base, Universe dummy, iRegL
 
 instruct clearArray_imm_reg(immL cnt, iRegP_R28 base, Universe dummy, iRegL_R6 cr)
 %{
-  predicate((u_int64_t)n->in(2)->get_long()
-            < (u_int64_t)(BlockZeroingLowLimit >> LogBytesPerWord));
+  predicate(!UseVExt && (uint64_t)n->in(2)->get_long()
+            < (uint64_t)(BlockZeroingLowLimit >> LogBytesPerWord));
   match(Set dummy (ClearArray cnt base));
   effect(USE_KILL base, KILL cr);
 
@@ -9801,7 +10191,7 @@ instruct clearArray_imm_reg(immL cnt, iRegP_R28 base, Universe dummy, iRegL_R6 c
 instruct string_equalsL(iRegP_R11 str1, iRegP_R13 str2, iRegI_R14 cnt,
                         iRegI_R10 result, iRegL_R6 cr)
 %{
-  predicate(((StrEqualsNode*)n)->encoding() == StrIntrinsicNode::LL);
+  predicate(!UseVExt && ((StrEqualsNode*)n)->encoding() == StrIntrinsicNode::LL);
   match(Set result (StrEquals (Binary str1 str2) cnt));
   effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt, KILL cr);
 
@@ -9817,7 +10207,7 @@ instruct string_equalsL(iRegP_R11 str1, iRegP_R13 str2, iRegI_R14 cnt,
 instruct string_equalsU(iRegP_R11 str1, iRegP_R13 str2, iRegI_R14 cnt,
                         iRegI_R10 result, iRegL_R6 cr)
 %{
-  predicate(((StrEqualsNode*)n)->encoding() == StrIntrinsicNode::UU);
+  predicate(!UseVExt && ((StrEqualsNode*)n)->encoding() == StrIntrinsicNode::UU);
   match(Set result (StrEquals (Binary str1 str2) cnt));
   effect(USE_KILL str1, USE_KILL str2, USE_KILL cnt, KILL cr);
 
@@ -9834,7 +10224,7 @@ instruct array_equalsB(iRegP_R11 ary1, iRegP_R12 ary2, iRegI_R10 result,
                        iRegP_R13 tmp1, iRegP_R14 tmp2, iRegP_R15 tmp3,
                        iRegP_R16 tmp4, iRegP_R28 tmp, iRegL_R6 cr)
 %{
-  predicate(((AryEqNode*)n)->encoding() == StrIntrinsicNode::LL);
+  predicate(!UseVExt && ((AryEqNode*)n)->encoding() == StrIntrinsicNode::LL);
   match(Set result (AryEq ary1 ary2));
   effect(KILL tmp, USE_KILL ary1, USE_KILL ary2, TEMP tmp1, TEMP tmp2, TEMP tmp3, TEMP tmp4, KILL cr);
 
@@ -9843,7 +10233,7 @@ instruct array_equalsB(iRegP_R11 ary1, iRegP_R12 ary2, iRegI_R10 result,
     __ arrays_equals($ary1$$Register, $ary2$$Register,
                      $tmp1$$Register, $tmp2$$Register, $tmp3$$Register, $tmp4$$Register,
                      $result$$Register, $tmp$$Register, 1);
-    %}
+  %}
   ins_pipe(pipe_class_memory);
 %}
 
@@ -9851,7 +10241,7 @@ instruct array_equalsC(iRegP_R11 ary1, iRegP_R12 ary2, iRegI_R10 result,
                        iRegP_R13 tmp1, iRegP_R14 tmp2, iRegP_R15 tmp3,
                        iRegP_R16 tmp4, iRegP_R28 tmp, iRegL_R6 cr)
 %{
-  predicate(((AryEqNode*)n)->encoding() == StrIntrinsicNode::UU);
+  predicate(!UseVExt && ((AryEqNode*)n)->encoding() == StrIntrinsicNode::UU);
   match(Set result (AryEq ary1 ary2));
   effect(KILL tmp, USE_KILL ary1, USE_KILL ary2, TEMP tmp1, TEMP tmp2, TEMP tmp3, TEMP tmp4, KILL cr);
 

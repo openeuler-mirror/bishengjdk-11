@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2002, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -100,6 +100,41 @@ REGISTER_DEFINITION(FloatRegister, f28);
 REGISTER_DEFINITION(FloatRegister, f29);
 REGISTER_DEFINITION(FloatRegister, f30);
 REGISTER_DEFINITION(FloatRegister, f31);
+
+REGISTER_DEFINITION(VectorRegister, vnoreg);
+
+REGISTER_DEFINITION(VectorRegister, v0);
+REGISTER_DEFINITION(VectorRegister, v1);
+REGISTER_DEFINITION(VectorRegister, v2);
+REGISTER_DEFINITION(VectorRegister, v3);
+REGISTER_DEFINITION(VectorRegister, v4);
+REGISTER_DEFINITION(VectorRegister, v5);
+REGISTER_DEFINITION(VectorRegister, v6);
+REGISTER_DEFINITION(VectorRegister, v7);
+REGISTER_DEFINITION(VectorRegister, v8);
+REGISTER_DEFINITION(VectorRegister, v9);
+REGISTER_DEFINITION(VectorRegister, v10);
+REGISTER_DEFINITION(VectorRegister, v11);
+REGISTER_DEFINITION(VectorRegister, v12);
+REGISTER_DEFINITION(VectorRegister, v13);
+REGISTER_DEFINITION(VectorRegister, v14);
+REGISTER_DEFINITION(VectorRegister, v15);
+REGISTER_DEFINITION(VectorRegister, v16);
+REGISTER_DEFINITION(VectorRegister, v17);
+REGISTER_DEFINITION(VectorRegister, v18);
+REGISTER_DEFINITION(VectorRegister, v19);
+REGISTER_DEFINITION(VectorRegister, v20);
+REGISTER_DEFINITION(VectorRegister, v21);
+REGISTER_DEFINITION(VectorRegister, v22);
+REGISTER_DEFINITION(VectorRegister, v23);
+REGISTER_DEFINITION(VectorRegister, v24);
+REGISTER_DEFINITION(VectorRegister, v25);
+REGISTER_DEFINITION(VectorRegister, v26);
+REGISTER_DEFINITION(VectorRegister, v27);
+REGISTER_DEFINITION(VectorRegister, v28);
+REGISTER_DEFINITION(VectorRegister, v29);
+REGISTER_DEFINITION(VectorRegister, v30);
+REGISTER_DEFINITION(VectorRegister, v31);
 
 REGISTER_DEFINITION(Register, c_rarg0);
 REGISTER_DEFINITION(Register, c_rarg1);

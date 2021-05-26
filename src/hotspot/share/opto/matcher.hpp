@@ -310,7 +310,7 @@ public:
 
   // identify extra cases that we might want to provide match rules for
   // e.g. Op_ vector nodes and other intrinsics while guarding with vlen
-  static const bool match_rule_supported_vector(int opcode, int vlen);
+  static const bool match_rule_supported_vector(int opcode, int vlen, BasicType bt);
 
   // Some microarchitectures have mask registers used on vectors
   static const bool has_predicated_vectors(void);
@@ -332,6 +332,10 @@ public:
     return (Matcher::max_vector_size(bt) >= size &&
             Matcher::min_vector_size(bt) <= size);
   }
+
+  static const bool supports_scalable_vector();
+  // Actual max scalable vector register length.
+  static const int scalable_vector_reg_size(const BasicType bt);
 
   // Vector ideal reg
   static const uint vector_ideal_reg(int len);

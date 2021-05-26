@@ -588,6 +588,7 @@
 #endif
 
 #ifdef RISCV64
+#define RISCV
 #define RISCV64_ONLY(code) code
 #define NOT_RISCV64(code)
 #define NO_FLAG_REG
