@@ -479,25 +479,34 @@ void LIRGenerator::array_range_check(LIR_Opr array, LIR_Opr index,
                                     CodeEmitInfo* null_check_info, CodeEmitInfo* range_check_info) {
   CodeStub* stub = new RangeCheckStub(range_check_info, index, array);
   if (index->is_constant()) {
-#ifndef NO_FLAG_REG
+#ifdef RISCV64
+    LIR_Opr left = new_register(T_INT);
+    LIR_Opr right = LIR_OprFact::intConst(index->as_jint());
+    __ load(generate_address(array, arrayOopDesc::length_offset_in_bytes(), T_INT), left, null_check_info);
+#else
     cmp_mem_int(lir_cond_belowEqual, array, arrayOopDesc::length_offset_in_bytes(),
                 index->as_jint(), null_check_info);
-#else
-    LIR_Opr left = new_register(T_INT);
-    __ load(generate_address(array, arrayOopDesc::length_offset_in_bytes(), T_INT), left, null_check_info);
-    LIR_Opr right = LIR_OprFact::intConst(index->as_jint());
 #endif
-    __ branch(lir_cond_belowEqual, NO_FLAGREG_ONLY_ARG(left) NO_FLAGREG_ONLY_ARG(right) T_INT, stub); // forward branch
+    __ branch(lir_cond_belowEqual,
+#ifdef RISCV64
+              left, right,
+#endif
+              T_INT,
+              stub); // forward branch
   } else {
-#ifndef NO_FLAG_REG
-    cmp_reg_mem(lir_cond_aboveEqual, index, array,
-                arrayOopDesc::length_offset_in_bytes(), T_INT, null_check_info);
-#else
+#ifdef RISCV64
     LIR_Opr right = new_register(T_INT);
     __ load(generate_address(array, arrayOopDesc::length_offset_in_bytes(), T_INT), right, null_check_info);
+#else
+    cmp_reg_mem(lir_cond_aboveEqual, index, array,
+                arrayOopDesc::length_offset_in_bytes(), T_INT, null_check_info);
 #endif
-    // forward branch
-    __ branch(lir_cond_aboveEqual, NO_FLAGREG_ONLY_ARG(index) NO_FLAGREG_ONLY_ARG(right) T_INT, stub);
+    __ branch(lir_cond_aboveEqual,
+#ifdef RISCV64
+              index, right,
+#endif
+              T_INT,
+              stub); // forward branch
   }
 }
 
@@ -505,24 +514,33 @@ void LIRGenerator::array_range_check(LIR_Opr array, LIR_Opr index,
 void LIRGenerator::nio_range_check(LIR_Opr buffer, LIR_Opr index, LIR_Opr result, CodeEmitInfo* info) {
   CodeStub* stub = new RangeCheckStub(info, index);
   if (index->is_constant()) {
-#ifndef NO_FLAG_REG
-    cmp_mem_int(lir_cond_belowEqual, buffer, java_nio_Buffer::limit_offset(), index->as_jint(), info);
-#else
+#ifdef RISCV64
     LIR_Opr left = new_register(T_INT);
-    __ load(generate_address(buffer, java_nio_Buffer::limit_offset(), T_INT), left, info);
     LIR_Opr right = LIR_OprFact::intConst(index->as_jint());
-#endif
-    __ branch(lir_cond_belowEqual, NO_FLAGREG_ONLY_ARG(left) NO_FLAGREG_ONLY_ARG(right) T_INT, stub); // forward branch
-  } else {
-#ifndef NO_FLAG_REG
-    cmp_reg_mem(lir_cond_aboveEqual, index, buffer,
-                java_nio_Buffer::limit_offset(), T_INT, info);
+    __ load(generate_address(buffer, java_nio_Buffer::limit_offset(), T_INT), left, info);
 #else
+    cmp_mem_int(lir_cond_belowEqual, buffer, java_nio_Buffer::limit_offset(), index->as_jint(), info);
+#endif
+    __ branch(lir_cond_belowEqual,
+#ifdef RISCV64
+              left, right,
+#endif
+              T_INT,
+              stub); // forward branch
+  } else {
+#ifdef RISCV64
     LIR_Opr right = new_register(T_INT);
     __ load(generate_address(buffer, java_nio_Buffer::limit_offset(), T_INT), right, info);
+#else
+    cmp_reg_mem(lir_cond_aboveEqual, index, buffer,
+                java_nio_Buffer::limit_offset(), T_INT, info);
 #endif
-    // forward branch
-    __ branch(lir_cond_aboveEqual, NO_FLAGREG_ONLY_ARG(index) NO_FLAGREG_ONLY_ARG(right) T_INT, stub);
+    __ branch(lir_cond_aboveEqual,
+#ifdef RISCV64
+              index, right,
+#endif
+              T_INT,
+              stub); // forward branch
   }
   __ move(index, result);
 }
@@ -713,8 +731,13 @@ void LIRGenerator::new_instance(LIR_Opr dst, ciInstanceKlass* klass, bool is_unr
                        oopDesc::header_size(), instance_size, klass_reg, !klass->is_initialized(), slow_path);
   } else {
     CodeStub* slow_path = new NewInstanceStub(klass_reg, dst, klass, info, Runtime1::new_instance_id);
-    __ branch(lir_cond_always, NO_FLAGREG_ONLY_ARG(LIR_OprFact::illegalOpr)
-              NO_FLAGREG_ONLY_ARG(LIR_OprFact::illegalOpr) T_ILLEGAL, slow_path);
+    __ branch(lir_cond_always,
+#ifdef RISCV64
+              LIR_OprFact::illegalOpr,
+              LIR_OprFact::illegalOpr,
+#endif
+              T_ILLEGAL,
+              slow_path);
     __ branch_destination(slow_path->continuation());
   }
 }
@@ -959,11 +982,11 @@ LIR_Opr LIRGenerator::force_to_spill(LIR_Opr value, BasicType t) {
   return tmp;
 }
 
-#ifndef NO_FLAG_REG
-void LIRGenerator::profile_branch(If* if_instr, If::Condition cond) {
-#else
-void LIRGenerator::profile_branch(If* if_instr, If::Condition cond, LIR_Opr left, LIR_Opr right) {
+void LIRGenerator::profile_branch(If* if_instr, If::Condition cond
+#ifdef RISCV64
+                                  , LIR_Opr left, LIR_Opr right
 #endif
+) {
   if (if_instr->should_profile()) {
     ciMethod* method = if_instr->profiled_method();
     assert(method != NULL, "method should be set if branch is profiled");
@@ -985,8 +1008,9 @@ void LIRGenerator::profile_branch(If* if_instr, If::Condition cond, LIR_Opr left
 
     LIR_Opr data_offset_reg = new_pointer_register();
     __ cmove(lir_cond(cond),
-             NO_FLAGREG_ONLY_ARG(left)
-             NO_FLAGREG_ONLY_ARG(right)
+#ifdef RISCV64
+             left, right,
+#endif
              LIR_OprFact::intptrConst(taken_count_offset),
              LIR_OprFact::intptrConst(not_taken_count_offset),
              data_offset_reg, as_BasicType(if_instr->x()->type()));
@@ -1339,8 +1363,11 @@ void LIRGenerator::do_isPrimitive(Intrinsic* x) {
 
   __ move(new LIR_Address(rcvr.result(), java_lang_Class::klass_offset_in_bytes(), T_ADDRESS), temp, info);
   __ cmp(lir_cond_notEqual, temp, LIR_OprFact::metadataConst(0));
-  __ cmove(lir_cond_notEqual, NO_FLAGREG_ONLY_ARG(temp) NO_FLAGREG_ONLY_ARG(LIR_OprFact::metadataConst(0))
-          LIR_OprFact::intConst(0), LIR_OprFact::intConst(1), result, T_BOOLEAN);
+  __ cmove(lir_cond_notEqual,
+#ifdef RISCV64
+           temp, LIR_OprFact::metadataConst(0),
+#endif
+           LIR_OprFact::intConst(0), LIR_OprFact::intConst(1), result, T_BOOLEAN);
 }
 
 
@@ -1623,7 +1650,12 @@ void LIRGenerator::do_StoreIndexed(StoreIndexed* x) {
   if (GenerateRangeChecks && needs_range_check) {
     if (use_length) {
       __ cmp(lir_cond_belowEqual, length.result(), index.result());
-      __ branch(lir_cond_belowEqual, NO_FLAGREG_ONLY_ARG(length.result()) NO_FLAGREG_ONLY_ARG(index.result()) T_INT,
+      __ branch(lir_cond_belowEqual,
+#ifdef RISCV64
+                length.result(),
+                index.result(),
+#endif
+                T_INT,
                 new RangeCheckStub(range_check_info, index.result(), array.result()));
     } else {
       array_range_check(array.result(), index.result(), null_check_info, range_check_info);
@@ -1802,26 +1834,34 @@ void LIRGenerator::do_NIOCheckIndex(Intrinsic* x) {
     CodeEmitInfo* info = state_for(x);
     CodeStub* stub = new RangeCheckStub(info, index.result());
     if (index.result()->is_constant()) {
-#ifndef NO_FLAG_REG
-      cmp_mem_int(lir_cond_belowEqual, buf.result(), java_nio_Buffer::limit_offset(), index.result()->as_jint(), info);
-#else
+#ifdef RISCV64
       LIR_Opr left = new_register(T_INT);
-      __ load(generate_address(buf.result(), java_nio_Buffer::limit_offset(), T_INT), left, info);
       LIR_Opr right = LIR_OprFact::intConst(index.result()->as_jint());
-#endif
-      __ branch(lir_cond_belowEqual, NO_FLAGREG_ONLY_ARG(left)
-                NO_FLAGREG_ONLY_ARG(right) T_INT, stub); // forward branch
-    } else {
-#ifndef NO_FLAG_REG
-      cmp_reg_mem(lir_cond_aboveEqual, index.result(), buf.result(),
-                  java_nio_Buffer::limit_offset(), T_INT, info);
+      __ load(generate_address(buf.result(), java_nio_Buffer::limit_offset(), T_INT), left, info);
 #else
+      cmp_mem_int(lir_cond_belowEqual, buf.result(), java_nio_Buffer::limit_offset(), index.result()->as_jint(), info);
+#endif
+      __ branch(lir_cond_belowEqual,
+#ifdef RISCV64
+                left, right,
+#endif
+                T_INT,
+                stub);
+    } else {
+#ifdef RISCV64
       LIR_Opr left =  index.result();
       LIR_Opr right = new_register(T_INT);
       __ load(generate_address(buf.result(), java_nio_Buffer::limit_offset(), T_INT), right, info);
+#else
+      cmp_reg_mem(lir_cond_aboveEqual, index.result(), buf.result(),
+                  java_nio_Buffer::limit_offset(), T_INT, info);
 #endif
-      __ branch(lir_cond_aboveEqual, NO_FLAGREG_ONLY_ARG(left)
-                NO_FLAGREG_ONLY_ARG(right) T_INT, stub); // forward branch
+      __ branch(lir_cond_aboveEqual,
+#ifdef RISCV64
+                left, right,
+#endif
+                T_INT,
+                stub);
     }
     __ move(index.result(), result);
   } else {
@@ -1895,15 +1935,24 @@ void LIRGenerator::do_LoadIndexed(LoadIndexed* x) {
 
   if (GenerateRangeChecks && needs_range_check) {
     if (StressLoopInvariantCodeMotion && range_check_info->deoptimize_on_exception()) {
-      __ branch(lir_cond_always, NO_FLAGREG_ONLY_ARG(LIR_OprFact::illegalOpr)
-                NO_FLAGREG_ONLY_ARG(LIR_OprFact::illegalOpr) T_ILLEGAL,
+      __ branch(lir_cond_always,
+#ifdef RISCV64
+                LIR_OprFact::illegalOpr,
+                LIR_OprFact::illegalOpr,
+#endif
+                T_ILLEGAL,
                 new RangeCheckStub(range_check_info, index.result(), array.result()));
     } else if (use_length) {
       // TODO: use a (modified) version of array_range_check that does not require a
       //       constant length to be loaded to a register
       __ cmp(lir_cond_belowEqual, length.result(), index.result());
-      __ branch(lir_cond_belowEqual, NO_FLAGREG_ONLY_ARG(length.result()) NO_FLAGREG_ONLY_ARG(index.result())
-                T_INT, new RangeCheckStub(range_check_info, index.result(), array.result()));
+      __ branch(lir_cond_belowEqual,
+#ifdef RISCV64
+                length.result(),
+                index.result(),
+#endif
+                T_INT,
+                new RangeCheckStub(range_check_info, index.result(), array.result()));
     } else {
       array_range_check(array.result(), index.result(), null_check_info, range_check_info);
       // The range check performs the null check, so clear it out for the load
@@ -2277,23 +2326,48 @@ void LIRGenerator::do_SwitchRanges(SwitchRangeArray* x, LIR_Opr value, BlockBegi
     BlockBegin* dest = one_range->sux();
     if (low_key == high_key) {
       __ cmp(lir_cond_equal, value, low_key);
-      __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(value) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(low_key))
-                T_INT, dest);
+      __ branch(lir_cond_equal,
+#ifdef RISCV64
+                value,
+                LIR_OprFact::intConst(low_key),
+#endif
+                T_INT,
+                dest);
     } else if (high_key - low_key == 1) {
       __ cmp(lir_cond_equal, value, low_key);
-      __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(value) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(low_key))
-                T_INT, dest);
+      __ branch(lir_cond_equal,
+#ifdef RISCV64
+                value,
+                LIR_OprFact::intConst(low_key),
+#endif
+                T_INT,
+                dest);
       __ cmp(lir_cond_equal, value, high_key);
-      __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(value) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(high_key))
-                T_INT, dest);
+      __ branch(lir_cond_equal,
+#ifdef RISCV64
+                value,
+                LIR_OprFact::intConst(high_key),
+#endif
+                T_INT,
+                dest);
     } else {
       LabelObj* L = new LabelObj();
       __ cmp(lir_cond_less, value, low_key);
-      __ branch(lir_cond_less, NO_FLAGREG_ONLY_ARG(value) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(low_key))
-                T_INT, L->label());
+      __ branch(lir_cond_less,
+#ifdef RISCV64
+                value,
+                LIR_OprFact::intConst(low_key),
+#endif
+                T_INT,
+                L->label());
       __ cmp(lir_cond_lessEqual, value, high_key);
-      __ branch(lir_cond_lessEqual, NO_FLAGREG_ONLY_ARG(value) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(high_key))
-                T_INT, dest);
+      __ branch(lir_cond_lessEqual,
+#ifdef RISCV64
+                value,
+                LIR_OprFact::intConst(high_key),
+#endif
+                T_INT,
+                dest);
       __ branch_destination(L->label());
     }
   }
@@ -2396,8 +2470,10 @@ void LIRGenerator::do_TableSwitch(TableSwitch* x) {
       __ cmp(lir_cond_equal, value, i + lo_key);
       __ move(data_offset_reg, tmp_reg);
       __ cmove(lir_cond_equal,
-               NO_FLAGREG_ONLY_ARG(value)
-               NO_FLAGREG_ONLY_ARG(LIR_OprFact::intptrConst(i + lo_key))
+#ifdef RISCV64
+               value,
+               LIR_OprFact::intConst(i + lo_key),
+#endif
                LIR_OprFact::intptrConst(count_offset),
                tmp_reg,
                data_offset_reg, T_INT);
@@ -2415,8 +2491,13 @@ void LIRGenerator::do_TableSwitch(TableSwitch* x) {
   } else {
     for (int i = 0; i < len; i++) {
       __ cmp(lir_cond_equal, value, i + lo_key);
-      __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(value) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intptrConst(i + lo_key))
-                T_INT, x->sux_at(i));
+      __ branch(lir_cond_equal,
+#ifdef RISCV64
+                value,
+                LIR_OprFact::intConst(i + lo_key),
+#endif
+                T_INT,
+                x->sux_at(i));
     }
     __ jump(x->default_sux());
   }
@@ -2457,8 +2538,10 @@ void LIRGenerator::do_LookupSwitch(LookupSwitch* x) {
       __ cmp(lir_cond_equal, value, x->key_at(i));
       __ move(data_offset_reg, tmp_reg);
       __ cmove(lir_cond_equal,
-               NO_FLAGREG_ONLY_ARG(value)
-               NO_FLAGREG_ONLY_ARG(LIR_OprFact::intptrConst(x->key_at(i)))
+#ifdef RISCV64
+               value,
+               LIR_OprFact::intConst(x->key_at(i)),
+#endif
                LIR_OprFact::intptrConst(count_offset),
                tmp_reg,
                data_offset_reg, T_INT);
@@ -2477,8 +2560,13 @@ void LIRGenerator::do_LookupSwitch(LookupSwitch* x) {
     int len = x->length();
     for (int i = 0; i < len; i++) {
       __ cmp(lir_cond_equal, value, x->key_at(i));
-      __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(value) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intptrConst(x->key_at(i)))
-                T_INT, x->sux_at(i));
+      __ branch(lir_cond_equal,
+#ifdef RISCV64
+                value,
+                LIR_OprFact::intConst(x->key_at(i)),
+#endif
+                T_INT,
+                x->sux_at(i));
     }
     __ jump(x->default_sux());
   }
@@ -2989,7 +3077,10 @@ void LIRGenerator::do_IfOp(IfOp* x) {
   LIR_Opr reg = rlock_result(x);
 
   __ cmp(lir_cond(x->cond()), left.result(), right.result());
-  __ cmove(lir_cond(x->cond()), NO_FLAGREG_ONLY_ARG(left.result()) NO_FLAGREG_ONLY_ARG(right.result())
+  __ cmove(lir_cond(x->cond()),
+#ifdef RISCV64
+           left.result(), right.result(),
+#endif
            t_val.result(), f_val.result(), reg, as_BasicType(x->x()->type()));
 }
 
@@ -3033,8 +3124,13 @@ void LIRGenerator::do_getEventWriter(Intrinsic* x) {
   LIR_Opr jobj = new_register(T_METADATA);
   __ move_wide(jobj_addr, jobj);
   __ cmp(lir_cond_equal, jobj, LIR_OprFact::metadataConst(0));
-  __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(jobj) NO_FLAGREG_ONLY_ARG(LIR_OprFact::metadataConst(0))
-            T_OBJECT, L_end->label());
+  __ branch(lir_cond_equal,
+#ifdef RISCV64
+            jobj,
+            LIR_OprFact::metadataConst(0),
+#endif
+            T_OBJECT,
+            L_end->label());
 
   access_load(IN_NATIVE, T_OBJECT, LIR_OprFact::address(new LIR_Address(jobj, T_OBJECT)), result);
 
@@ -3351,11 +3447,12 @@ void LIRGenerator::increment_backedge_counter_conditionally(LIR_Condition cond, 
     LIR_Opr plus_one = LIR_OprFact::intConst(InvocationCounter::count_increment);
     LIR_Opr zero = LIR_OprFact::intConst(0);
     __ cmove(cond,
-        NO_FLAGREG_ONLY_ARG(left)
-        NO_FLAGREG_ONLY_ARG(right)
-        (left_bci < bci) ? plus_one : zero,
-        (right_bci < bci) ? plus_one : zero,
-        step, left->type());
+#ifdef RISCV64
+             left, right,
+#endif
+             (left_bci < bci) ? plus_one : zero,
+             (right_bci < bci) ? plus_one : zero,
+             step, left->type());
     increment_backedge_counter(info, step, bci);
   }
 }
@@ -3395,8 +3492,13 @@ void LIRGenerator::decrement_age(CodeEmitInfo* info) {
     CodeStub* deopt = new DeoptimizeStub(info, Deoptimization::Reason_tenured,
                                          Deoptimization::Action_make_not_entrant);
     __ cmp(lir_cond_lessEqual, result, LIR_OprFact::intConst(0));
-    __ branch(lir_cond_lessEqual, NO_FLAGREG_ONLY_ARG(result) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(0))
-              T_INT, deopt);
+    __ branch(lir_cond_lessEqual,
+#ifdef RISCV64
+              result,
+              LIR_OprFact::intConst(0),
+#endif
+              T_INT,
+              deopt);
   }
 }
 
@@ -3443,24 +3545,43 @@ void LIRGenerator::increment_event_counter_impl(CodeEmitInfo* info,
     if (freq == 0) {
       if (!step->is_constant()) {
         __ cmp(lir_cond_notEqual, step, LIR_OprFact::intConst(0));
-        __ branch(lir_cond_notEqual, NO_FLAGREG_ONLY_ARG(step) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(0))
-                  T_ILLEGAL, overflow);
+        __ branch(lir_cond_notEqual,
+#ifdef RISCV64
+                  step,
+                  LIR_OprFact::intConst(0),
+#endif
+                  T_ILLEGAL,
+                  overflow);
       } else {
-        __ branch(lir_cond_always, NO_FLAGREG_ONLY_ARG(LIR_OprFact::illegalOpr)
-                  NO_FLAGREG_ONLY_ARG(LIR_OprFact::illegalOpr) T_ILLEGAL, overflow);
+        __ branch(lir_cond_always,
+#ifdef RISCV64
+                  LIR_OprFact::illegalOpr,
+                  LIR_OprFact::illegalOpr,
+#endif
+                  T_ILLEGAL,
+                  overflow);
       }
     } else {
       LIR_Opr mask = load_immediate(freq, T_INT);
       if (!step->is_constant()) {
         // If step is 0, make sure the overflow check below always fails
         __ cmp(lir_cond_notEqual, step, LIR_OprFact::intConst(0));
-        __ cmove(lir_cond_notEqual, NO_FLAGREG_ONLY_ARG(step) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(0)) result,
-                 LIR_OprFact::intConst(InvocationCounter::count_increment), result, T_INT);
+        __ cmove(lir_cond_notEqual,
+#ifdef RISCV64
+                 step,
+                 LIR_OprFact::intConst(0),
+#endif
+                 result, LIR_OprFact::intConst(InvocationCounter::count_increment), result, T_INT);
       }
       __ logical_and(result, mask, result);
       __ cmp(lir_cond_equal, result, LIR_OprFact::intConst(0));
-      __ branch(lir_cond_equal, NO_FLAGREG_ONLY_ARG(result) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(0))
-                T_INT, overflow);
+      __ branch(lir_cond_equal,
+#ifdef RISCV64
+                result,
+                LIR_OprFact::intConst(0),
+#endif
+                T_INT,
+                overflow);
     }
     __ branch_destination(overflow->continuation());
   }
@@ -3574,7 +3695,12 @@ void LIRGenerator::do_RangeCheckPredicate(RangeCheckPredicate *x) {
     CodeStub* stub = new PredicateFailedStub(info);
 
     __ cmp(lir_cond(cond), left, right);
-    __ branch(lir_cond(cond), NO_FLAGREG_ONLY_ARG(left) NO_FLAGREG_ONLY_ARG(right) right->type(), stub);
+    __ branch(lir_cond(cond),
+#ifdef RISCV64
+              left, right,
+#endif
+              right->type(),
+              stub);
   }
 }
 
@@ -3722,7 +3848,11 @@ LIR_Opr LIRGenerator::mask_boolean(LIR_Opr array, LIR_Opr value, CodeEmitInfo*& 
   int diffbit = Klass::layout_helper_boolean_diffbit();
   __ logical_and(layout, LIR_OprFact::intConst(diffbit), layout);
   __ cmp(lir_cond_notEqual, layout, LIR_OprFact::intConst(0));
-  __ cmove(lir_cond_notEqual, NO_FLAGREG_ONLY_ARG(layout) NO_FLAGREG_ONLY_ARG(LIR_OprFact::intConst(0))
+  __ cmove(lir_cond_notEqual,
+#ifdef RISCV64
+           layout,
+           LIR_OprFact::intConst(0),
+#endif
            value_fixed, value, value_fixed, T_BYTE);
   value = value_fixed;
   return value;

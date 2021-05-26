@@ -693,7 +693,7 @@ void LIR_Assembler::emit_op0(LIR_Op0* op) {
 
 void LIR_Assembler::emit_op2(LIR_Op2* op) {
   switch (op->code()) {
-#ifndef NO_FLAG_REG
+#ifndef RISCV64
     case lir_cmp:
       if (op->info() != NULL) {
         assert(op->in_opr1()->is_address() || op->in_opr2()->is_address(),
@@ -710,7 +710,7 @@ void LIR_Assembler::emit_op2(LIR_Op2* op) {
       comp_fl2i(op->code(), op->in_opr1(), op->in_opr2(), op->result_opr(), op);
       break;
 
-#ifndef NO_FLAG_REG
+#ifndef RISCV64
     case lir_cmove:
       cmove(op->condition(), op->in_opr1(), op->in_opr2(), op->result_opr(), op->type());
       break;
