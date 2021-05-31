@@ -377,8 +377,8 @@ class Linux {
   }
   // Check if node is in bound node set.
   static bool isnode_in_bound_nodes(int node) {
-    if (_numa_get_membind != NULL && _numa_bitmask_isbitset != NULL) {
-      return _numa_bitmask_isbitset(_numa_get_membind(), node);
+    if (_numa_membind_bitmask != NULL && _numa_bitmask_isbitset != NULL) {
+      return _numa_bitmask_isbitset(_numa_membind_bitmask, node);
     } else {
       return false;
     }
@@ -387,19 +387,17 @@ class Linux {
   // Returns true if bound to a single numa node, otherwise returns false.
   static bool isbound_to_single_node() {
     int nodes = 0;
-    struct bitmask* bmp = NULL;
     unsigned int node = 0;
     unsigned int highest_node_number = 0;
 
-    if (_numa_get_membind != NULL && _numa_max_node != NULL && _numa_bitmask_isbitset != NULL) {
-      bmp = _numa_get_membind();
+    if (_numa_membind_bitmask != NULL && _numa_max_node != NULL && _numa_bitmask_isbitset != NULL) {
       highest_node_number = _numa_max_node();
     } else {
       return false;
     }
 
     for (node = 0; node <= highest_node_number; node++) {
-      if (_numa_bitmask_isbitset(bmp, node)) {
+      if (_numa_bitmask_isbitset(_numa_membind_bitmask, node)) {
         nodes++;
       }
     }
