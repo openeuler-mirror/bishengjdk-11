@@ -4645,6 +4645,134 @@ void MacroAssembler::compute_match_mask(Register src, Register pattern, Register
   notr(src, src);
   andr(match_mask, match_mask, src);
 }
+
+// add two unsigned input and output carry
+void MacroAssembler::cad(Register dst, Register src1, Register src2, Register carry)
+{
+  assert_different_registers(dst, carry);
+  assert_different_registers(dst, src2);
+  add(dst, src1, src2);
+  sltu(carry, dst, src2);
+}
+
+// add two input with carry
+void MacroAssembler::adc(Register dst, Register src1, Register src2, Register carry)
+{
+  assert_different_registers(dst, carry);
+  add(dst, src1, src2);
+  add(dst, dst, carry);
+}
+
+// add two unsigned input with carry and output carry
+void MacroAssembler::cadc(Register dst, Register src1, Register src2, Register carry)
+{
+  assert_different_registers(dst, src2);
+  adc(dst, src1, src2, carry);
+  sltu(carry, dst, src2);
+}
+
+// rotate right with imm bits
+void MacroAssembler::ror(Register dst, Register src, uint32_t imm, Register tmp)
+{
+  assert_different_registers(dst, tmp);
+  assert(imm <= 64, "should less equal than 64");
+  slli(tmp, src, 64 - imm);
+  srli(dst, src, imm);
+  orr(dst, dst, tmp);
+}
+
+void MacroAssembler::add2_with_carry(Register final_dest_hi, Register dest_hi, Register dest_lo,
+                                     Register src1, Register src2, Register carry)
+{
+  cad(dest_lo, dest_lo, src1, carry);
+  add(dest_hi, dest_hi, carry);
+  cad(dest_lo, dest_lo, src2, carry);
+  add(final_dest_hi, dest_hi, carry);
+}
+
+// Code for BigInteger::mulAdd instrinsic
+// out     = x10
+// in      = x11
+// offset  = x12  (already out.length-offset)
+// len     = x13
+// k       = x14
+void MacroAssembler::mul_add(Register out, Register in, Register offset,
+                             Register len, Register k, Register tmp1, Register tmp2) {
+  Label L_loop_1, L_loop_2, L_end, L_not_zero;
+  bnez(len, L_not_zero);
+  mv(out, zr);
+  j(L_end);
+  bind(L_not_zero);
+  zero_ext(k, k, 32);
+  slli(t0, offset, LogBytesPerInt);
+  add(offset, out, t0);
+  slli(t0, len, LogBytesPerInt);
+  add(in, in, t0);
+  mv(out, zr);
+
+  if (AvoidUnalignedAccesses) {
+    // if in and offset are both 8 bytes aligned.
+    orr(t0, in, offset);
+    andi(t0, t0, 0x7);
+    beqz(t0, L_loop_2);
+  } else {
+    j(L_loop_2);
+  }
+
+  bind(L_loop_1);
+  sub(in, in, 4);
+  lwu(t0, Address(in, 0));
+  mul(t1, t0, k);
+  add(t0, t1, out);
+  sub(offset, offset, 4);
+  lwu(t1, Address(offset, 0));
+  add(t0, t0, t1);
+  sw(t0, Address(offset));
+  srli(out, t0, 32);
+  sub(len, len, 1);
+  beqz(len, L_end);
+  j(L_loop_1);
+
+
+  bind(L_loop_2);
+  Label L_one;
+  sub(len, len, 1);
+  bltz(len, L_end);
+  sub(len, len, 1);
+  bltz(len, L_one);
+
+  sub(in, in, 8);
+  ld(tmp1, Address(in, 0));
+  ror(tmp1, tmp1, 32); // convert to little-endian
+
+  const Register carry = out;
+  const Register src1_hi = t0;
+  const Register src1_lo = tmp2;
+  const Register src2 = t1;
+
+  mulhu(src1_hi, k, tmp1);
+  mul(src1_lo, k, tmp1);
+  sub(offset, offset, 8);
+  ld(src2, Address(offset, 0));
+  ror(src2, src2, 32, tmp1);
+  add2_with_carry(carry, src1_hi, src1_lo, carry, src2, tmp1);
+  ror(src1_lo, src1_lo, 32, tmp1); // back to big-endian
+  sd(src1_lo, Address(offset, 0));
+  j(L_loop_2);
+
+  bind(L_one);
+  sub(in, in, 4);
+  lwu(t0, Address(in, 0));
+  mul(t1, t0, k);
+  add(t0, t1, out);
+  sub(offset, offset, 4);
+  lwu(t1, Address(offset, 0));
+  add(t0, t0, t1);
+  sw(t0, Address(offset));
+  srli(out, t0, 32);
+
+  bind(L_end);
+}
 #endif // COMPILER2
 
 void MacroAssembler::ctz_bit(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
