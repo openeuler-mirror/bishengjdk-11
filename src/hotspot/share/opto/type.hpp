@@ -456,6 +456,7 @@ public:
   const Type* maybe_remove_speculative(bool include_speculative) const;
 
   virtual bool maybe_null() const { return true; }
+  virtual bool is_known_instance() const { return false; }
 
 private:
   // support arrays
@@ -485,6 +486,8 @@ public:
   // Convenience common pre-built types.
   static const TypeF *ZERO; // positive zero only
   static const TypeF *ONE;
+  static const TypeF *POS_INF;
+  static const TypeF *NEG_INF;
 #ifndef PRODUCT
   virtual void dump2( Dict &d, uint depth, outputStream *st ) const;
 #endif
@@ -512,6 +515,8 @@ public:
   // Convenience common pre-built types.
   static const TypeD *ZERO; // positive zero only
   static const TypeD *ONE;
+  static const TypeD *POS_INF;
+  static const TypeD *NEG_INF;
 #ifndef PRODUCT
   virtual void dump2( Dict &d, uint depth, outputStream *st ) const;
 #endif
@@ -1397,6 +1402,10 @@ public:
   // returns the equivalent ptr type for this compressed pointer
   const TypePtr *get_ptrtype() const {
     return _ptrtype;
+  }
+
+  bool is_known_instance() const {
+    return _ptrtype->is_known_instance();
   }
 
 #ifndef PRODUCT

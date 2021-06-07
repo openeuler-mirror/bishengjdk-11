@@ -29,6 +29,8 @@
 #include "vm_version_riscv64.hpp"
 
 // Implementation of class atomic
+// Note that memory_order_conservative requires a full barrier after atomic stores.
+// See https://patchwork.kernel.org/patch/3575821/
 
 #define FULL_MEM_BARRIER  __sync_synchronize()
 #define READ_MEM_BARRIER  __atomic_thread_fence(__ATOMIC_ACQUIRE);

@@ -27,7 +27,7 @@
 #ifndef CPU_RISCV64_VM_MACROASSEMBLER_RISCV64_HPP
 #define CPU_RISCV64_VM_MACROASSEMBLER_RISCV64_HPP
 
-#include "asm/assembler.hpp"
+#include "asm/assembler.inline.hpp"
 
 // MacroAssembler extends Assembler by frequently used macros.
 //
@@ -701,6 +701,8 @@ class MacroAssembler: public Assembler {
   void oop_equal(Register obj1, Register obj2, Label& equal, bool is_far = false); // cmpoop
   void oop_nequal(Register obj1, Register obj2, Label& nequal, bool is_far = false);
 #ifdef COMPILER2
+  void minmax_FD(FloatRegister dst, FloatRegister src1, FloatRegister src2, bool is_double, bool is_min);
+  
   void arrays_equals(Register a1, Register a2, Register tmp3, Register tmp4,
                      Register tmp5, Register tmp6, Register result, Register cnt1, int elem_size);
 

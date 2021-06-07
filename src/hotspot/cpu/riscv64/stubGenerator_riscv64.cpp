@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2020, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
  * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
@@ -828,7 +828,7 @@ class StubGenerator: public StubCodeGenerator {
   void copy_memory(bool is_aligned, Register s, Register d,
                    Register count, Register tmp, int step) {
     bool is_backwards = step < 0;
-    int granularity = uabs(step);
+    unsigned int granularity = uabs(step);
 
     const Register src = x30, dst = x31, cnt = x15, tmp3 = x16, tmp4 = x17;
 
@@ -966,7 +966,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   // If 'from' and/or 'to' are aligned on 4-byte boundaries, we let
   // the hardware handle it.  The two dwords within qwords that span
-  // cache line boundaries will still be loaded and stored atomicly.
+  // cache line boundaries will still be loaded and stored atomically.
   //
   // Side Effects:
   //   disjoint_int_copy_entry is set to the no-overlap entry point
@@ -1032,7 +1032,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   // If 'from' and/or 'to' are aligned on 4-byte boundaries, we let
   // the hardware handle it.  The two dwords within qwords that span
-  // cache line boundaries will still be loaded and stored atomicly.
+  // cache line boundaries will still be loaded and stored atomically.
   //
   address generate_conjoint_copy(size_t size, bool aligned, bool is_oop, address nooverlap_target,
                                  address* entry, const char* name,
@@ -1194,7 +1194,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   // If 'from' and/or 'to' are aligned on 4-byte boundaries, we let
   // the hardware handle it.  The two dwords within qwords that span
-  // cache line boundaries will still be loaded and stored atomicly.
+  // cache line boundaries will still be loaded and stored atomically.
   //
   // Side Effects:
   //   disjoint_int_copy_entry is set to the no-overlap entry point
@@ -1218,7 +1218,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   // If 'from' and/or 'to' are aligned on 4-byte boundaries, we let
   // the hardware handle it.  The two dwords within qwords that span
-  // cache line boundaries will still be loaded and stored atomicly.
+  // cache line boundaries will still be loaded and stored atomically.
   //
   address generate_conjoint_int_copy(bool aligned, address nooverlap_target,
                                      address* entry, const char* name,

@@ -37,17 +37,61 @@
 
 #define __ _masm->
 
-void LIR_Assembler::arithmetic_idiv(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr temp,
-                                    LIR_Opr result, CodeEmitInfo* info) {
-  Unimplemented();
-}
+void LIR_Assembler::arithmetic_idiv(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr illegal, LIR_Opr result, CodeEmitInfo* info) {
 
-void LIR_Assembler::arithmetic_idiv(LIR_Op3* op, bool is_irem) {
-  Register Rdividend = op->in_opr1()->as_register();
-  Register Rdivisor = op->in_opr2()->as_register();
-  Register Rresult = op->result_opr()->as_register();
+  // opcode check
+  assert((code == lir_idiv) || (code == lir_irem), "opcode must be idiv or irem");
+  bool is_irem = (code == lir_irem);
 
-  __ corrected_idivl(Rresult, Rdividend, Rdivisor, is_irem);
+  // operand check
+  assert(left->is_single_cpu(),   "left must be register");
+  assert(right->is_single_cpu() || right->is_constant(),  "right must be register or constant");
+  assert(result->is_single_cpu(), "result must be register");
+  Register lreg = left->as_register();
+  Register dreg = result->as_register();
+
+  // power-of-2 constant check and codegen
+  if (right->is_constant()) {
+    int c = right->as_constant_ptr()->as_jint();
+    assert(c > 0 && is_power_of_2(c), "divisor must be power-of-2 constant");
+    if (is_irem) {
+      if (c == 1) {
+        // move 0 to dreg if divisor is 1
+        __ mv(dreg, zr);
+      } else {
+        unsigned int shift = exact_log2(c);
+        __ sraiw(t0, lreg, 0x1f);
+        __ srliw(t0, t0, BitsPerInt - shift);
+        __ addw(t1, lreg, t0);
+        if (is_imm_in_range(c - 1, 12, 0)) {
+          __ andi(t1, t1, c - 1);
+        } else {
+          __ slli(t1, t1, registerSize - shift);
+          __ srli(t1, t1, registerSize - shift);
+        }
+        __ subw(dreg, t1, t0);
+      }
+    } else {
+      if (c == 1) {
+        // move lreg to dreg if divisor is 1
+        __ mv(dreg, lreg);
+      } else {
+        unsigned int shift = exact_log2(c);
+        __ sraiw(t0, lreg, 0x1f);
+        if (is_imm_in_range(c - 1, 12, 0)) {
+          __ andi(t0, t0, c - 1);
+        } else {
+          __ slli(t0, t0, registerSize - shift);
+          __ srli(t0, t0, registerSize - shift);
+        }
+        __ addw(dreg, t0, lreg);
+        __ sraiw(dreg, dreg, shift);
+      }
+    }
+  } else {
+    Register rreg = right->as_register();
+    __ corrected_idivl(dreg, lreg, rreg, is_irem);
+  }
 }
 
 void LIR_Assembler::arith_op_single_cpu_right_constant(LIR_Code code, LIR_Opr left, LIR_Opr right,
@@ -137,16 +181,55 @@ void LIR_Assembler::arith_op_double_cpu(LIR_Code code, LIR_Opr left, LIR_Opr rig
         ShouldNotReachHere();
     }
   } else if (right->is_constant()) {
-    jlong c = right->as_constant_ptr()->as_jlong_bits();
+    jlong c = right->as_constant_ptr()->as_jlong();
     Register dreg = as_reg(dest);
-    assert(code == lir_add || code == lir_sub, "mismatched arithmetic op");
-    if (c == 0 && dreg == lreg_lo) {
-      COMMENT("effective nop elided");
-      return;
-    }
     switch (code) {
-      case lir_add: __ add(dreg, lreg_lo, c); break;
-      case lir_sub: __ sub(dreg, lreg_lo, c); break;
+      case lir_add:
+      case lir_sub:
+        if (c == 0 && dreg == lreg_lo) {
+          COMMENT("effective nop elided");
+          return;
+        }
+        code == lir_add ? __ add(dreg, lreg_lo, c) : __ sub(dreg, lreg_lo, c);
+        break;
+      case lir_div:
+        assert(c > 0 && is_power_of_2(c), "divisor must be power-of-2 constant");
+        if (c == 1) {
+          // move lreg_lo to dreg if divisor is 1
+          __ mv(dreg, lreg_lo);
+        } else {
+          unsigned int shift = exact_log2(c);
+          // use t0 as intermediate result register
+          __ srai(t0, lreg_lo, 0x3f);
+          if (is_imm_in_range(c - 1, 12, 0)) {
+            __ andi(t0, t0, c - 1);
+          } else {
+            __ slli(t0, t0, registerSize - shift);
+            __ srli(t0, t0, registerSize - shift);
+          }
+          __ add(dreg, t0, lreg_lo);
+          __ srai(dreg, dreg, shift);
+        }
+        break;
+      case lir_rem:
+        assert(c > 0 && is_power_of_2(c), "divisor must be power-of-2 constant");
+        if (c == 1) {
+          // move 0 to dreg if divisor is 1
+          __ mv(dreg, zr);
+        } else {
+          unsigned int shift = exact_log2(c);
+          __ srai(t0, lreg_lo, 0x3f);
+          __ srli(t0, t0, BitsPerLong - shift);
+          __ add(t1, lreg_lo, t0);
+          if (is_imm_in_range(c - 1, 12, 0)) {
+            __ andi(t1, t1, c - 1);
+          } else {
+            __ slli(t1, t1, registerSize - shift);
+            __ srli(t1, t1, registerSize - shift);
+          }
+          __ sub(dreg, t1, t0);
+        }
+        break;
       default:
         ShouldNotReachHere();
     }

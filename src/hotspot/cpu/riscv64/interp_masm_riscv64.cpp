@@ -714,14 +714,14 @@ void InterpreterMacroAssembler::remove_activation(
 
   // remove activation
   // get sender esp
-  ld(esp,
+  ld(t1,
      Address(fp, frame::interpreter_frame_sender_sp_offset * wordSize));
   if (StackReservedPages > 0) {
     // testing if reserved zone needs to be re-enabled
     Label no_reserved_zone_enabling;
 
     ld(t0, Address(xthread, JavaThread::reserved_stack_activation_offset()));
-    ble(esp, t0, no_reserved_zone_enabling);
+    ble(t1, t0, no_reserved_zone_enabling);
 
     call_VM_leaf(
       CAST_FROM_FN_PTR(address, SharedRuntime::enable_stack_reserved_zone), xthread);
@@ -731,6 +731,9 @@ void InterpreterMacroAssembler::remove_activation(
 
     bind(no_reserved_zone_enabling);
   }
+
+  // restore sender esp
+  mv(esp, t1);
   // remove frame anchor
   leave();
   // If we're returning to interpreted code we will shortly be
