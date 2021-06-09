@@ -264,3 +264,66 @@ GrowableArray<MemoryPool*> CMSHeap::memory_pools() {
   memory_pools.append(_old_pool);
   return memory_pools;
 }
+
+// The CMSHeapBlockClaimer is used during parallel iteration over the heap,
+// allowing workers to claim heap areas ("blocks"), gaining exclusive rights to these.
+// The eden and survivor spaces are treated as single blocks as it is hard to divide
+// these spaces.
+// The old space is divided into fixed-size blocks.
+class CMSHeapBlockClaimer : public StackObj {
+  size_t _claimed_index;
+
+public:
+  static const size_t InvalidIndex = SIZE_MAX;
+  static const size_t EdenIndex = 0;
+  static const size_t SurvivorIndex = 1;
+  static const size_t NumNonOldGenClaims = 2;
+
+  CMSHeapBlockClaimer() : _claimed_index(EdenIndex) { }
+  // Claim the block and get the block index.
+  size_t claim_and_get_block()
+  {
+    size_t block_index;
+    block_index = Atomic::add(1u, &_claimed_index) - 1;
+    size_t num_claims = CMSHeap::heap()->old_gen()->num_iterable_blocks() + NumNonOldGenClaims;
+    return block_index < num_claims ? block_index : InvalidIndex;
+  }
+};
+
+void CMSHeap::object_iterate_parallel(ObjectClosure *cl, CMSHeapBlockClaimer *claimer)
+{
+  size_t block_index = claimer->claim_and_get_block();
+  // Iterate until all blocks are claimed
+  if (block_index == CMSHeapBlockClaimer::EdenIndex) {
+    young_gen()->eden()->object_iterate(cl);
+    block_index = claimer->claim_and_get_block();
+  }
+  if (block_index == CMSHeapBlockClaimer::SurvivorIndex) {
+    young_gen()->from()->object_iterate(cl);
+    young_gen()->to()->object_iterate(cl);
+    block_index = claimer->claim_and_get_block();
+  }
+  while (block_index != CMSHeapBlockClaimer::InvalidIndex) {
+    old_gen()->object_iterate_block(cl, block_index - CMSHeapBlockClaimer::NumNonOldGenClaims);
+    block_index = claimer->claim_and_get_block();
+  }
+}
+
+class CMSParallelObjectIterator : public ParallelObjectIterator {
+private:
+  CMSHeap *_heap;
+  CMSHeapBlockClaimer _claimer;
+
+public:
+  CMSParallelObjectIterator(uint thread_num) : _heap(CMSHeap::heap()), _claimer(){}
+
+  virtual void object_iterate(ObjectClosure *cl, uint worker_id)
+  {
+    _heap->object_iterate_parallel(cl, &_claimer);
+  }
+};
+
+ParallelObjectIterator* CMSHeap::parallel_object_iterator(uint thread_num)
+{
+  return new CMSParallelObjectIterator(thread_num);
+}

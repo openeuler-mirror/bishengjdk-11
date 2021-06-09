@@ -74,6 +74,20 @@ import jdk.testlibrary.ProcessTools;
  * @run main/othervm/timeout=240 -XX:+UseG1GC BasicJMapTest
  */
 
+/*
+ * @test id=CMS
+ * @summary Unit test for jmap utility (CMS GC)
+ * @key intermittent
+ * @library /lib/testlibrary
+ * @library /test/lib
+ * @build jdk.testlibrary.*
+ * @build jdk.test.lib.hprof.*
+ * @build jdk.test.lib.hprof.model.*
+ * @build jdk.test.lib.hprof.parser.*
+ * @build jdk.test.lib.hprof.util.*
+ * @run main/othervm/timeout=240 -XX:+UseConcMarkSweepGC BasicJMapTest
+ */
+
 public class BasicJMapTest {
 
     private static ProcessBuilder processBuilder = new ProcessBuilder();
