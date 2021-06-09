@@ -2240,6 +2240,9 @@ static void warn_fail_commit_memory(char* addr, size_t bytes,
           alignment_hint, exec, os::strerror(err), err);
 }
 
+uint os::numa_distance(uint node_index, uint node_index_other) {
+  return 0;
+}
 int os::Solaris::commit_memory_impl(char* addr, size_t bytes, bool exec) {
   int prot = exec ? PROT_READ|PROT_WRITE|PROT_EXEC : PROT_READ|PROT_WRITE;
   size_t size = bytes;
