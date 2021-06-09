@@ -34,6 +34,7 @@
 #include "utilities/growableArray.hpp"
 
 class CLDClosure;
+class CMSHeapBlockClaimer;
 class GenCollectorPolicy;
 class GCMemoryManager;
 class MemoryPool;
@@ -104,6 +105,14 @@ public:
   ConcurrentMarkSweepGeneration* old_gen() const {
     assert(_old_gen->kind() == Generation::ConcurrentMarkSweep, "Wrong generation kind");
     return static_cast<ConcurrentMarkSweepGeneration*>(_old_gen);
+  }
+
+  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num);
+  // Iteration functions.
+  void object_iterate_parallel(ObjectClosure *cl, CMSHeapBlockClaimer *claimer);
+  virtual WorkGang* get_safepoint_workers()
+  {
+    return workers();
   }
 
   // Apply "cur->do_oop" or "older->do_oop" to all the oops in objects

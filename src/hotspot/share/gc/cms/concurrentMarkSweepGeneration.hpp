@@ -1010,6 +1010,9 @@ class ConcurrentMarkSweepGeneration: public CardGeneration {
   // Words directly allocated, used by CMSStats.
   size_t _direct_allocated_words;
 
+  //CMS Parallel iterate block size
+  static const size_t CMSIterateBlockSize = 1024 * 1024;
+
   // Non-product stat counters
   NOT_PRODUCT(
     size_t _numObjectsPromoted;
@@ -1090,6 +1093,9 @@ class ConcurrentMarkSweepGeneration: public CardGeneration {
   virtual Generation::Name kind() { return Generation::ConcurrentMarkSweep; }
 
   void set_did_compact(bool v) { _did_compact = v; }
+
+  virtual size_t num_iterable_blocks() const;
+  virtual void object_iterate_block(ObjectClosure *cl, size_t block_index);
 
   bool refs_discovery_is_atomic() const { return false; }
   bool refs_discovery_is_mt()     const {
