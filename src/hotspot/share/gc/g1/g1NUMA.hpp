@@ -45,11 +45,14 @@ class G1NUMA: public CHeapObj<mtGC> {
   int* _node_ids;
   // Total number of node ids.
   uint _num_active_node_ids;
-
+  // numa node distance
+  uint** _numa_node_distance;
   // HeapRegion size
   size_t _region_size;
   // Necessary when touching memory.
   size_t _page_size;
+  // Use nearest numa node
+  bool _use_nearest;
 
   // Stores statistic data.
   G1NUMAStats* _stats;
@@ -73,7 +76,6 @@ class G1NUMA: public CHeapObj<mtGC> {
 public:
   static const uint UnknownNodeIndex = UINT_MAX;
   static const uint AnyNodeIndex = UnknownNodeIndex - 1;
-
   static G1NUMA* numa() { return _inst; }
 
   static G1NUMA* create();
@@ -86,16 +88,17 @@ public:
 
   // Returns active memory node count.
   uint num_active_nodes() const;
+  bool use_nearest_node() const;
 
   bool is_enabled() const;
-
   bool is_humongous_region_enabled() const;
 
   int numa_id(int index) const;
 
   // Returns memory node ids
   const int* node_ids() const;
-
+  // Returns numa distance
+  const uint calc_numa_node_distance(uint node_index, uint other_node_index) const;
   // Returns node index of current calling thread.
   uint index_of_current_thread() const;
 
