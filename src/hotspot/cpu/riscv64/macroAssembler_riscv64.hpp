@@ -735,6 +735,14 @@ class MacroAssembler: public Assembler {
                      bool haystack_isL);
   void compute_match_mask(Register src, Register pattern, Register match_mask,
                           Register mask1, Register mask2);
+  void cad(Register dst, Register src1, Register src2, Register carry);
+  void cadc(Register dst, Register src1, Register src2, Register carry);
+  void adc(Register dst, Register src1, Register src2, Register carry);
+  void add2_with_carry(Register final_dest_hi, Register dest_hi, Register dest_lo,
+                       Register src1, Register src2, Register carry = t0);
+  void ror(Register dst, Register src, uint32_t imm, Register tmp = t0);
+  void mul_add(Register out, Register in, Register offset,
+               Register len, Register k, Register tmp1, Register tmp2);
 #endif // COMPILER2
   void inflate_lo32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
   void inflate_hi32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);

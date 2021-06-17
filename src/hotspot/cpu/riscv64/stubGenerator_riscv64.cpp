@@ -2653,6 +2653,30 @@ class StubGenerator: public StubCodeGenerator {
     StubRoutines::riscv64::_string_indexof_linear_uu = generate_string_indexof_linear(false, false);
     StubRoutines::riscv64::_string_indexof_linear_ul = generate_string_indexof_linear(true, false);
   }
+
+  address generate_mulAdd()
+  {
+    __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", "mulAdd");
+
+    address start = __ pc();
+
+    const Register out     = x10;
+    const Register in      = x11;
+    const Register offset  = x12;
+    const Register len     = x13;
+    const Register k       = x14;
+    const Register tmp1    = x28;
+    const Register tmp2    = x29;
+
+    BLOCK_COMMENT("Entry:");
+    __ enter();
+    __ mul_add(out, in, offset, len, k, tmp1, tmp2);
+    __ leave();
+    __ ret();
+
+    return start;
+  }
 #endif // COMPILER2
 
   // Continuation point for throwing of implicit exceptions that are
@@ -2820,6 +2844,10 @@ class StubGenerator: public StubCodeGenerator {
     generate_arraycopy_stubs();
 
 #ifdef COMPILER2
+    if (UseMulAddIntrinsic) {
+      StubRoutines::_mulAdd = generate_mulAdd();
+    }
+
     generate_compare_long_strings();
 
     generate_string_indexof_stubs();
