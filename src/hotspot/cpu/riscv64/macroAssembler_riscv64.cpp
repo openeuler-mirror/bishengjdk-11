@@ -2949,10 +2949,8 @@ void MacroAssembler::get_thread(Register thread) {
 }
 
 void MacroAssembler::load_byte_map_base(Register reg) {
-  int32_t offset = 0;
   jbyte *byte_map_base = ((CardTableBarrierSet*)(BarrierSet::barrier_set()))->card_table()->byte_map_base();
-  la_patchable(reg, ExternalAddress((address)byte_map_base), offset);
-  addi(reg, reg, offset);
+  li(reg, (uint64_t)byte_map_base);
 }
 
 void MacroAssembler::la_patchable(Register reg1, const Address &dest, int32_t &offset) {
@@ -3222,6 +3220,41 @@ void MacroAssembler::oop_nequal(Register obj1, Register obj2, Label& nequal, boo
 }
 
 #ifdef COMPILER2
+// Set dst NaN if either source is NaN.
+void MacroAssembler::minmax_FD(FloatRegister dst, FloatRegister src1, FloatRegister src2,
+                                  bool is_double, bool is_min) {
+  assert_different_registers(dst, src1, src2);
+  Label Ldone;
+  fsflags(zr);
+  if (is_double) {
+    if (is_min) {
+      fmin_d(dst, src1, src2);
+    } else {
+      fmax_d(dst, src1, src2);
+    }
+    // flt is just used for set fflag NV
+    flt_d(zr, src1, src2);
+  } else {
+    if (is_min) {
+      fmin_s(dst, src1, src2);
+    } else {
+      fmax_s(dst, src1, src2);
+    }
+    // flt is just used for set fflag NV
+    flt_s(zr, src1, src2);
+  }
+  frflags(t0);
+  beqz(t0, Ldone);
+
+  // Src1 or src2 must be NaN here. Set dst NaN.
+  if (is_double) {
+    fadd_d(dst, src1, src2);
+  } else {
+    fadd_s(dst, src1, src2);
+  }
+  bind(Ldone);
+}
+
 void MacroAssembler::arrays_equals(Register a1, Register a2, Register tmp3,
                                    Register tmp4, Register tmp5, Register tmp6, Register result,
                                    Register cnt1, int elem_size) {
@@ -4746,7 +4779,7 @@ void MacroAssembler::zero_words(Register ptr, Register cnt)
   Label around, done, done16;
   bltu(cnt, t0, around);
   {
-    RuntimeAddress zero_blocks =  RuntimeAddress(StubRoutines::riscv64::zero_blocks());
+    RuntimeAddress zero_blocks = RuntimeAddress(StubRoutines::riscv64::zero_blocks());
     assert(zero_blocks.target() != NULL, "zero_blocks stub has not been generated");
     if (StubRoutines::riscv64::complete()) {
       trampoline_call(zero_blocks);

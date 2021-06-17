@@ -956,6 +956,7 @@ definitions %{
 source_hpp %{
 
 #include "asm/macroAssembler.hpp"
+#include "gc/shared/barrierSetAssembler.hpp"
 #include "gc/shared/cardTable.hpp"
 #include "gc/shared/cardTableBarrierSet.hpp"
 #include "gc/shared/collectedHeap.hpp"
@@ -1183,7 +1184,9 @@ int MachCallDynamicJavaNode::ret_addr_offset()
 
 int MachCallRuntimeNode::ret_addr_offset() {
   // for generated stubs the call will be
-  //   far_call(addr)
+  //   jal(addr)
+  // or with far branches
+  //   jal(trampoline_stub)
   // for real runtime callouts it will be six instructions
   // see riscv64_enc_java_to_runtime
   //   la(t1, retaddr)
@@ -1194,7 +1197,7 @@ int MachCallRuntimeNode::ret_addr_offset() {
   //   jalr(t0)
   CodeBlob *cb = CodeCache::find_blob(_entry_point);
   if (cb != NULL) {
-    return MacroAssembler::far_branch_size();
+    return 1 * NativeInstruction::instruction_size;
   } else {
     return 12 * NativeInstruction::instruction_size;
   }
@@ -1637,8 +1640,11 @@ void BoxLockNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
   int offset = ra_->reg2offset(in_RegMask(0).find_first_elem());
   int reg    = ra_->get_encode(this);
 
-  if (Assembler::operand_valid_for_add_immediate(offset)) {
+  if (is_imm_in_range(offset, 12, 0)) {
     __ addi(as_Register(reg), sp, offset);
+  } else if (is_imm_in_range(offset, 32, 0)) {
+    __ li32(t0, offset);
+    __ add(as_Register(reg), sp, t0);
   } else {
     ShouldNotReachHere();
   }
@@ -1646,7 +1652,13 @@ void BoxLockNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
 
 uint BoxLockNode::size(PhaseRegAlloc *ra_) const {
   // BoxLockNode is not a MachNode, so we can't just call MachNode::size(ra_).
-  return 4;
+  int offset = ra_->reg2offset(in_RegMask(0).find_first_elem());
+
+  if (is_imm_in_range(offset, 12, 0)) {
+    return NativeInstruction::instruction_size;
+  } else {
+    return 3 * NativeInstruction::instruction_size; // lui + addiw + add;
+  }
 }
 
 //=============================================================================
@@ -7285,6 +7297,90 @@ instruct nmaddD_reg_reg(fRegD dst, fRegD src1, fRegD src2, fRegD src3) %{
   %}
 
   ins_pipe(pipe_class_default);
+%}
+
+// Math.max(FF)F
+instruct maxF_reg_reg(fRegF dst, fRegF src1, fRegF src2) %{
+  match(Set dst (MaxF src1 src2));
+  effect(TEMP_DEF dst, USE src1, USE src2);
+
+  ins_cost(2 * DEFAULT_COST + 2 * XFER_COST + FMUL_SINGLE_COST + BRANCH_COST);
+  format %{ "fsflags zr\t#@maxF_reg_reg\n\t"
+            "fmax.s  $dst, $src1, $src2\n\t"
+            "flt.s   zr, $src1, $src2\n\t"
+            "frflags t0\n\t"
+            "beqz    t0, Ldone\n\t"
+            "fadd.s  $dst, $src1, $src2" %}
+
+  ins_encode %{
+    __ minmax_FD(as_FloatRegister($dst$$reg), as_FloatRegister($src1$$reg),
+                 as_FloatRegister($src2$$reg), /* is_double */ false, /* is_min */ false);
+  %}
+
+  ins_pipe(fp_dop_reg_reg_s);
+%}
+
+// Math.min(FF)F
+instruct minF_reg_reg(fRegF dst, fRegF src1, fRegF src2) %{
+  match(Set dst (MinF src1 src2));
+  effect(TEMP_DEF dst, USE src1, USE src2);
+
+  ins_cost(2 * DEFAULT_COST + 2 * XFER_COST + FMUL_SINGLE_COST + BRANCH_COST);
+  format %{ "fsflags zr\t#@minF_reg_reg\n\t"
+            "fmin.s  $dst, $src1, $src2\n\t"
+            "flt.s   zr, $src1, $src2\n\t"
+            "frflags t0\n\t"
+            "beqz    t0, Ldone\n\t"
+            "fadd.s  $dst, $src1, $src2" %}
+
+  ins_encode %{
+    __ minmax_FD(as_FloatRegister($dst$$reg), as_FloatRegister($src1$$reg),
+                 as_FloatRegister($src2$$reg), /* is_double */ false, /* is_min */ true);
+  %}
+
+  ins_pipe(fp_dop_reg_reg_s);
+%}
+
+// Math.max(DD)D
+instruct maxD_reg_reg(fRegD dst, fRegD src1, fRegD src2) %{
+  match(Set dst (MaxD src1 src2));
+  effect(TEMP_DEF dst, USE src1, USE src2);
+
+  ins_cost(2 * DEFAULT_COST + 2 * XFER_COST + FMUL_DOUBLE_COST + BRANCH_COST);
+  format %{ "fsflags zr\t#@maxD_reg_reg\n\t"
+            "fmax.d  $dst, $src1, $src2\n\t"
+            "flt.d   zr, $src1, $src2\n\t"
+            "frflags t0\n\t"
+            "beqz    t0, Ldone\n\t"
+            "fadd.d  $dst, $src1, $src2" %}
+
+  ins_encode %{
+    __ minmax_FD(as_FloatRegister($dst$$reg), as_FloatRegister($src1$$reg),
+                 as_FloatRegister($src2$$reg), /* is_double */ true, /* is_min */ false);
+  %}
+
+  ins_pipe(fp_dop_reg_reg_d);
+%}
+
+// Math.min(DD)D
+instruct minD_reg_reg(fRegD dst, fRegD src1, fRegD src2) %{
+  match(Set dst (MinD src1 src2));
+  effect(TEMP_DEF dst, USE src1, USE src2);
+
+  ins_cost(2 * DEFAULT_COST + 2 * XFER_COST + FMUL_DOUBLE_COST + BRANCH_COST);
+  format %{ "fsflags zr\t#@minD_reg_reg\n\t"
+            "fmin.d  $dst, $src1, $src2\n\t"
+            "flt.d   zr, $src1, $src2\n\t"
+            "frflags t0\n\t"
+            "beqz    t0, Ldone\n\t"
+            "fadd.d  $dst, $src1, $src2" %}
+
+  ins_encode %{
+    __ minmax_FD(as_FloatRegister($dst$$reg), as_FloatRegister($src1$$reg),
+                 as_FloatRegister($src2$$reg), /* is_double */ true, /* is_min */ true);
+  %}
+
+  ins_pipe(fp_dop_reg_reg_d);
 %}
 
 instruct divF_reg_reg(fRegF dst, fRegF src1, fRegF src2) %{

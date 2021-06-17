@@ -32,5 +32,4 @@
   void arith_op_single_fpu(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr dest);
   void arith_op_double_fpu(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr dest);
   void arith_op_single_cpu_right_constant(LIR_Code code, LIR_Opr left, LIR_Opr right, Register lreg, Register dreg);
-  void arithmetic_idiv(LIR_Op3* op, bool is_irem);
 #endif // CPU_RISCV64_VM_C1_LIRASSEMBLER_ARITH_RISCV64_HPP

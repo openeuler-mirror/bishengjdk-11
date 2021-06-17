@@ -51,7 +51,7 @@ void ShenandoahBarrierSetAssembler::arraycopy_prologue(MacroAssembler* masm, Dec
   if (is_oop) {
     bool dest_uninitialized = (decorators & IS_DEST_UNINITIALIZED) != 0;
     if ((ShenandoahSATBBarrier && !dest_uninitialized) ||
-        ShenandoahStoreValEnqueueBarrier || ShenandoahLoadRefBarrier) {
+        ShenandoahIUBarrier || ShenandoahLoadRefBarrier) {
       Label done;
 
       // Avoid calling runtime if count == 0
@@ -264,8 +264,8 @@ void ShenandoahBarrierSetAssembler::load_reference_barrier_not_null(MacroAssembl
   __ leave();
 }
 
-void ShenandoahBarrierSetAssembler::storeval_barrier(MacroAssembler* masm, Register dst, Register tmp) {
-  if (ShenandoahStoreValEnqueueBarrier) {
+void ShenandoahBarrierSetAssembler::iu_barrier(MacroAssembler* masm, Register dst, Register tmp) {
+  if (ShenandoahIUBarrier) {
     // Save possibly live regs.
     RegSet live_regs = RegSet::range(x10, x14) - dst;
     __ push_reg(live_regs, sp);
@@ -393,7 +393,7 @@ void ShenandoahBarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet 
   if (val == noreg) {
     BarrierSetAssembler::store_at(masm, decorators, type, Address(x13, 0), noreg, noreg, noreg);
   } else {
-    storeval_barrier(masm, val, tmp1);
+    iu_barrier(masm, val, tmp1);
     // G1 barrier needs uncompressed oop for region cross check.
     Register new_val = val;
     if (UseCompressedOops) {
@@ -487,7 +487,8 @@ void ShenandoahBarrierSetAssembler::cmpxchg_oop(MacroAssembler* masm,
   bool is_narrow = UseCompressedOops;
   Assembler::operand_size size = is_narrow ? Assembler::uint32 : Assembler::int64;
 
-  assert_different_registers(addr, expected, new_val, t0, t1);
+  assert_different_registers(addr, expected, t0, t1);
+  assert_different_registers(addr, new_val, t0, t1);
 
   Label retry, success, fail, done;
 

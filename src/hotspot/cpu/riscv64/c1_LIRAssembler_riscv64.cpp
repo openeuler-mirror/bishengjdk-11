@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2020, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
  * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
@@ -149,6 +149,21 @@ Address LIR_Assembler::as_Address(LIR_Address* addr) {
 
 Address LIR_Assembler::as_Address_lo(LIR_Address* addr) {
   return as_Address(addr);
+}
+
+// Ensure a valid Address (base + offset) to a stack-slot. If stack access is
+// not encodable as a base + (immediate) offset, generate an explicit address
+// calculation to hold the address in a temporary register.
+Address LIR_Assembler::stack_slot_address(int index, uint size, int adjust) {
+  precond(size == 4 || size == 8);
+  Address addr = frame_map()->address_for_slot(index, adjust);
+  precond(addr.getMode() == Address::base_plus_offset);
+  precond(addr.base() == sp);
+  precond(addr.offset() > 0);
+  uint mask = size - 1;
+  assert((addr.offset() & mask) == 0, "scaled offsets only");
+
+  return addr;
 }
 
 void LIR_Assembler::osr_entry() {
@@ -328,7 +343,9 @@ int LIR_Assembler::emit_unwind_handler() {
   }
 
   if (compilation()->env()->dtrace_method_probes()) {
-    __ call_Unimplemented();
+    __ mv(c_rarg0, xthread);
+    __ mov_metadata(c_rarg1, method()->constant_encoding());
+    __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::dtrace_method_exit), c_rarg0, c_rarg1);
   }
 
   if (method()->is_synchronized() || compilation()->env()->dtrace_method_probes()) {
@@ -596,26 +613,33 @@ void LIR_Assembler::reg2reg(LIR_Opr src, LIR_Opr dest) {
 }
 
 void LIR_Assembler::reg2stack(LIR_Opr src, LIR_Opr dest, BasicType type, bool pop_fpu_stack) {
+  precond(src->is_register() && dest->is_stack());
+
+  uint const c_sz32 = sizeof(uint32_t);
+  uint const c_sz64 = sizeof(uint64_t);
+
   assert(src->is_register(), "should not call otherwise");
   assert(dest->is_stack(), "should not call otherwise");
   if (src->is_single_cpu()) {
-    if (type == T_ARRAY || type == T_OBJECT) {
-      __ sd(src->as_register(), frame_map()->address_for_slot(dest->single_stack_ix()));
+    int index = dest->single_stack_ix();
+    if (is_reference_type(type)) {
+      __ sd(src->as_register(), stack_slot_address(index, c_sz64));
       __ verify_oop(src->as_register());
     } else if (type == T_METADATA || type == T_DOUBLE || type == T_ADDRESS) {
-      __ sd(src->as_register(), frame_map()->address_for_slot(dest->single_stack_ix()));
+      __ sd(src->as_register(), stack_slot_address(index, c_sz64));
     } else {
-      __ sw(src->as_register(), frame_map()->address_for_slot(dest->single_stack_ix()));
+      __ sw(src->as_register(), stack_slot_address(index, c_sz32));
     }
   } else if (src->is_double_cpu()) {
-    Address dest_addr_LO = frame_map()->address_for_slot(dest->double_stack_ix(), lo_word_offset_in_bytes);
+    int index = dest->double_stack_ix();
+    Address dest_addr_LO = stack_slot_address(index, c_sz64, lo_word_offset_in_bytes);
     __ sd(src->as_register_lo(), dest_addr_LO);
   } else if (src->is_single_fpu()) {
-    Address dest_addr = frame_map()->address_for_slot(dest->single_stack_ix());
-    __ fsw(src->as_float_reg(), dest_addr);
+    int index = dest->single_stack_ix();
+    __ fsw(src->as_float_reg(), stack_slot_address(index, c_sz32));
   } else if (src->is_double_fpu()) {
-    Address dest_addr = frame_map()->address_for_slot(dest->double_stack_ix());
-    __ fsd(src->as_double_reg(), dest_addr);
+    int index = dest->double_stack_ix();
+    __ fsd(src->as_double_reg(), stack_slot_address(index, c_sz64));
   } else {
     ShouldNotReachHere();
   }
@@ -696,29 +720,33 @@ void LIR_Assembler::reg2mem(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
 }
 
 void LIR_Assembler::stack2reg(LIR_Opr src, LIR_Opr dest, BasicType type) {
-  assert(src->is_stack(), "should not call otherwise");
-  assert(dest->is_register(), "should not call otherwise");
+  precond(src->is_stack() && dest->is_register());
+
+  uint const c_sz32 = sizeof(uint32_t);
+  uint const c_sz64 = sizeof(uint64_t);
 
   if (dest->is_single_cpu()) {
+    int index = src->single_stack_ix();
     if (type == T_INT) {
-      __ lw(dest->as_register(), frame_map()->address_for_slot(src->single_stack_ix()));
-    } else if (type == T_ARRAY || type == T_OBJECT) {
-      __ ld(dest->as_register(), frame_map()->address_for_slot(src->single_stack_ix()));
+      __ lw(dest->as_register(), stack_slot_address(index, c_sz32));
+    } else if (is_reference_type(type)) {
+      __ ld(dest->as_register(), stack_slot_address(index, c_sz64));
       __ verify_oop(dest->as_register());
     } else if (type == T_METADATA || type == T_ADDRESS) {
-      __ ld(dest->as_register(), frame_map()->address_for_slot(src->single_stack_ix()));
+      __ ld(dest->as_register(), stack_slot_address(index, c_sz64));
     } else {
-      __ lwu(dest->as_register(), frame_map()->address_for_slot(src->single_stack_ix()));
+      __ lwu(dest->as_register(), stack_slot_address(index, c_sz32));
     }
   } else if (dest->is_double_cpu()) {
-    Address src_addr_LO = frame_map()->address_for_slot(src->double_stack_ix(), lo_word_offset_in_bytes);
+    int index = src->double_stack_ix();
+    Address src_addr_LO = stack_slot_address(index, c_sz64, lo_word_offset_in_bytes);
     __ ld(dest->as_register_lo(), src_addr_LO);
   } else if (dest->is_single_fpu()) {
-    Address src_addr = frame_map()->address_for_slot(src->single_stack_ix());
-    __ flw(dest->as_float_reg(), src_addr);
+    int index = src->single_stack_ix();
+    __ flw(dest->as_float_reg(), stack_slot_address(index, c_sz32));
   } else if (dest->is_double_fpu()) {
-    Address src_addr = frame_map()->address_for_slot(src->double_stack_ix());
-    __ fld(dest->as_double_reg(), src_addr);
+    int index = src->double_stack_ix();
+    __ fld(dest->as_double_reg(), stack_slot_address(index, c_sz64));
   } else {
     ShouldNotReachHere();
   }
@@ -829,10 +857,13 @@ void LIR_Assembler::mem2reg(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
 void LIR_Assembler::emit_op3(LIR_Op3* op) {
   switch (op->code()) {
     case lir_idiv:
-      arithmetic_idiv(op, false);
-      break;
     case lir_irem:
-      arithmetic_idiv(op, true);
+      arithmetic_idiv(op->code(),
+                      op->in_opr1(),
+                      op->in_opr2(),
+                      op->in_opr3(),
+                      op->result_opr(),
+                      op->info());
       break;
     case lir_fmad:
       __ fmadd_d(op->result_opr()->as_double_reg(),

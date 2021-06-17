@@ -43,6 +43,9 @@ private:
 
   Address as_Address(LIR_Address* addr, Register tmp);
 
+  // Ensure we have a valid Address (base+offset) to a stack-slot.
+  Address stack_slot_address(int index, uint shift, int adjust = 0);
+
   // helper functions which checks for overflow and sets bailout if it
   // occurs.  Always returns a valid embeddable pointer but in the
   // bailout case the pointer won't be to unique storage.
