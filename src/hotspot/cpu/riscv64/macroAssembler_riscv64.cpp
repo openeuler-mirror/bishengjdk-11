@@ -3354,11 +3354,13 @@ void MacroAssembler::string_equals(Register a1, Register a2,
 
   BLOCK_COMMENT("string_equals {");
 
+  beqz(cnt1, SAME);
   mv(result, false);
 
   // Check for short strings, i.e. smaller than wordSize.
   sub(cnt1, cnt1, wordSize);
-  bltz(cnt1, SHORT);
+  blez(cnt1, SHORT);
+
   // Main 8 byte comparison loop.
   bind(NEXT_WORD); {
     ld(tmp1, Address(a1, 0));
@@ -3368,53 +3370,30 @@ void MacroAssembler::string_equals(Register a1, Register a2,
     sub(cnt1, cnt1, wordSize);
     bne(tmp1, tmp2, DONE);
   } bgtz(cnt1, NEXT_WORD);
-  // Last longword.  In the case where length == 4 we compare the
-  // same longword twice, but that's still faster than another
-  // conditional branch.
-  // cnt1 could be 0, -1, -2, -3, -4 for chars; -4 only happens when
-  // length == 4.
-  add(tmp1, a1, cnt1);
-  ld(tmp1, Address(tmp1, 0));
-  add(tmp2, a2, cnt1);
-  ld(tmp2, Address(tmp2, 0));
-  bne(tmp1, tmp2, DONE);
-  j(SAME);
+
+  if (!AvoidUnalignedAccesses) {
+    // Last longword.  In the case where length == 4 we compare the
+    // same longword twice, but that's still faster than another
+    // conditional branch.
+    // cnt1 could be 0, -1, -2, -3, -4 for chars; -4 only happens when
+    // length == 4.
+    add(tmp1, a1, cnt1);
+    ld(tmp1, Address(tmp1, 0));
+    add(tmp2, a2, cnt1);
+    ld(tmp2, Address(tmp2, 0));
+    bne(tmp1, tmp2, DONE);
+    j(SAME);
+  }
 
   bind(SHORT);
-  Label TAIL03, TAIL01;
+  ld(tmp1, Address(a1));
+  ld(tmp2, Address(a2));
+  xorr(tmp1, tmp1, tmp2);
+  neg(cnt1, cnt1);
+  slli(cnt1, cnt1, LogBitsPerByte);
+  sll(tmp1, tmp1, cnt1);
+  bnez(tmp1, DONE);
 
-  // 0-7 bytes left.
-  andi(t0, cnt1, 4);
-  beqz(t0, TAIL03);
-  {
-    lwu(tmp1, Address(a1, 0));
-    add(a1, a1, 4);
-    lwu(tmp2, Address(a2, 0));
-    add(a2, a2, 4);
-    bne(tmp1, tmp2, DONE);
-  }
-  bind(TAIL03);
-  // 0-3 bytes left.
-  andi(t0, cnt1, 2);
-  beqz(t0, TAIL01);
-  {
-    lhu(tmp1, Address(a1, 0));
-    add(a1, a1, 2);
-    lhu(tmp2, Address(a2, 0));
-    add(a2, a2, 2);
-    bne(tmp1, tmp2, DONE);
-  }
-  bind(TAIL01);
-  if (elem_size == 1) { // Only needed when comparing 1-byte elements
-    // 0-1 bytes left.
-    andi(t0, cnt1, 1);
-    beqz(t0, SAME);
-    {
-      lbu(tmp1, a1, 0);
-      lbu(tmp2, a2, 0);
-      bne(tmp1, tmp2, DONE);
-    }
-  }
   // Arrays are equal.
   bind(SAME);
   mv(result, true);
@@ -3585,7 +3564,7 @@ void MacroAssembler::string_compare(Register str1, Register str2,
     // Find the first different characters in the longwords and
     // compute their difference.
     bind(DIFFERENCE);
-    ctz(result, tmp3, isLL); // count zero from lsb to msb
+    ctzc_bit(result, tmp3, isLL); // count zero from lsb to msb
     srl(tmp1, tmp1, result);
     srl(tmp2, tmp2, result);
     if (isLL) {
@@ -3787,7 +3766,7 @@ void MacroAssembler::string_indexof_char(Register str1, Register cnt1,
   Register mask1 = tmp3;
   Register mask2 = tmp2;
   Register match_mask = tmp1;
-  Register trailing_zero = tmp4;
+  Register trailing_char = tmp4;
   Register unaligned_elems = tmp4;
 
   BLOCK_COMMENT("string_indexof_char {");
@@ -3844,18 +3823,16 @@ void MacroAssembler::string_indexof_char(Register str1, Register cnt1,
   j(NOMATCH);
 
   bind(HIT);
-  ctz_bit(trailing_zero, match_mask, ch1, result);
-  srli(trailing_zero, trailing_zero, 3);
+  ctzc(trailing_char, match_mask, ch1, result, isL);
   addi(cnt1, cnt1, 8);
-  ble(cnt1, trailing_zero, NOMATCH);
-
   // match case
   if (!isL) {
     srli(cnt1, cnt1, 1);
-    srli(trailing_zero, trailing_zero, 1);
   }
+  ble(cnt1, trailing_char, NOMATCH);
+
   sub(result, orig_cnt, cnt1);
-  add(result, result, trailing_zero);
+  add(result, result, trailing_char);
   j(DONE);
 
   bind(NOMATCH);
@@ -4808,25 +4785,31 @@ void MacroAssembler::mul_add(Register out, Register in, Register offset,
 }
 #endif // COMPILER2
 
-void MacroAssembler::ctz_bit(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
+// count trailing zero chars
+// Latin1: 0 ~ 7
+// UTF16: 0 ~ 3
+void MacroAssembler::ctzc(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2, bool isL)
 {
   assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
   Label Loop;
-  int step = 1;
+  int step = isL ? 8 : 16;
   li(Rd, -1);
+  if (!isL) {
+    li(t0, 0xFFFF);
+  }
   mv(Rtmp2, Rs);
 
   bind(Loop);
   addi(Rd, Rd, 1);
-  andi(Rtmp1, Rtmp2, ((1 << step) - 1));
-  srli(Rtmp2, Rtmp2, 1);
+  isL ? andi(Rtmp1, Rtmp2, 0xFF) : andr(Rtmp1, Rtmp2, t0);
+  srli(Rtmp2, Rtmp2, step);
   beqz(Rtmp1, Loop);
 }
 
-// This instruction counts zero bits from lsb to msb until first non-zero element.
+// count bits of traling zero chars from lsb to msb until first non-zero element.
 // For LL case, one byte for one element, so shift 8 bits once, and for other case,
 // shift 16 bits once.
-void MacroAssembler::ctz(Register Rd, Register Rs, bool isLL, Register Rtmp1, Register Rtmp2)
+void MacroAssembler::ctzc_bit(Register Rd, Register Rs, bool isLL, Register Rtmp1, Register Rtmp2)
 {
   assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
   Label Loop;
