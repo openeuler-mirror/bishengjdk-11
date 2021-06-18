@@ -250,6 +250,14 @@ void VM_Version::get_c2_processor_features() {
   if (FLAG_IS_DEFAULT(UseMontgomerySquareIntrinsic)) {
     FLAG_SET_DEFAULT(UseMontgomerySquareIntrinsic, true);
   }
+
+  if (FLAG_IS_DEFAULT(UseMultiplyToLenIntrinsic)) {
+    FLAG_SET_DEFAULT(UseMultiplyToLenIntrinsic, true);
+  }
+
+  if (FLAG_IS_DEFAULT(UseSquareToLenIntrinsic)) {
+    FLAG_SET_DEFAULT(UseSquareToLenIntrinsic, true);
+  }
 }
 #endif // COMPILER2
 
