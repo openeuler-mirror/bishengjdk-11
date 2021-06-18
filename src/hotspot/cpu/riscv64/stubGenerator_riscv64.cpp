@@ -2681,6 +2681,88 @@ class StubGenerator: public StubCodeGenerator {
 
     return start;
   }
+
+  /**
+   *  Arguments:
+   *
+   *  Input:
+   *    c_rarg0   - x address
+   *    c_rarg1   - x length
+   *    c_rarg2   - y address
+   *    c_rarg3   - y lenth
+   *    c_rarg4   - z address
+   *    c_rarg5   - z length
+   */
+  address generate_multiplyToLen()
+  {
+    __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", "multiplyToLen");
+    address start = __ pc();
+
+    const Register x     = x10;
+    const Register xlen  = x11;
+    const Register y     = x12;
+    const Register ylen  = x13;
+    const Register z     = x14;
+    const Register zlen  = x15;
+
+    const Register tmp1  = x16;
+    const Register tmp2  = x17;
+    const Register tmp3  = x7;
+    const Register tmp4  = x28;
+    const Register tmp5  = x29;
+    const Register tmp6  = x30;
+    const Register tmp7  = x31;
+
+    RegSet spilled_regs = RegSet::of(tmp1, tmp2);
+    BLOCK_COMMENT("Entry:");
+    __ enter(); // required for proper stackwalking of RuntimeStub frame
+    __ push_reg(spilled_regs, sp);
+    __ multiply_to_len(x, xlen, y, ylen, z, zlen, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7);
+    __ pop_reg(spilled_regs, sp);
+    __ leave(); // required for proper stackwalking of RuntimeStub frame
+    __ ret();
+
+    return start;
+  }
+
+  address generate_squareToLen()
+  {
+    // squareToLen algorithm for sizes 1..127 described in java code works
+    // faster than multiply_to_len on some CPUs and slower on others, but
+    // multiply_to_len shows a bit better overall results
+    __ align(CodeEntryAlignment);
+    StubCodeMark mark(this, "StubRoutines", "squareToLen");
+    address start = __ pc();
+
+    const Register x     = x10;
+    const Register xlen  = x11;
+    const Register z     = x12;
+    const Register zlen  = x13;
+    const Register y     = x14; // == x
+    const Register ylen  = x15; // == xlen
+
+    const Register tmp1  = x16;
+    const Register tmp2  = x17;
+    const Register tmp3  = x7;
+    const Register tmp4  = x28;
+    const Register tmp5  = x29;
+    const Register tmp6  = x30;
+    const Register tmp7  = x31;
+
+    RegSet spilled_regs = RegSet::of(y, tmp2);
+    BLOCK_COMMENT("Entry:");
+    __ enter();
+    __ push_reg(spilled_regs, sp);
+    __ mv(y, x);
+    __ mv(ylen, xlen);
+    __ multiply_to_len(x, xlen, y, ylen, z, zlen, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7);
+    __ pop_reg(spilled_regs, sp);
+    __ leave();
+    __ ret();
+
+    return start;
+  }
 #endif // COMPILER2
 
   // Continuation point for throwing of implicit exceptions that are
@@ -3523,6 +3605,14 @@ class StubGenerator: public StubCodeGenerator {
 #ifdef COMPILER2
     if (UseMulAddIntrinsic) {
       StubRoutines::_mulAdd = generate_mulAdd();
+    }
+
+    if (UseMultiplyToLenIntrinsic) {
+      StubRoutines::_multiplyToLen = generate_multiplyToLen();
+    }
+
+    if (UseSquareToLenIntrinsic) {
+      StubRoutines::_squareToLen = generate_squareToLen();
     }
 
     generate_compare_long_strings();
