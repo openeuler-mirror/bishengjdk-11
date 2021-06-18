@@ -242,6 +242,14 @@ void VM_Version::get_c2_processor_features() {
   if (FLAG_IS_DEFAULT(UseMulAddIntrinsic)) {
     FLAG_SET_DEFAULT(UseMulAddIntrinsic, true);
   }
+
+  if (FLAG_IS_DEFAULT(UseMontgomeryMultiplyIntrinsic)) {
+    FLAG_SET_DEFAULT(UseMontgomeryMultiplyIntrinsic, true);
+  }
+
+  if (FLAG_IS_DEFAULT(UseMontgomerySquareIntrinsic)) {
+    FLAG_SET_DEFAULT(UseMontgomerySquareIntrinsic, true);
+  }
 }
 #endif // COMPILER2
 
