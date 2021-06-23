@@ -3823,13 +3823,15 @@ void MacroAssembler::string_indexof_char(Register str1, Register cnt1,
   j(NOMATCH);
 
   bind(HIT);
-  ctzc(trailing_char, match_mask, ch1, result, isL);
+  ctzc_bit(trailing_char, match_mask, isL, ch1, result);
+  srli(trailing_char, trailing_char, 3);
   addi(cnt1, cnt1, 8);
+  ble(cnt1, trailing_char, NOMATCH);
   // match case
   if (!isL) {
     srli(cnt1, cnt1, 1);
+    srli(trailing_char, trailing_char, 1);
   }
-  ble(cnt1, trailing_char, NOMATCH);
 
   sub(result, orig_cnt, cnt1);
   add(result, result, trailing_char);
@@ -5220,28 +5222,7 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
 }
 #endif // COMPILER2
 
-// count trailing zero chars
-// Latin1: 0 ~ 7
-// UTF16: 0 ~ 3
-void MacroAssembler::ctzc(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2, bool isL)
-{
-  assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
-  Label Loop;
-  int step = isL ? 8 : 16;
-  li(Rd, -1);
-  if (!isL) {
-    li(t0, 0xFFFF);
-  }
-  mv(Rtmp2, Rs);
-
-  bind(Loop);
-  addi(Rd, Rd, 1);
-  isL ? andi(Rtmp1, Rtmp2, 0xFF) : andr(Rtmp1, Rtmp2, t0);
-  srli(Rtmp2, Rtmp2, step);
-  beqz(Rtmp1, Loop);
-}
-
-// count bits of traling zero chars from lsb to msb until first non-zero element.
+// count bits of trailing zero chars from lsb to msb until first non-zero element.
 // For LL case, one byte for one element, so shift 8 bits once, and for other case,
 // shift 16 bits once.
 void MacroAssembler::ctzc_bit(Register Rd, Register Rs, bool isLL, Register Rtmp1, Register Rtmp2)
