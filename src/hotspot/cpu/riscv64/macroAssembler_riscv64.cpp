@@ -790,8 +790,6 @@ void MacroAssembler::la(Register Rd, Label &label) {
   void MacroAssembler::float_##NAME(FloatRegister Rs1, FloatRegister Rs2, Label &l,   \
                                     bool is_far, bool is_unordered) {                 \
     if(is_unordered) {                                                                \
-      FLOATCMP1##_s(t0, Rs1, Rs2);                                                    \
-      bnez(t0, l, is_far);                                                            \
       FLOATCMP2##_s(t0, Rs2, Rs1);                                                    \
       beqz(t0, l, is_far);                                                            \
     } else {                                                                          \
@@ -802,8 +800,6 @@ void MacroAssembler::la(Register Rd, Label &label) {
   void MacroAssembler::double_##NAME(FloatRegister Rs1, FloatRegister Rs2, Label &l,  \
                                      bool is_far, bool is_unordered) {                \
     if(is_unordered) {                                                                \
-      FLOATCMP1##_d(t0, Rs1, Rs2);                                                    \
-      bnez(t0, l, is_far);                                                            \
       FLOATCMP2##_d(t0, Rs2, Rs1);                                                    \
       beqz(t0, l, is_far);                                                            \
     } else {                                                                          \
