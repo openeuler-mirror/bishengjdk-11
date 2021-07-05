@@ -3452,9 +3452,10 @@ void MacroAssembler::string_compare(Register str1, Register str2,
   // load first parts of strings and finish initialization while loading
   {
     if (str1_isL == str2_isL) { // LL or UU
+      // check if str1 and str2 are same string
+      beq(str1, str2, DONE);
       // load 8 bytes once to compare
       ld(tmp1, Address(str1));
-      beq(str1, str2, DONE);
       ld(tmp2, Address(str2));
       li(t0, STUB_THRESHOLD);
       bge(cnt2, t0, STUB);
@@ -3536,22 +3537,55 @@ void MacroAssembler::string_compare(Register str1, Register str2,
     bind(TAIL);
     xorr(tmp3, tmp1, tmp2);
     bnez(tmp3, DIFFERENCE);
-    // Last longword.  In the case where length == 4 we compare the
-    // same longword twice, but that's still faster than another
-    // conditional branch.
-    if (str1_isL == str2_isL) { // LL or UU
-      ld(tmp1, Address(str1));
-      ld(tmp2, Address(str2));
-    } else if (isLU) { // LU case
-      lwu(tmp1, Address(str1));
-      ld(tmp2, Address(str2));
-      inflate_lo32(tmp3, tmp1);
-      mv(tmp1, tmp3);
-    } else { // UL case
-      lwu(tmp2, Address(str2));
-      ld(tmp1, Address(str1));
-      inflate_lo32(tmp3, tmp2);
-      mv(tmp2, tmp3);
+    // Last longword.
+    if (AvoidUnalignedAccesses) {
+      // Aligned access. Load bytes from byte-aligned address,
+      // which may contain invalid bytes when remaining bytes is
+      // less than 4(UL/LU) or 8 (LL/UU).
+      // Invalid bytes should be removed before comparison.
+      if (str1_isL == str2_isL) { // LL or UU
+        add(t0, str1, cnt2);
+        ld(tmp1, Address(t0));
+        add(t0, str2, cnt2);
+        ld(tmp2, Address(t0));
+      } else if (isLU) { // LU
+        add(t0, str1, cnt1);
+        lwu(tmp1, Address(t0));
+        add(t0, str2, cnt2);
+        ld(tmp2, Address(t0));
+        inflate_lo32(tmp3, tmp1);
+        mv(tmp1, tmp3);
+      } else {  // UL
+        add(t0, str1, cnt1);
+        ld(tmp1, Address(t0));
+        add(t0, str2, cnt2);
+        lwu(tmp2, Address(t0));
+        inflate_lo32(tmp3, tmp2);
+        mv(tmp2, tmp3);
+        slli(cnt2, cnt2, 1);  // UL case should convert cnt2 to bytes
+      }
+      // remove invalid bytes
+      slli(t0, cnt2, LogBitsPerByte);
+      sll(tmp1, tmp1, t0);
+      sll(tmp2, tmp2, t0);
+    } else {
+      // Last longword.  In the case where length == 4 we compare the
+      // same longword twice, but that's still faster than another
+      // conditional branch.
+      if (str1_isL == str2_isL) { // LL or UU
+        ld(tmp1, Address(str1));
+        ld(tmp2, Address(str2));
+      } else if (isLU) { // LU case
+        lwu(tmp1, Address(str1));
+        ld(tmp2, Address(str2));
+        inflate_lo32(tmp3, tmp1);
+        mv(tmp1, tmp3);
+      } else { // UL case
+        ld(tmp1, Address(str1));
+        lwu(tmp2, Address(str2));
+        inflate_lo32(tmp3, tmp2);
+        mv(tmp2, tmp3);
+      }
     }
     bind(TAIL_CHECK);
     xorr(tmp3, tmp1, tmp2);
@@ -5243,19 +5277,17 @@ void MacroAssembler::ctzc_bit(Register Rd, Register Rs, bool isLL, Register Rtmp
 void MacroAssembler::inflate_lo32(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
 {
   assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
-  li(Rtmp1, 0xFF);
-  mv(Rd, zr);
-  for (int i = 0; i <= 3; i++)
-  {
+  li(Rtmp1, 0xFF000000);  // first byte mask at lower word
+  andr(Rd, Rs, Rtmp1);
+  for (int i = 0; i < 2; i++) {
+    slli(Rd, Rd, wordSize);
+    srli(Rtmp1, Rtmp1, wordSize);
     andr(Rtmp2, Rs, Rtmp1);
-    if (i) {
-      slli(Rtmp2, Rtmp2, i * 8);
-    }
     orr(Rd, Rd, Rtmp2);
-    if (i != 3) {
-      slli(Rtmp1, Rtmp1, 8);
-    }
   }
+  slli(Rd, Rd, wordSize);
+  andi(Rtmp2, Rs, 0xFF);  // last byte mask at lower word
+  orr(Rd, Rd, Rtmp2);
 }
 
 // This instruction reads adjacent 4 bytes from the upper half of source register,
@@ -5265,17 +5297,8 @@ void MacroAssembler::inflate_lo32(Register Rd, Register Rs, Register Rtmp1, Regi
 void MacroAssembler::inflate_hi32(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
 {
   assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
-  li(Rtmp1, 0xFF00000000);
-  mv(Rd, zr);
-  for (int i = 0; i <= 3; i++)
-  {
-    andr(Rtmp2, Rs, Rtmp1);
-    orr(Rd, Rd, Rtmp2);
-    srli(Rd, Rd, 8);
-    if (i != 3) {
-      slli(Rtmp1, Rtmp1, 8);
-    }
-  }
+  srli(Rs, Rs, 32);   // only upper 32 bits are needed
+  inflate_lo32(Rd, Rs, Rtmp1, Rtmp2);
 }
 
 // The size of the blocks erased by the zero_blocks stub.  We must
