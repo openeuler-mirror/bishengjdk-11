@@ -28,9 +28,6 @@
 */
 
 #include <config.h> /* required by bfd.h */
-#include <errno.h>
-#include <inttypes.h>
-#include <string.h>
 #include <libiberty.h>
 #include <bfd.h>
 #include <bfdver.h>
