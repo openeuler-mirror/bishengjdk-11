@@ -2321,6 +2321,12 @@ void MacroAssembler::cmpxchg_narrow_value(Register addr, Register expected,
     bind(fail);
     srl(result, tmp, shift);
   }
+
+  if (size == int8) {
+    sign_ext(result, result, registerSize - 8);
+  } else if (size == int16) {
+    sign_ext(result, result, registerSize - 16);
+  }
 }
 
 // weak cmpxchg narrow value will kill t0, t1, expected, new_val and tmps.
