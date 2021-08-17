@@ -102,6 +102,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
       LIBS := \
+          -ljava \
           -framework Accelerate \
           -framework ApplicationServices \
           -framework AudioToolbox \
@@ -109,12 +110,13 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
           -framework Cocoa \
           -framework Security \
           -framework ExceptionHandling \
-          -framework JavaNativeFoundation \
           -framework JavaRuntimeSupport \
           -framework OpenGL \
           -framework IOSurface \
           -framework QuartzCore, \
   ))
+
+  $(BUILD_LIBOSXAPP): $(call FindLib, java.base, java)
 
   TARGETS += $(BUILD_LIBOSXAPP)
 
@@ -133,7 +135,6 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
           -losxapp \
           -framework Cocoa \
           -framework ApplicationServices \
-          -framework JavaNativeFoundation \
           -framework JavaRuntimeSupport \
           -framework SystemConfiguration \
           $(JDKLIB_LIBS), \

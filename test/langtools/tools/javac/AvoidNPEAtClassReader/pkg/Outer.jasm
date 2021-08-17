@@ -24,7 +24,7 @@
 package  pkg;
 
 super public class Outer
-	version 55:0
+	version 56:0
 {
 
 
