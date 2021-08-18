@@ -24,7 +24,7 @@
 package  pkg;
 
 super public final class Outer$Inner
-	version 55:0
+	version 56:0
 {
 
 final synthetic Field this$0:"Lpkg/Outer;";

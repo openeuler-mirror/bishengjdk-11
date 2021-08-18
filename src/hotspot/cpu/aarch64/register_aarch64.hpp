@@ -44,7 +44,7 @@ class RegisterImpl: public AbstractRegisterImpl {
   enum {
     number_of_registers         =   32,
     number_of_byte_registers      = 32,
-    number_of_registers_for_jvmci = 34,   // Including SP and ZR.
+    number_of_registers_for_jvmci = 34,  // Including SP and ZR.
     max_slots_per_register = 2
   };
 
@@ -141,7 +141,7 @@ class FloatRegisterImpl: public AbstractRegisterImpl {
   VMReg as_VMReg();
 
   // derived registers, offsets, and addresses
-  FloatRegister successor() const                          { return as_FloatRegister(encoding() + 1); }
+  FloatRegister successor() const                          { return as_FloatRegister((encoding() + 1) % 32); }
 
   // accessors
   int   encoding() const                          { assert(is_valid(), "invalid register"); return (intptr_t)this; }
@@ -222,7 +222,6 @@ CONSTANT_REGISTER_DECLARATION(FloatRegister, z29    , (29));
 CONSTANT_REGISTER_DECLARATION(FloatRegister, z30    , (30));
 CONSTANT_REGISTER_DECLARATION(FloatRegister, z31    , (31));
 
-
 class PRegisterImpl;
 typedef PRegisterImpl* PRegister;
 inline PRegister as_PRegister(int encoding) {
@@ -274,7 +273,7 @@ class ConcreteRegisterImpl : public AbstractRegisterImpl {
 
     number_of_registers = (RegisterImpl::max_slots_per_register * RegisterImpl::number_of_registers +
                            FloatRegisterImpl::max_slots_per_register * FloatRegisterImpl::number_of_registers +
-                           PRegisterImpl::max_slots_per_register * PRegisterImpl::number_of_registers +
+			   PRegisterImpl::max_slots_per_register * PRegisterImpl::number_of_registers +
                            1) // flags
   };
 
