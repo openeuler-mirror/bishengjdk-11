@@ -738,9 +738,16 @@ void MacroAssembler::la(Register Rd, const Address &adr) {
       break;
     }
     case Address::base_plus_offset:{
-      int32_t offset = 0;
-      baseOffset(Rd, adr, offset);
-      addi(Rd, Rd, offset);
+      Register base = adr.base();
+      int64_t offset = adr.offset();
+      if (offset == 0 && Rd != base) {
+        mv(Rd, base);
+      } else if (offset != 0 && Rd != base) {
+        add(Rd, base, offset, Rd);
+      } else if (offset != 0 && Rd == base) {
+        Register tmp = (Rd == t0) ? t1 : t0;
+        add(base, base, offset, tmp);
+      }
       break;
     }
     default:
@@ -2078,7 +2085,11 @@ void MacroAssembler::lookup_virtual_method(Register recv_klass,
     ld(method_result, Address(method_result, vtable_offset_in_bytes));
   } else {
     vtable_offset_in_bytes += vtable_index.as_constant() * wordSize;
-    ld(method_result, form_address(method_result, recv_klass, vtable_offset_in_bytes));
+    Address addr = form_address(recv_klass,             /* base */
+                                vtable_offset_in_bytes, /* offset */
+                                12,                     /* expect offset bits */
+                                method_result);         /* temp reg */
+    ld(method_result, addr);
   }
 }
 
@@ -2103,21 +2114,6 @@ void MacroAssembler::membar(uint32_t order_constraint) {
     membar_mask_to_pred_succ(order_constraint, predecessor, successor);
     fence(predecessor, successor);
   }
-}
-
-// Form an addres from base + offset in Rd. Rd my or may not
-// actually be used: you must use the Address that is returned. It
-// is up to you to ensure that the shift provided mathces the size
-// of your data.
-Address MacroAssembler::form_address(Register Rd, Register base, long byte_offset) {
-  if (is_offset_in_range(byte_offset, 12)) { // 12: imm in range 2^12
-    return Address(base, byte_offset);
-  }
-
-  // Do it the hard way
-  mv(Rd, byte_offset);
-  add(Rd, base, Rd);
-  return Address(Rd);
 }
 
 void MacroAssembler::check_klass_subtype(Register sub_klass,
@@ -3180,7 +3176,7 @@ Address MacroAssembler::add_memory_helper(const Address dst) {
     case Address::base_plus_offset:
       // This is the expected mode, although we allow all the other
       // forms below.
-      return form_address(t1, dst.base(), dst.offset());
+      return form_address(dst.base(), dst.offset(), 12, t1);
     default:
       la(t1, dst);
       return Address(t1);

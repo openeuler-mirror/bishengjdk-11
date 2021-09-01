@@ -2529,10 +2529,9 @@ void Assembler::ret() {
         NAME(adr.target(), temp);                              \
         break;                                                 \
       }                                                        \
-      case Address::base_plus_offset:{                         \
-        int32_t offset = 0;                                    \
-        baseOffset(temp, adr, offset);                         \
-        jalr(REGISTER, temp, offset);                          \
+      case Address::base_plus_offset: {                        \
+          Address tmp_adr = form_address(adr.base(), adr.offset(), 12, temp); \
+          jalr(REGISTER, tmp_adr.base(), tmp_adr.offset());    \
         break;                                                 \
       }                                                        \
       default:                                                 \
