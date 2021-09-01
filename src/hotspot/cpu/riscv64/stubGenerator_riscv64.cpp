@@ -628,228 +628,42 @@ class StubGenerator: public StubCodeGenerator {
     return start;
   }
 
-  typedef enum {
-    copy_forwards = 1,
-    copy_backwards = -1
-  } copy_direction;
+  typedef void (MacroAssembler::*copy_insn)(Register R1, Register R2, const int32_t offset);
 
-  // Bulk copy of blocks of 8 words.
-  //
-  // count is a count of words.
-  //
-  // Precondition: count >= 8
-  //
-  // Postconditions:
-  //
-  // The least significant bit of count contains the remaining count
-  // of words to copy.  The rest of count is trash.
-  //
-  // s and d are adjusted to point to the remaining words to copy
-  //
-  void generate_copy_longs(Label &start, Register s, Register d, Register count,
-                           copy_direction direction) {
-    int unit = wordSize * direction;
-    int bias = wordSize;
+  void copy_by_step(RegSet tmp_regs, Register src, Register dst,
+                    unsigned unroll_factor, int unit) {
+    unsigned char regs[32];
+    int offset = unit < 0 ? unit : 0;
 
-    const Register tmp_reg0 = x13, tmp_reg1 = x14, tmp_reg2 = x15, tmp_reg3 = x16,
-      tmp_reg4 = x17, tmp_reg5 = x7, tmp_reg6 = x28, tmp_reg7 = x29;
+    // Scan bitset to get tmp regs
+    unsigned int regsSize = 0;
+    unsigned bitset = tmp_regs.bits();
 
-    const Register stride = x30;
+    assert(((bitset & (1 << (src->encoding()))) == 0), "src should not in tmp regs");
+    assert(((bitset & (1 << (dst->encoding()))) == 0), "dst should not in tmp regs");
 
-    assert_different_registers(t0, tmp_reg0, tmp_reg1, tmp_reg2, tmp_reg3,
-      tmp_reg4, tmp_reg5, tmp_reg6, tmp_reg7);
-    assert_different_registers(s, d, count, t0);
-
-    Label again, drain;
-    const char* stub_name = NULL;
-    if (direction == copy_forwards) {
-      stub_name = "forward_copy_longs";
-    } else {
-      stub_name = "backward_copy_longs";
-    }
-    StubCodeMark mark(this, "StubRoutines", stub_name);
-    __ align(CodeEntryAlignment);
-    __ bind(start);
-
-    if (direction == copy_forwards) {
-      __ sub(s, s, bias);
-      __ sub(d, d, bias);
-    }
-
-#ifdef ASSERT
-    // Make sure we are never given < 8 words
-    {
-      Label L;
-
-      __ li(t0, 8);
-      __ bge(count, t0, L);
-      __ stop("genrate_copy_longs called with < 8 words");
-      __ bind(L);
-    }
-#endif
-
-    __ ld(tmp_reg0, Address(s, 1 * unit));
-    __ ld(tmp_reg1, Address(s, 2 * unit));
-    __ ld(tmp_reg2, Address(s, 3 * unit));
-    __ ld(tmp_reg3, Address(s, 4 * unit));
-    __ ld(tmp_reg4, Address(s, 5 * unit));
-    __ ld(tmp_reg5, Address(s, 6 * unit));
-    __ ld(tmp_reg6, Address(s, 7 * unit));
-    __ ld(tmp_reg7, Address(s, 8 * unit));
-    __ addi(s, s, 8 * unit);
-
-    __ sub(count, count, 16);
-    __ bltz(count, drain);
-
-    __ bind(again);
-
-    __ sd(tmp_reg0, Address(d, 1 * unit));
-    __ sd(tmp_reg1, Address(d, 2 * unit));
-    __ sd(tmp_reg2, Address(d, 3 * unit));
-    __ sd(tmp_reg3, Address(d, 4 * unit));
-    __ sd(tmp_reg4, Address(d, 5 * unit));
-    __ sd(tmp_reg5, Address(d, 6 * unit));
-    __ sd(tmp_reg6, Address(d, 7 * unit));
-    __ sd(tmp_reg7, Address(d, 8 * unit));
-
-    __ ld(tmp_reg0, Address(s, 1 * unit));
-    __ ld(tmp_reg1, Address(s, 2 * unit));
-    __ ld(tmp_reg2, Address(s, 3 * unit));
-    __ ld(tmp_reg3, Address(s, 4 * unit));
-    __ ld(tmp_reg4, Address(s, 5 * unit));
-    __ ld(tmp_reg5, Address(s, 6 * unit));
-    __ ld(tmp_reg6, Address(s, 7 * unit));
-    __ ld(tmp_reg7, Address(s, 8 * unit));
-
-    __ addi(s, s, 8 * unit);
-    __ addi(d, d, 8 * unit);
-
-    __ sub(count, count, 8);
-    __ bgez(count, again);
-
-    // Drain
-    __ bind(drain);
-
-    __ sd(tmp_reg0, Address(d, 1 * unit));
-    __ sd(tmp_reg1, Address(d, 2 * unit));
-    __ sd(tmp_reg2, Address(d, 3 * unit));
-    __ sd(tmp_reg3, Address(d, 4 * unit));
-    __ sd(tmp_reg4, Address(d, 5 * unit));
-    __ sd(tmp_reg5, Address(d, 6 * unit));
-    __ sd(tmp_reg6, Address(d, 7 * unit));
-    __ sd(tmp_reg7, Address(d, 8 * unit));
-    __ addi(d, d, 8 * unit);
-
-    {
-      Label L1, L2;
-      __ andi(t0, count, 4);
-      __ beqz(t0, L1);
-
-      __ ld(tmp_reg0, Address(s, 1 * unit));
-      __ ld(tmp_reg1, Address(s, 2 * unit));
-      __ ld(tmp_reg2, Address(s, 3 * unit));
-      __ ld(tmp_reg3, Address(s, 4 * unit));
-      __ addi(s, s, 4 * unit);
-
-      __ sd(tmp_reg0, Address(d, 1 * unit));
-      __ sd(tmp_reg1, Address(d, 2 * unit));
-      __ sd(tmp_reg2, Address(d, 3 * unit));
-      __ sd(tmp_reg3, Address(d, 4 * unit));
-      __ addi(d, d, 4 * unit);
-
-      __ bind(L1);
-
-      if (direction == copy_forwards) {
-        __ addi(s, s, bias);
-        __ addi(d, d, bias);
+    for (int reg = 31; reg >= 0; reg--) {
+      if ((1U << 31) & bitset) {
+        regs[regsSize++] = reg;
       }
-
-      __ andi(t0, count, 2);
-      __ beqz(t0, L2);
-      if (direction == copy_backwards) {
-        __ addi(s, s, 2 * unit);
-        __ ld(tmp_reg0, Address(s));
-        __ ld(tmp_reg1, Address(s, wordSize));
-        __ addi(d, d, 2 * unit);
-        __ sd(tmp_reg0, Address(d));
-        __ sd(tmp_reg1, Address(d, wordSize));
-      } else {
-        __ ld(tmp_reg0, Address(s));
-        __ ld(tmp_reg1, Address(s, wordSize));
-        __ addi(s, s, 2 * unit);
-        __ sd(tmp_reg0, Address(d));
-        __ sd(tmp_reg1, Address(d, wordSize));
-        __ addi(d, d, 2 * unit);
-      }
-      __ bind(L2);
+      bitset <<= 1;
     }
-
-    __ ret();
-  }
-
-  Label copy_f, copy_b;
-
-  // All-singing all-dancing memory copy.
-  //
-  // Copy count units of memory from s to d.  The size of a unit is
-  // step, which can be positive or negative depending on the direction
-  // of copy.  If is_aligned is false, we align the source address.
-  //
-  /*
-   * if (is_aligned) {
-   *   goto copy_8_bytes;
-   * }
-   * bool is_backwards = step < 0;
-   * int granularity = uabs(step);
-   * count = count  *  granularity;   * count bytes
-   *
-   * if (is_backwards) {
-   *   s += count;
-   *   d += count;
-   * }
-   *
-   * count limit maybe greater than 16, for better performance
-   * if (count < 16) {
-   *   goto copy_small;
-   * }
-   *
-   * if ((dst % 8) == (src % 8)) {
-   *   aligned;
-   *   goto copy8;
-   * }
-   *
-   * copy_small:
-   *   load element one by one;
-   * done;
-   */
-
-  typedef void (MacroAssembler::*copy_insn)(Register Rd, const Address &adr, Register temp);
-
-  void copy_memory(bool is_aligned, Register s, Register d,
-                   Register count, Register tmp, int step) {
-    bool is_backwards = step < 0;
-    unsigned int granularity = uabs(step);
-
-    const Register src = x30, dst = x31, cnt = x15, tmp3 = x16, tmp4 = x17;
-
-    Label same_aligned;
-    Label copy8, copy_small, done;
 
     copy_insn ld_arr = NULL, st_arr = NULL;
-    switch (granularity) {
+    switch (abs(unit)) {
       case 1 :
         ld_arr = (copy_insn)&MacroAssembler::lbu;
         st_arr = (copy_insn)&MacroAssembler::sb;
         break;
-      case 2 :
+      case BytesPerShort :
         ld_arr = (copy_insn)&MacroAssembler::lhu;
         st_arr = (copy_insn)&MacroAssembler::sh;
         break;
-      case 4 :
+      case BytesPerInt :
         ld_arr = (copy_insn)&MacroAssembler::lwu;
         st_arr = (copy_insn)&MacroAssembler::sw;
         break;
-      case 8 :
+      case BytesPerLong :
         ld_arr = (copy_insn)&MacroAssembler::ld;
         st_arr = (copy_insn)&MacroAssembler::sd;
         break;
@@ -857,83 +671,291 @@ class StubGenerator: public StubCodeGenerator {
         ShouldNotReachHere();
     }
 
-    __ beqz(count, done);
-    __ slli(cnt, count, exact_log2(granularity));
-    if (is_backwards) {
-      __ add(src, s, cnt);
-      __ add(dst, d, cnt);
+    for (unsigned i = 0; i < unroll_factor; i++) {
+      (_masm->*ld_arr)(as_Register(regs[0]), src, i * unit + offset);
+      (_masm->*st_arr)(as_Register(regs[0]), dst, i * unit + offset);
+    }
+
+    __ addi(src, src, unroll_factor * unit);
+    __ addi(dst, dst, unroll_factor * unit);
+  }
+
+  void copy_tail(Register src, Register dst, Register count_in_bytes, Register tmp,
+                 int ele_size, unsigned align_unit) {
+    bool is_backwards = ele_size < 0;
+    size_t granularity = uabs(ele_size);
+    for (unsigned unit = (align_unit >> 1); unit >= granularity; unit >>= 1) {
+      int offset = is_backwards ? (int)(-unit) : unit;
+      Label exit;
+      __ andi(tmp, count_in_bytes, unit);
+      __ beqz(tmp, exit);
+      copy_by_step(RegSet::of(tmp), src, dst, /* unroll_factor */ 1, offset);
+      __ bind(exit);
+    }
+  }
+
+  void copy_loop8(Register src, Register dst, Register count_in_bytes, Register tmp,
+                  int step, Label *Lcopy_small, Register loopsize = noreg) {
+    size_t granularity = uabs(step);
+    RegSet tmp_regs = RegSet::range(x13, x16);
+    assert_different_registers(src, dst, count_in_bytes, tmp);
+
+    Label loop, copy2, copy1, finish;
+    if (loopsize == noreg) {
+      loopsize = t1;
+      __ li(loopsize, 8 * granularity);
+    }
+
+    // Cyclic copy with 8*step.
+    __ bind(loop);
+    {
+      copy_by_step(tmp_regs, src, dst, /* unroll_factor */ 8, step);
+      __ sub(count_in_bytes, count_in_bytes, 8 * granularity);
+      __ bge(count_in_bytes, loopsize, loop);
+    }
+
+    if (Lcopy_small != NULL) {
+      __ bind(*Lcopy_small);
+    }
+
+    // copy memory smaller than step * 8 bytes
+    __ andi(tmp, count_in_bytes, granularity << 2);
+    __ beqz(tmp, copy2);
+    copy_by_step(tmp_regs, src, dst, /* unroll_factor */ 4, step);
+
+    __ bind(copy2);
+    __ andi(tmp, count_in_bytes, granularity << 1);
+    __ beqz(tmp, copy1);
+    copy_by_step(tmp_regs, src, dst, /* unroll_factor */ 2, step);
+
+    __ bind(copy1);
+    __ andi(tmp, count_in_bytes, granularity);
+    __ beqz(tmp, finish);
+    copy_by_step(tmp_regs, src, dst, /* unroll_factor */ 1, step);
+
+    __ bind(finish);
+  }
+
+  // Cyclic copy with one step.
+  void copy_loop1(Register src, Register dst, Register count_in_bytes, int step, Register loopsize = noreg) {
+    size_t granularity = uabs(step);
+    Label loop1;
+    if (loopsize == noreg) {
+      loopsize = t0;
+      __ li(loopsize, granularity);
+    }
+
+    __ bind(loop1);
+    {
+      copy_by_step(RegSet::of(x13), src, dst, /* unroll_factor */ 1, step);
+      __ sub(count_in_bytes, count_in_bytes, granularity);
+      __ bge(count_in_bytes, loopsize, loop1);
+    }
+  }
+
+  void align_unit(Register src, Register dst, Register count_in_bytes,
+                  unsigned unit, bool is_backwards) {
+    Label skip;
+    __ andi(t0, dst, unit);
+    __ beqz(t0, skip);
+    copy_by_step(RegSet::of(t0), src, dst, 1, is_backwards ? -unit : unit);
+    __ sub(count_in_bytes, count_in_bytes, unit);
+    __ bind(skip);
+  }
+
+  void copy_memory(bool is_align, Register s, Register d, Register count_in_elements,
+                   Register tmp, int ele_step) {
+
+    bool is_backwards = ele_step < 0;
+    unsigned int granularity = uabs(ele_step);
+    Label Lcopy_small, Ldone, Lcopy_ele, Laligned;
+    const Register count_in_bytes = x31, src = x28, dst = x29;
+    assert_different_registers(src, dst, count_in_elements, count_in_bytes, tmp, t1);
+    __ slli(count_in_bytes, count_in_elements, exact_log2(granularity));
+    __ add(src, s, is_backwards ? count_in_bytes : zr);
+    __ add(dst, d, is_backwards ? count_in_bytes : zr);
+
+    // if count_in_elements < 8, copy_small
+    __ li(t0, 8);
+    if (is_align && granularity < BytesPerLong) {
+      __ blt(count_in_bytes, t0, Lcopy_small);
     } else {
-      __ mv(src, s);
-      __ mv(dst, d);
+      __ blt(count_in_elements, t0, Lcopy_small);
     }
 
-    if (is_aligned) {
-      __ addi(tmp, cnt, -8);
-      __ bgez(tmp, copy8);
-      __ j(copy_small);
-    }
+    if (granularity < BytesPerLong) {
+      Label Lcopy_aligned[3];
+      Label Lalign8;
+      if (!is_align) {
+        Label Lalign_and_copy;
+        __ li(t0, EagerArrayCopyThreshold);
+        __ blt(count_in_bytes, t0, Lalign_and_copy);
+        // Align dst to 8.
+        for (unsigned unit = granularity; unit <= 4; unit <<= 1) {
+          align_unit(src, dst, count_in_bytes, unit, is_backwards);
+        }
 
-    __ mv(tmp, 16);
-    __ blt(cnt, tmp, copy_small);
+        Register shr = x30, shl = x7, tmp1 = x13;
 
-    __ xorr(tmp, src, dst);
-    __ andi(tmp, tmp, 0b111);
-    __ bnez(tmp, copy_small);
+        __ andi(shr, src, 0x7);
+        __ beqz(shr, Lalign8);
+        {
+          // calculaute the shift for store doubleword
+          __ slli(shr, shr, 3);
+          __ sub(shl, shr, 64);
+          __ sub(shl, zr, shl);
 
-    __ bind(same_aligned);
-    __ andi(tmp, src, 0b111);
-    __ beqz(tmp, copy8);
-    if (is_backwards) {
-      __ addi(src, src, step);
-      __ addi(dst, dst, step);
-    }
-    (_masm->*ld_arr)(tmp3, Address(src), t0);
-    (_masm->*st_arr)(tmp3, Address(dst), t0);
-    if (!is_backwards) {
-      __ addi(src, src, step);
-      __ addi(dst, dst, step);
-    }
-    __ addi(cnt, cnt, -granularity);
-    __ beqz(cnt, done);
-    __ j(same_aligned);
+          // alsrc: previous position of src octal alignment
+          Register alsrc = t1;
+          __ andi(alsrc, src, -8);
 
-    __ bind(copy8);
-    if (is_backwards) {
-      __ addi(src, src, -wordSize);
-      __ addi(dst, dst, -wordSize);
-    }
-    __ ld(tmp3, Address(src));
-    __ sd(tmp3, Address(dst));
-    if (!is_backwards) {
-      __ addi(src, src, wordSize);
-      __ addi(dst, dst, wordSize);
-    }
-    __ addi(cnt, cnt, -wordSize);
-    __ addi(tmp4, cnt, -8);
-    __ bgez(tmp4, copy8);
+          // move src to tail
+          __ andi(t0, count_in_bytes, -8);
+          if (is_backwards) {
+            __ sub(src, src, t0);
+          } else {
+            __ add(src, src, t0);
+          }
 
-    __ beqz(cnt, done);
+          // prepare for copy_dstaligned_loop
+          __ ld(tmp1, alsrc, 0);
+          dst_aligned_copy_32bytes_loop(alsrc, dst, shr, shl, count_in_bytes, is_backwards);
+          __ li(x17, 8);
+          __ blt(count_in_bytes, x17, Lcopy_small);
+          dst_aligned_copy_8bytes_loop(alsrc, dst, shr, shl, count_in_bytes, x17, is_backwards);
+          __ j(Lcopy_small);
+        }
+        __ j(Ldone);
+        __ bind(Lalign_and_copy);
 
-    __ bind(copy_small);
-    if (is_backwards) {
-      __ addi(src, src, step);
-      __ addi(dst, dst, step);
-    }
-    (_masm->*ld_arr)(tmp3, Address(src, 0), t0);
-    (_masm->*st_arr)(tmp3, Address(dst, 0), t0);
-    if (!is_backwards) {
-      __ addi(src, src, step);
-      __ addi(dst, dst, step);
-    }
-    __ addi(cnt, cnt, -granularity);
-    __ bgtz(cnt, copy_small);
+        // Check src and dst could be 8/4/2 algined at the same time. If could, align the
+        // memory and copy by 8/4/2.
+        __ xorr(t1, src, dst);
 
-    __ bind(done);
+        for (unsigned alignment = granularity << 1; alignment <= 8; alignment <<= 1) {
+          Label skip;
+          unsigned int unit = alignment >> 1;
+          // Check src and dst could be aligned to checkbyte at the same time
+          // if copy from src to dst. If couldn't, jump to label not_aligned.
+          __ andi(t0, t1, alignment - 1);
+          __ bnez(t0, Lcopy_aligned[exact_log2(unit)]);
+          // Align src and dst to unit.
+          align_unit(src, dst, count_in_bytes, unit, is_backwards);
+        }
+      }
+      __ bind(Lalign8);
+      for (unsigned step_size = 8; step_size > granularity; step_size >>= 1) {
+        // Copy memory by steps, which has been aligned to step_size.
+        Label loop8, Ltail;
+        int step = is_backwards ? (-step_size) : step_size;
+        if (!(step_size == 8 && is_align)) { // which has load 8 to t0 before
+          // Check whether the memory size is smaller than step_size.
+          __ li(t0, step_size);
+          __ blt(count_in_bytes, t0, Ltail);
+        }
+        const Register eight_step = t1;
+        __ li(eight_step, step_size * 8);
+        __ bge(count_in_bytes, eight_step, loop8);
+        // If memory is less than 8*step_size bytes, loop by step.
+        copy_loop1(src, dst, count_in_bytes, step, t0);
+        copy_tail(src, dst, count_in_bytes, tmp, ele_step, step_size);
+        __ j(Ldone);
+
+        __ bind(loop8);
+        // If memory is greater than or equal to 8*step_size bytes, loop by step*8.
+        copy_loop8(src, dst, count_in_bytes, tmp, step, NULL, eight_step);
+        __ bind(Ltail);
+        copy_tail(src, dst, count_in_bytes, tmp, ele_step, step_size);
+        __ j(Ldone);
+
+        __ bind(Lcopy_aligned[exact_log2(step_size >> 1)]);
+      }
+    }
+    // If the ele_step is greater than 8, or the memory src and dst cannot
+    // be aligned with a number greater than the value of step.
+    // Cyclic copy with 8*ele_step.
+    copy_loop8(src, dst, count_in_bytes, tmp, ele_step, &Lcopy_small, noreg);
+
+    __ bind(Ldone);
+  }
+
+  void dst_aligned_copy_32bytes_loop(Register alsrc, Register dst,
+                                     Register shr,   Register shl,
+                                     Register count_in_bytes, bool is_backwards) {
+    const Register tmp1 = x13, tmp2 = x14, tmp3 = x15, tmp4 = x16, thirty_two = x17;
+    const Register sll_reg1 = is_backwards ? tmp1 : tmp2,
+                   srl_reg1 = is_backwards ? tmp2 : tmp1,
+                   sll_reg2 = is_backwards ? tmp2 : tmp3,
+                   srl_reg2 = is_backwards ? tmp3 : tmp2,
+                   sll_reg3 = is_backwards ? tmp3 : tmp4,
+                   srl_reg3 = is_backwards ? tmp4 : tmp3,
+                   sll_reg4 = is_backwards ? tmp4 : tmp1,
+                   srl_reg4 = is_backwards ? tmp1 : tmp4;
+    assert_different_registers(t0, thirty_two, alsrc, shr, shl);
+    int unit = is_backwards ? -wordSize : wordSize;
+    int offset = is_backwards ? -wordSize : 0;
+    Label loop;
+
+    __ li(thirty_two, 32);
+
+    __ bind(loop);
+    __ ld(tmp2, alsrc, unit);
+    __ sll(t0, sll_reg1, shl);
+    __ srl(tmp1, srl_reg1, shr);
+    __ orr(tmp1, tmp1, t0);
+    __ sd(tmp1, dst, offset);
+
+    __ ld(tmp3, alsrc, unit * 2);
+    __ sll(t0, sll_reg2, shl);
+    __ srl(tmp2, srl_reg2, shr);
+    __ orr(tmp2, tmp2, t0);
+    __ sd(tmp2, dst, unit + offset);
+
+    __ ld(tmp4, alsrc, unit * 3);
+    __ sll(t0, sll_reg3, shl);
+    __ srl(tmp3, srl_reg3, shr);
+    __ orr(tmp3, tmp3, t0);
+    __ sd(tmp3, dst, unit * 2 + offset);
+
+    __ ld(tmp1, alsrc, unit * 4);
+    __ sll(t0, sll_reg4, shl);
+    __ srl(tmp4, srl_reg4, shr);
+    __ orr(tmp4, tmp4, t0);
+    __ sd(tmp4, dst, unit * 3 + offset);
+
+    __ add(alsrc, alsrc, unit * 4);
+    __ add(dst, dst, unit * 4);
+    __ sub(count_in_bytes, count_in_bytes, 32);
+    __ bge(count_in_bytes, thirty_two, loop);
+  }
+
+  void dst_aligned_copy_8bytes_loop(Register alsrc, Register dst,
+                                    Register shr,   Register shl,
+                                    Register count_in_bytes, Register eight,
+                                    bool is_backwards) {
+    const Register tmp1 = x13, tmp2 = x14, tmp3 = x15, tmp4 = x16;
+    const Register sll_reg = is_backwards ? tmp1 : tmp2,
+                   srl_reg = is_backwards ? tmp2 : tmp1;
+    assert_different_registers(t0, eight, alsrc, shr, shl);
+    Label loop;
+    int unit = is_backwards ? -wordSize : wordSize;
+
+    __ bind(loop);
+    __ ld(tmp2, alsrc, unit);
+    __ sll(t0, sll_reg, shl);
+    __ srl(tmp1, srl_reg, shr);
+    __ orr(t0, tmp1, t0);
+    __ sd(t0, dst, is_backwards ? unit : 0);
+    __ mv(tmp1, tmp2);
+    __ add(alsrc, alsrc, unit);
+    __ add(dst, dst, unit);
+    __ sub(count_in_bytes, count_in_bytes, 8);
+    __ bge(count_in_bytes, eight, loop);
   }
 
   // Scan over array at a for count oops, verifying each one.
   // Preserves a and count, clobbers t0 and t1.
-  void verify_oop_array (size_t size, Register a, Register count, Register temp) {
+  void verify_oop_array(size_t size, Register a, Register count, Register temp) {
     Label loop, end;
     __ mv(t1, zr);
     __ slli(t0, count, exact_log2(size));
@@ -1011,7 +1033,7 @@ class StubGenerator: public StubCodeGenerator {
       }
     }
 
-    bs->arraycopy_epilogue(_masm, decorators, is_oop, d, count, t0, RegSet());
+    bs->arraycopy_epilogue(_masm, decorators, is_oop, d, count, t0, saved_reg);
 
     __ leave();
     __ mv(x10, zr); // return 0
@@ -1077,7 +1099,7 @@ class StubGenerator: public StubCodeGenerator {
         verify_oop_array(size, d, count, t2);
       }
     }
-    bs->arraycopy_epilogue(_masm, decorators, is_oop, d, count, t0, RegSet());
+    bs->arraycopy_epilogue(_masm, decorators, is_oop, d, count, t0, saved_regs);
     __ leave();
     __ mv(x10, zr); // return 0
     __ ret();
@@ -2033,9 +2055,6 @@ class StubGenerator: public StubCodeGenerator {
     address entry_oop_arraycopy       = NULL;
     address entry_jlong_arraycopy     = NULL;
     address entry_checkcast_arraycopy = NULL;
-
-    generate_copy_longs(copy_f, c_rarg0, c_rarg1, t1, copy_forwards);
-    generate_copy_longs(copy_b, c_rarg0, c_rarg1, t1, copy_backwards);
 
     StubRoutines::riscv64::_zero_blocks = generate_zero_blocks();
 
