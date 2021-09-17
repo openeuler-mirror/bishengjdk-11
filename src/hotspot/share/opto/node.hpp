@@ -1029,6 +1029,11 @@ public:
   // be found; Otherwise return NULL;
   Node* find_similar(int opc);
 
+  // True if a node has the same opcode and inputs as "this".
+  bool is_similar(Node* node);
+
+  virtual bool is_Opcode_equal(Node* node);
+
   // Return the unique control out if only one. Null if none or more than one.
   Node* unique_ctrl_out() const;
 

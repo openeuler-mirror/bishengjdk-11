@@ -2355,6 +2355,27 @@ Node* Node::find_similar(int opc) {
   return NULL;
 }
 
+//--------------------------is_similar-----------------------------------
+// True if a node has the same opcode and inputs as "this".
+bool Node::is_similar(Node* node) {
+  if (this == node) {
+    return true;
+  } else {
+    if (is_Opcode_equal(node) && (req() == node->req())) {
+      for (uint i = 0; i < node->req(); i++) {
+        if (in(i) != node->in(i)) {
+          return false;
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Node::is_Opcode_equal(Node* node) {
+  return Opcode() == node->Opcode();
+}
 
 //--------------------------unique_ctrl_out------------------------------
 // Return the unique control out if only one. Null if none or more than one.

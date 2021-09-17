@@ -782,6 +782,7 @@ private:
 
   // Merge nodes that are a part of a multidef lrg and produce the same value within a block.
   void merge_multidefs();
+  void merge_debugdefs();
 
 private:
 
