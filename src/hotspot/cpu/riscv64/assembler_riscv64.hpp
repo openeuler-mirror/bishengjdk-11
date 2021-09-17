@@ -268,30 +268,24 @@ public:
     rdy = 0b111,     // in instruction's rm field, selects dynamic rounding mode.In Rounding Mode register, Invalid.
   };
 
-  void baseOffset32(Register temp, const Address &adr, int32_t &offset) {
-    assert(temp != noreg, "temp must not be empty register!");
-    guarantee(adr.base() != temp, "should use different registers!");
-    if (is_offset_in_range(adr.offset(), 32)) {
-      int32_t imm = adr.offset();
-      int32_t upper = imm, lower = imm;
-      lower = (imm << 20) >> 20;
-      upper -= lower;
-      lui(temp, upper);
-      offset = lower;
-    } else {
-      movptr_with_offset(temp, (address)(uintptr_t)adr.offset(), offset);
-    }
-    add(temp, temp, adr.base());
+  Address form_address_complex(Register base, int64_t offset, int8_t expect_offbits, Register temp = t0) {
+    assert_different_registers(noreg, temp, base);
+    int64_t upper = offset, lower = offset;
+
+    int8_t shift = 64 - expect_offbits;
+    lower = (offset << shift) >> shift;
+    upper -= lower;
+
+    li(temp, upper);
+    add(temp, temp, base);
+    return Address(temp, lower);
   }
 
-  void baseOffset(Register temp, const Address &adr, int32_t &offset) {
-    if (is_offset_in_range(adr.offset(), 12)) {
-      assert(temp != noreg, "temp must not be empty register!");
-      addi(temp, adr.base(), adr.offset());
-      offset = 0;
-    } else {
-      baseOffset32(temp, adr, offset);
+  Address form_address(Register base, int64_t offset, int8_t expect_offbits, Register temp = t0) {
+    if (is_offset_in_range(offset, expect_offbits)) {
+      return Address(base, offset);
     }
+    return form_address_complex(base, offset, expect_offbits, temp);
   }
 
   void li(Register Rd, int64_t imm);  // optimized load immediate
@@ -464,18 +458,11 @@ public:
         NAME(Rd, adr.target());                                                                    \
         break;                                                                                     \
       }                                                                                            \
-      case Address::base_plus_offset:{                                                             \
+      case Address::base_plus_offset: {                                                            \
         if (is_offset_in_range(adr.offset(), 12)) {                                                \
           NAME(Rd, adr.base(), adr.offset());                                                      \
         } else {                                                                                   \
-          int32_t offset = 0;                                                                      \
-          if (Rd == adr.base()) {                                                                  \
-            baseOffset32(temp, adr, offset);                                                       \
-            NAME(Rd, temp, offset);                                                                \
-          } else {                                                                                 \
-            baseOffset32(Rd, adr, offset);                                                         \
-            NAME(Rd, Rd, offset);                                                                  \
-          }                                                                                        \
+          NAME(Rd, form_address_complex(adr.base(), adr.offset(), 12, Rd == adr.base() ? temp : Rd)); \
         }                                                                                          \
         break;                                                                                     \
       }                                                                                            \
@@ -531,13 +518,11 @@ public:
         NAME(Rd, adr.target(), temp);                                                              \
         break;                                                                                     \
       }                                                                                            \
-      case Address::base_plus_offset:{                                                             \
+      case Address::base_plus_offset: {                                                            \
         if (is_offset_in_range(adr.offset(), 12)) {                                                \
           NAME(Rd, adr.base(), adr.offset());                                                      \
         } else {                                                                                   \
-          int32_t offset = 0;                                                                      \
-          baseOffset32(temp, adr, offset);                                                         \
-          NAME(Rd, temp, offset);                                                                  \
+          NAME(Rd, form_address_complex(adr.base(), adr.offset(), 12, temp));                      \
         }                                                                                          \
         break;                                                                                     \
       }                                                                                            \
@@ -652,14 +637,12 @@ public:
         NAME(Rs, adr.target(), temp);                                                              \
         break;                                                                                     \
       }                                                                                            \
-      case Address::base_plus_offset:{                                                             \
+      case Address::base_plus_offset: {                                                            \
         if (is_offset_in_range(adr.offset(), 12)) {                                                \
           NAME(Rs, adr.base(), adr.offset());                                                      \
         } else {                                                                                   \
-          int32_t offset= 0;                                                                       \
           assert_different_registers(Rs, temp);                                                    \
-          baseOffset32(temp, adr, offset);                                                         \
-          NAME(Rs, temp, offset);                                                                  \
+          NAME(Rs, form_address_complex(adr.base(), adr.offset(), 12, temp));                      \
         }                                                                                          \
         break;                                                                                     \
       }                                                                                            \
@@ -695,13 +678,11 @@ public:
         NAME(Rs, adr.target(), temp);                                                              \
         break;                                                                                     \
       }                                                                                            \
-      case Address::base_plus_offset:{                                                             \
+      case Address::base_plus_offset: {                                                            \
         if (is_offset_in_range(adr.offset(), 12)) {                                                \
           NAME(Rs, adr.base(), adr.offset());                                                      \
         } else {                                                                                   \
-          int32_t offset = 0;                                                                      \
-          baseOffset32(temp, adr, offset);                                                         \
-          NAME(Rs, temp, offset);                                                                  \
+          NAME(Rs, form_address_complex(adr.base(), adr.offset(), 12, temp));                      \
         }                                                                                          \
         break;                                                                                     \
       }                                                                                            \

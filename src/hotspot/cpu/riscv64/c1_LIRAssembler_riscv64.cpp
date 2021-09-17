@@ -1139,7 +1139,10 @@ void LIR_Assembler::profile_object(ciMethodData* md, ciProfileData* data, Regist
   // Object is null, update MDO and exit
   Register mdo = klass_RInfo;
   __ mov_metadata(mdo, md->constant_encoding());
-  Address data_addr = __ form_address(t1, mdo, md->byte_offset_of_slot(data, DataLayout::flags_offset()));
+  Address data_addr = __ form_address(mdo,   /* base */
+                                      md->byte_offset_of_slot(data, DataLayout::flags_offset()), /* offset */
+                                      12,    /* expect offset bits */
+                                      t1);   /* temp reg */
   __ lbu(t0, data_addr);
   __ ori(t0, t0, BitData::null_seen_byte_constant());
   __ sb(t0, data_addr);
@@ -2187,7 +2190,10 @@ void LIR_Assembler::type_profile(Register obj, ciMethodData* md, Register klass_
 
   __ bind(profile_cast_failure);
   __ mov_metadata(mdo, md->constant_encoding());
-  Address counter_addr = __ form_address(t1, mdo, md->byte_offset_of_slot(data, CounterData::count_offset()));
+  Address counter_addr = __ form_address(mdo,   /* base */
+                                         md->byte_offset_of_slot(data, CounterData::count_offset()), /* offset */
+                                         12,    /* expect offset bits */
+                                         t1);  /* temp reg */
   __ ld(t0, counter_addr);
   __ addi(t0, t0, -DataLayout::counter_increment);
   __ sd(t0, counter_addr);
