@@ -37,7 +37,7 @@ static bool    returns_to_call_stub(address return_pc)   {
 
 enum platform_dependent_constants {
   code_size1 = 19000,          // simply increase if too small (assembler will crash if too small)
-  code_size2 = 28000           // simply increase if too small (assembler will crash if too small)
+  code_size2 = 36000           // simply increase if too small (assembler will crash if too small)
 };
 
 class riscv64 {
