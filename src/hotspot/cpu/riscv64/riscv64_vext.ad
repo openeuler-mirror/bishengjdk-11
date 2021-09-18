@@ -1125,7 +1125,7 @@ instruct vlsrL(vReg dst, vReg src, vReg shift) %{
 %}
 
 instruct vasrB_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (RShiftVB src (RShiftCntV shift)));
+  match(Set dst (RShiftVB src shift));
   ins_cost(VEC_COST);
   format %{ "vsra.vi $dst, $src, $shift\t#@vasrB_imm" %}
   ins_encode %{
@@ -1143,7 +1143,7 @@ instruct vasrB_imm(vReg dst, vReg src, immI shift) %{
 %}
 
 instruct vasrS_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (RShiftVS src (RShiftCntV shift)));
+  match(Set dst (RShiftVS src shift));
   ins_cost(VEC_COST);
   format %{ "vsra.vi $dst, $src, $shift\t#@vasrS_imm" %}
   ins_encode %{
@@ -1161,7 +1161,7 @@ instruct vasrS_imm(vReg dst, vReg src, immI shift) %{
 %}
 
 instruct vasrI_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (RShiftVI src (RShiftCntV shift)));
+  match(Set dst (RShiftVI src shift));
   ins_cost(VEC_COST);
   format %{ "vsrl.vi $dst, $src, $shift\t#@vasrI_imm" %}
   ins_encode %{
@@ -1177,26 +1177,33 @@ instruct vasrI_imm(vReg dst, vReg src, immI shift) %{
   ins_pipe(pipe_slow);
 %}
 
-instruct vasrL_imm(vReg dst, vReg src, immI shift) %{
-  predicate((n->in(2)->in(1)->get_int() & 0x3f) < 32);
-  match(Set dst (RShiftVL src (RShiftCntV shift)));
+instruct vasrL_imm(vReg dst, vReg src, immI shift, vReg tmp) %{
+  predicate((n->in(2)->get_int() & 0x3f) < 64);
+  match(Set dst (RShiftVL src shift));
   ins_cost(VEC_COST);
+  effect(TEMP tmp);
   format %{ "vsrl.vi $dst, $src, $shift\t#@vasrL_imm" %}
   ins_encode %{
-    uint32_t con = (unsigned)$shift$$constant & 0x1f;
+    uint32_t con = (unsigned)$shift$$constant & 0x3f;
     __ vsetvli(t0, x0, Assembler::e64);
     if (con == 0) {
       __ vor_vv(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg),
                 as_VectorRegister($src$$reg));
       return;
     }
-    __ vsra_vi(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), con);
+    if (con < 32) {
+      __ vsra_vi(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), con);
+    } else {
+      __ li(t0, con);
+      __ vmv_v_x(as_VectorRegister($tmp$$reg), t0);
+      __ vsra_vv(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), as_VectorRegister($tmp$$reg));
+    }
   %}
   ins_pipe(pipe_slow);
 %}
 
 instruct vlsrB_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (URShiftVB src (RShiftCntV shift)));
+  match(Set dst (URShiftVB src shift));
   ins_cost(VEC_COST);
   format %{ "vsrl.vi $dst, $src, $shift\t#@vlsrB_imm" %}
   ins_encode %{
@@ -1218,7 +1225,7 @@ instruct vlsrB_imm(vReg dst, vReg src, immI shift) %{
 %}
 
 instruct vlsrS_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (URShiftVS src (RShiftCntV shift)));
+  match(Set dst (URShiftVS src shift));
   ins_cost(VEC_COST);
   format %{ "vsrl.vi $dst, $src, $shift\t#@vlsrS_imm" %}
   ins_encode %{
@@ -1240,7 +1247,7 @@ instruct vlsrS_imm(vReg dst, vReg src, immI shift) %{
 %}
 
 instruct vlsrI_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (URShiftVI src (RShiftCntV shift)));
+  match(Set dst (URShiftVI src shift));
   ins_cost(VEC_COST);
   format %{ "vsrl.vi $dst, $src, $shift\t#@vlsrI_imm" %}
   ins_encode %{
@@ -1256,26 +1263,33 @@ instruct vlsrI_imm(vReg dst, vReg src, immI shift) %{
   ins_pipe(pipe_slow);
 %}
 
-instruct vlsrL_imm(vReg dst, vReg src, immI shift) %{
-  predicate((n->in(2)->in(1)->get_int() & 0x3f) < 32);
-  match(Set dst (URShiftVL src (RShiftCntV shift)));
+instruct vlsrL_imm(vReg dst, vReg src, immI shift, vReg tmp) %{
+  predicate((n->in(2)->get_int() & 0x3f) < 64);
+  match(Set dst (URShiftVL src shift));
   ins_cost(VEC_COST);
+  effect(TEMP tmp);
   format %{ "vsrl.vi $dst, $src, $shift\t#@vlsrL_imm" %}
   ins_encode %{
-    uint32_t con = (unsigned)$shift$$constant & 0x1f;
+    uint32_t con = (unsigned)$shift$$constant & 0x3f;
     __ vsetvli(t0, x0, Assembler::e64);
     if (con == 0) {
       __ vor_vv(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg),
                 as_VectorRegister($src$$reg));
       return;
     }
-    __ vsrl_vi(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), con);
+    if (con < 32) {
+      __ vsrl_vi(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), con);
+    } else {
+      __ li(t0, con);
+      __ vmv_v_x(as_VectorRegister($tmp$$reg), t0);
+      __ vsrl_vv(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), as_VectorRegister($tmp$$reg));
+    }
   %}
   ins_pipe(pipe_slow);
 %}
 
 instruct vlslB_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (LShiftVB src (LShiftCntV shift)));
+  match(Set dst (LShiftVB src shift));
   ins_cost(VEC_COST);
   format %{ "vsll.vi $dst, $src, $shift\t#@vlslB_imm" %}
   ins_encode %{
@@ -1292,7 +1306,7 @@ instruct vlslB_imm(vReg dst, vReg src, immI shift) %{
 %}
 
 instruct vlslS_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (LShiftVS src (LShiftCntV shift)));
+  match(Set dst (LShiftVS src shift));
   ins_cost(VEC_COST);
   format %{ "vsll.vi $dst, $src, $shift\t#@vlslS_imm" %}
   ins_encode %{
@@ -1309,7 +1323,7 @@ instruct vlslS_imm(vReg dst, vReg src, immI shift) %{
 %}
 
 instruct vlslI_imm(vReg dst, vReg src, immI shift) %{
-  match(Set dst (LShiftVI src (LShiftCntV shift)));
+  match(Set dst (LShiftVI src shift));
   ins_cost(VEC_COST);
   format %{ "vsll.vi $dst, $src, $shift\t#@vlslI_imm" %}
   ins_encode %{
@@ -1320,15 +1334,22 @@ instruct vlslI_imm(vReg dst, vReg src, immI shift) %{
   ins_pipe(pipe_slow);
 %}
 
-instruct vlslL_imm(vReg dst, vReg src, immI shift) %{
-  predicate((n->in(2)->in(1)->get_int() & 0x3f) < 32);
-  match(Set dst (LShiftVL src (LShiftCntV shift)));
+instruct vlslL_imm(vReg dst, vReg src, immI shift, vReg tmp) %{
+  predicate((n->in(2)->get_int() & 0x3f) < 64);
+  match(Set dst (LShiftVL src shift));
   ins_cost(VEC_COST);
+  effect(TEMP tmp);
   format %{ "vsll.vi $dst, $src, $shift\t#@vlslL_imm" %}
   ins_encode %{
-    uint32_t con = (unsigned)$shift$$constant & 0x1f;
+    uint32_t con = (unsigned)$shift$$constant & 0x3f;
     __ vsetvli(t0, x0, Assembler::e64);
-    __ vsll_vi(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), con);
+    if (con < 32) {
+      __ vsll_vi(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), con);
+    } else {
+      __ li(t0, con);
+      __ vmv_v_x(as_VectorRegister($tmp$$reg), t0);
+      __ vsll_vv(as_VectorRegister($dst$$reg), as_VectorRegister($src$$reg), as_VectorRegister($tmp$$reg));
+    }
   %}
   ins_pipe(pipe_slow);
 %}
@@ -1629,7 +1650,11 @@ instruct vstring_inflate(Universe dummy, iRegP_R10 src, iRegP_R11 dst, iRegI_R12
 
   format %{ "String Inflate $src,$dst" %}
   ins_encode %{
-    __ byte_array_inflate_v($src$$Register, $dst$$Register, $len$$Register, $tmp$$Register);
+    address tpc = __ byte_array_inflate_v($src$$Register, $dst$$Register, $len$$Register, $tmp$$Register);
+    if (tpc == NULL) {
+      ciEnv::current()->record_failure("CodeCache is full");
+      return;
+    }
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -1675,7 +1700,11 @@ instruct vhas_negatives(iRegP_R11 ary1, iRegI_R12 len, iRegI_R10 result, iRegL_R
   effect(USE_KILL ary1, USE_KILL len, KILL tmp);
   format %{ "has negatives byte[] $ary1,$len -> $result" %}
   ins_encode %{
-    __ has_negatives_v($ary1$$Register, $len$$Register, $result$$Register, $tmp$$Register);
+    address tpc = __ has_negatives_v($ary1$$Register, $len$$Register, $result$$Register, $tmp$$Register);
+    if (tpc == NULL) {
+      ciEnv::current()->record_failure("CodeCache is full");
+      return;
+    }
   %}
   ins_pipe( pipe_slow );
 %}

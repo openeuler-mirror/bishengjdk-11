@@ -703,8 +703,8 @@ class MacroAssembler: public Assembler {
 #ifdef COMPILER2
   void minmax_FD(FloatRegister dst, FloatRegister src1, FloatRegister src2, bool is_double, bool is_min);
   
-  void arrays_equals(Register a1, Register a2, Register tmp3, Register tmp4,
-                     Register tmp5, Register tmp6, Register result, Register cnt1, int elem_size);
+  address arrays_equals(Register a1, Register a2, Register tmp3, Register tmp4,
+                        Register tmp5, Register tmp6, Register result, Register cnt1, int elem_size);
 
   void string_equals(Register a1, Register a2, Register result, Register cnt1,
                      int elem_size);
@@ -766,7 +766,7 @@ class MacroAssembler: public Assembler {
   void inflate_hi32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
   void ctzc_bit(Register Rd, Register Rs, bool isLL = false, Register Rtmp1 = t0, Register Rtmp2 = t1);
   void zero_words(Register base, u_int64_t cnt);
-  void zero_words(Register ptr, Register cnt);
+  address zero_words(Register ptr, Register cnt);
   void fill_words(Register base, Register cnt, Register value);
   void zero_memory(Register addr, Register len, Register tmp1);
 
@@ -791,11 +791,11 @@ class MacroAssembler: public Assembler {
                         Register result, Register tmp1, Register tmp2, int encForm);
 
   void clear_array_v(Register base, Register cnt);
-  void byte_array_inflate_v(Register src, Register dst, Register len, Register tmp);
+  address byte_array_inflate_v(Register src, Register dst, Register len, Register tmp);
   void char_array_compress_v(Register src, Register dst, Register len, Register result, Register tmp);
   void encode_iso_array_v(Register src, Register dst, Register len, Register result, Register tmp);
 
-  void has_negatives_v(Register ary, Register len, Register result, Register tmp);
+  address has_negatives_v(Register ary, Register len, Register result, Register tmp);
 #endif
 
   // Here the float instructions with safe deal with some exceptions.
@@ -892,6 +892,16 @@ class MacroAssembler: public Assembler {
 private:
   void load_prototype_header(Register dst, Register src);
   void repne_scan(Register addr, Register value, Register count, Register temp);
+
+#ifdef ASSERT
+  // Macro short-hand support to clean-up after a failed call to trampoline
+  // call generation (see trampoline_call() below), when a set of Labels must
+  // be reset (before returning).
+#define reset_labels1(L1) L1.reset()
+#define reset_labels2(L1, L2) L1.reset(); L2.reset()
+#define reset_labels3(L1, L2, L3) L1.reset(); reset_labels2(L2, L3)
+#define reset_labels5(L1, L2, L3, L4, L5) reset_labels2(L1, L2); reset_labels3(L3, L4, L5)
+#endif
 
   // Return true if an addres is within the 48-bit Riscv64 address
   // space.

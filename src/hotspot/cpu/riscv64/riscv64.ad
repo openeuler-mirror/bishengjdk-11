@@ -2308,12 +2308,19 @@ encode %{
     if (!_method) {
       // A call to a runtime wrapper, e.g. new, new_typeArray_Java, uncommon_trap.
       call = __ trampoline_call(Address(addr, relocInfo::runtime_call_type), &cbuf);
+      if (call == NULL) {
+        ciEnv::current()->record_failure("CodeCache is full");
+        return;
+      }
     } else {
       int method_index = resolved_method_index(cbuf);
       RelocationHolder rspec = _optimized_virtual ? opt_virtual_call_Relocation::spec(method_index)
                                                   : static_call_Relocation::spec(method_index);
       call = __ trampoline_call(Address(addr, rspec), &cbuf);
-
+      if (call == NULL) {
+        ciEnv::current()->record_failure("CodeCache is full");
+        return;
+      }
       // Emit stub for static call
       address stub = CompiledStaticCall::emit_to_interp_stub(cbuf);
       if (stub == NULL) {
@@ -2321,10 +2328,7 @@ encode %{
         return;
       }
     }
-    if (call == NULL) {
-      ciEnv::current()->record_failure("CodeCache is full");
-      return;
-    }
+
   %}
 
   enc_class riscv64_enc_java_dynamic_call(method meth) %{
@@ -7443,6 +7447,57 @@ instruct negD_reg_reg(fRegD dst, fRegD src) %{
   ins_pipe(fp_uop_d);
 %}
 
+instruct absI_reg(iRegINoSp dst, iRegIorL2I src) %{
+  match(Set dst (AbsI src));
+
+  ins_cost(ALU_COST * 3);
+  format %{ "sraiw t0, $src, 0x1f\n\t"
+            "xorr $dst, $src, t0\n\t"
+            "subw $dst, $dst, t0\t#@absI_reg" %}
+
+  ins_encode %{
+    __ sraiw(t0, as_Register($src$$reg), 0x1f);
+    __ xorr(as_Register($dst$$reg), as_Register($src$$reg), t0);
+    __ subw(as_Register($dst$$reg), as_Register($dst$$reg), t0);
+  %}
+
+  ins_pipe(ialu_reg_reg);
+%}
+
+instruct absI2L_reg(iRegLNoSp dst, iRegIorL2I src) %{
+  match(Set dst (ConvI2L (AbsI src)));
+
+  ins_cost(ALU_COST * 3);
+  format %{ "sraiw t0, $src, 0x1f\n\t"
+            "xorr $dst, $src, t0\n\t"
+            "subw $dst, $dst, t0\t#@absI2L_reg" %}
+
+  ins_encode %{
+    __ sraiw(t0, as_Register($src$$reg), 0x1f);
+    __ xorr(as_Register($dst$$reg), as_Register($src$$reg), t0);
+    __ subw(as_Register($dst$$reg), as_Register($dst$$reg), t0);
+  %}
+
+  ins_pipe(ialu_reg_reg);
+%}
+
+instruct absL_reg(iRegLNoSp dst, iRegL src) %{
+  match(Set dst (AbsL src));
+
+  ins_cost(ALU_COST * 3);
+  format %{ "srai t0, $src, 0x3f\n\t"
+            "xorr $dst, $src, t0\n\t"
+            "sub $dst, $dst, t0\t#absL_reg" %}
+
+  ins_encode %{
+    __ srai(t0, as_Register($src$$reg), 0x3f);
+    __ xorr(as_Register($dst$$reg), as_Register($src$$reg), t0);
+    __ sub(as_Register($dst$$reg), as_Register($dst$$reg), t0);
+  %}
+
+  ins_pipe(ialu_reg_reg);
+%}
+
 instruct absF_reg(fRegF dst, fRegF src) %{
   match(Set dst (AbsF src));
 
@@ -7470,7 +7525,7 @@ instruct absD_reg(fRegD dst, fRegD src) %{
 %}
 
 instruct sqrtF_reg(fRegF dst, fRegF src) %{
-  match(Set dst (ConvD2F (SqrtD (ConvF2D src))));
+  match(Set dst (SqrtF src));
 
   ins_cost(FSQRT_COST);
   format %{ "fsqrt.s  $dst, $src\t#@sqrtF_reg" %}
@@ -10263,7 +10318,11 @@ instruct clearArray_reg_reg(iRegL_R29 cnt, iRegP_R28 base, Universe dummy, iRegL
   format %{ "ClearArray $cnt, $base\t#@clearArray_reg_reg" %}
 
   ins_encode %{
-    __ zero_words($base$$Register, $cnt$$Register);
+    address tpc = __ zero_words($base$$Register, $cnt$$Register);
+    if (tpc == NULL) {
+      ciEnv::current()->record_failure("CodeCache is full");
+      return;
+    }
   %}
 
   ins_pipe(pipe_class_memory);
@@ -10328,9 +10387,13 @@ instruct array_equalsB(iRegP_R11 ary1, iRegP_R12 ary2, iRegI_R10 result,
 
   format %{ "Array Equals $ary1, ary2 -> $result\t#@array_equalsB // KILL $tmp" %}
   ins_encode %{
-    __ arrays_equals($ary1$$Register, $ary2$$Register,
-                     $tmp1$$Register, $tmp2$$Register, $tmp3$$Register, $tmp4$$Register,
-                     $result$$Register, $tmp$$Register, 1);
+    address tpc = __ arrays_equals($ary1$$Register, $ary2$$Register,
+                                   $tmp1$$Register, $tmp2$$Register, $tmp3$$Register, $tmp4$$Register,
+                                   $result$$Register, $tmp$$Register, 1);
+    if (tpc == NULL) {
+      ciEnv::current()->record_failure("CodeCache is full");
+      return;
+    }
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -10345,9 +10408,13 @@ instruct array_equalsC(iRegP_R11 ary1, iRegP_R12 ary2, iRegI_R10 result,
 
   format %{ "Array Equals $ary1, ary2 -> $result\t#@array_equalsC // KILL $tmp" %}
   ins_encode %{
-    __ arrays_equals($ary1$$Register, $ary2$$Register,
-                     $tmp1$$Register, $tmp2$$Register, $tmp3$$Register, $tmp4$$Register,
-                     $result$$Register, $tmp$$Register, 2);
+    address tpc = __ arrays_equals($ary1$$Register, $ary2$$Register,
+                                   $tmp1$$Register, $tmp2$$Register, $tmp3$$Register, $tmp4$$Register,
+                                   $result$$Register, $tmp$$Register, 2);
+    if (tpc == NULL) {
+      ciEnv::current()->record_failure("CodeCache is full");
+      return;
+    }
   %}
   ins_pipe(pipe_class_memory);
 %}

@@ -26,8 +26,8 @@
 #ifndef CPU_RISCV64_VM_VERSION_EXT_RISCV64_HPP
 #define CPU_RISCV64_VM_VERSION_EXT_RISCV64_HPP
 
+#include "runtime/vm_version.hpp"
 #include "utilities/macros.hpp"
-#include "vm_version_riscv64.hpp"
 
 class VM_Version_Ext : public VM_Version {
  private:

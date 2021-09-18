@@ -26,8 +26,8 @@
 #ifndef CPU_RISCV64_VM_VERSION_RISCV64_HPP
 #define CPU_RISCV64_VM_VERSION_RISCV64_HPP
 
+#include "runtime/abstract_vm_version.hpp"
 #include "runtime/globals_extension.hpp"
-#include "runtime/vm_version.hpp"
 #include "utilities/sizes.hpp"
 
 class VM_Version : public Abstract_VM_Version {

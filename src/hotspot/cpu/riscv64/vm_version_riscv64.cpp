@@ -29,6 +29,7 @@
 #include "memory/resourceArea.hpp"
 #include "runtime/java.hpp"
 #include "runtime/stubCodeGenerator.hpp"
+#include "runtime/vm_version.hpp"
 #include "utilities/macros.hpp"
 #include "vm_version_riscv64.hpp"
 
