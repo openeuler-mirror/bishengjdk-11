@@ -627,7 +627,7 @@ ParNewGeneration::ParNewGeneration(ReservedSpace rs, size_t initial_byte_size)
   : DefNewGeneration(rs, initial_byte_size, "PCopy"),
   _overflow_list(NULL),
   _is_alive_closure(this),
-  _plab_stats("Young", YoungPLABSize, PLABWeight)
+  _plab_stats("Young", YoungPLABSize, YoungPLABSize * ParallelGCThreads, PLABWeight)
 {
   NOT_PRODUCT(_overflow_counter = ParGCWorkQueueOverflowInterval;)
   NOT_PRODUCT(_num_par_pushes = 0;)
