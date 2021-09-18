@@ -110,6 +110,8 @@ public class PreferredProviderNegativeTest {
         // If OS is solaris, expect OracleUcrypto, otherwise SunJCE
         if (System.getProperty("os.name").toLowerCase().contains("sun")) {
             expected = "OracleUcrypto";
+        } else if (Security.getProperty("security.provider.1").equals("KAEProvider")) {
+            expected = "KAEProvider";
         } else {
             expected = "SunJCE";
         }

@@ -39,6 +39,7 @@ import java.security.KeyPairGenerator;
 import java.security.spec.NamedParameterSpec;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -52,7 +53,14 @@ public class KeyAgreementTest {
         String kaAlgo = args[0];
         String kpgAlgo = args[1];
         String provider = args[2];
-        AlgoSpec aSpec = AlgoSpec.valueOf(AlgoSpec.class, kaAlgo);
+        AlgoSpec aSpec;
+        if (Security.getProperty("security.provider.1").equals("KAEProvider") &&
+            kaAlgo.equals("ECDH")) {
+            aSpec = AlgoSpec.valueOf(AlgoSpec.class, "KAEECDH");
+        } else {
+            aSpec = AlgoSpec.valueOf(AlgoSpec.class, kaAlgo);
+        }
+
         List<AlgorithmParameterSpec> specs = aSpec.getAlgorithmParameterSpecs();
         for (AlgorithmParameterSpec spec : specs) {
             testKeyAgreement(provider, kaAlgo, kpgAlgo, spec);
@@ -87,6 +95,7 @@ public class KeyAgreementTest {
                 "X9.62 c2tnb239v1", "X9.62 c2tnb239v2", "X9.62 c2tnb239v3",
                 "X9.62 c2tnb359v1", "X9.62 c2tnb431r1"
         ),
+        KAEECDH("secp224r1", "secp256r1", "secp384r1", "secp521r1"),
         XDH("X25519", "X448"),
         // There is no curve for DiffieHellman
         DiffieHellman(new String[]{});
@@ -98,6 +107,7 @@ public class KeyAgreementTest {
             for (String crv : curves) {
                 switch (this.name()) {
                     case "ECDH":
+                    case "KAEECDH":
                         specs.add(new ECGenParameterSpec(crv));
                         break;
                     case "XDH":
