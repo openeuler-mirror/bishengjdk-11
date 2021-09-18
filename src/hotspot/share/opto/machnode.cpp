@@ -147,7 +147,7 @@ uint MachNode::size(PhaseRegAlloc *ra_) const {
   return MachNode::emit_size(ra_);
 }
 
-//------------------------------size-------------------------------------------
+//-------------------------emit_size-------------------------------------------
 // Helper function that computes size by emitting code
 uint MachNode::emit_size(PhaseRegAlloc *ra_) const {
   // Emit into a trash buffer and count bytes emitted.

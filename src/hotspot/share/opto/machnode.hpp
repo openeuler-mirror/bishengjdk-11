@@ -334,6 +334,10 @@ public:
   // Top-level ideal Opcode matched
   virtual int ideal_Opcode()     const { return Op_Node; }
 
+  virtual bool is_Opcode_equal(Node* node) {
+    return node->is_Mach() && (ideal_Opcode() == node->as_Mach()->ideal_Opcode());
+  }
+
   // Adds the label for the case
   virtual void add_case_label( int switch_val, Label* blockLabel);
 

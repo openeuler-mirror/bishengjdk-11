@@ -428,6 +428,28 @@ void PhaseChaitin::merge_multidefs() {
   }
 }
 
+void PhaseChaitin::merge_debugdefs() {
+  Compile::TracePhase tp("merge_Debugdefs", &timers[_t_mergeDebugdefs]);
+
+  ResourceMark rm;
+  for (uint i = 0; i < _cfg.number_of_blocks(); i++) {
+    Block* block = _cfg.get_block(i);
+    for (int j = 0; j < (int) block->number_of_nodes(); j++) {
+      Node* base = block->get_node(j);
+      if (base && base->is_Mach() && base->outcnt() == 1) {
+        Node* addp = base->unique_out();
+        if (addp && addp->is_Mach() && addp->as_Mach()->ideal_Opcode() == Op_AddP) {
+          Node* derived = addp->in(AddPNode::Address);
+          if (base == addp->in(AddPNode::Base) && base->is_similar(derived)) {
+            base->subsume_by(derived, Compile::current());
+            block->remove_node(j--);
+          }
+        }
+      }
+    }
+  }
+}
+
 int PhaseChaitin::possibly_merge_multidef(Node *n, uint k, Block *block, RegToDefUseMap& reg2defuse) {
   int blk_adjust = 0;
 
