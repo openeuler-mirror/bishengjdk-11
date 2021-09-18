@@ -309,5 +309,5 @@ class networkStream : public bufferedStream {
 };
 
 #endif
-
+const char* make_log_name(const char* log_name, const char* force_directory);
 #endif // SHARE_VM_UTILITIES_OSTREAM_HPP
