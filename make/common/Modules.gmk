@@ -118,6 +118,12 @@ PLATFORM_MODULES += \
     jdk.zipfs \
     #
 
+ifeq ($(ENABLE_KAE), true)
+  ifeq ($(OPENJDK_TARGET_CPU_ARCH), aarch64)
+    PLATFORM_MODULES += jdk.crypto.kaeprovider
+  endif
+endif
+
 ifeq ($(OPENJDK_TARGET_OS), windows)
   PLATFORM_MODULES += jdk.crypto.mscapi
 endif
@@ -226,6 +232,13 @@ endif
 
 ifeq ($(ENABLE_AOT), false)
   MODULES_FILTER += jdk.aot
+endif
+
+################################################################################
+# Filter out kae specific modules if kae is disabled or cpu is not aarch64
+
+ifneq ($(ENABLE_KAE)-$(OPENJDK_TARGET_CPU_ARCH), true-aarch64)
+  MODULES_FILTER += jdk.crypto.kaeprovider
 endif
 
 ################################################################################
