@@ -218,8 +218,15 @@ inline oop PSPromotionManager::copy_to_survivor_space(oop o) {
     Copy::aligned_disjoint_words((HeapWord*)o, (HeapWord*)new_obj, new_obj_size);
 
     // Now we have to CAS in the header.
-    // Make copy visible to threads reading the forwardee.
-    if (o->cas_forward_to(new_obj, test_mark, o->klass()->oop_is_gc_leaf()? memory_order_relaxed : memory_order_release)) {
+    // When use relaxed CAS, cann't gurantee new obj visible for other threads accessing forwardee.
+    // As oop_is_gc_leaf is verified for long time without problems, for gc leaf's benefit, we add
+    // UsePSRelaxedForwardee to enable using relaxed CAS rather than delete oop_is_gc_leaf condition directly.
+#ifdef PRODUCT
+    if (o->cas_forward_to(new_obj, test_mark, (UsePSRelaxedForwardee || o->klass()->oop_is_gc_leaf()) ?
+                                               memory_order_relaxed : memory_order_release)) {
+#else
+    if (o->cas_forward_to(new_obj, test_mark, memory_order_release)) {
+#endif
       // We won any races, we "own" this object.
       assert(new_obj == o->forwardee(), "Sanity");
 
@@ -275,6 +282,10 @@ inline oop PSPromotionManager::copy_to_survivor_space(oop o) {
 
   // This code must come after the CAS test, or it will print incorrect
   // information.
+  // When UsePSRelaxedForwardee is true or object o is gc leaf, CAS failed threads can't access forwardee's content,
+  // as relaxed CAS cann't gurantee new obj's content visible for these CAS failed threads.The below log output is 
+  // dangerous.So we just support UsePSRelaxedForwardee and gc leaf in product.
+  // Everywhere access forwardee's content must be careful.
   log_develop_trace(gc, scavenge)("{%s %s " PTR_FORMAT " -> " PTR_FORMAT " (%d)}",
                                   should_scavenge(&new_obj) ? "copying" : "tenuring",
                                   new_obj->klass()->internal_name(), p2i((void *)o), p2i((void *)new_obj), new_obj->size());

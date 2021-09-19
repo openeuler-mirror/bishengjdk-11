@@ -78,6 +78,10 @@
           "Delay in scheduling GC workers (in milliseconds)")               \
                                                                             \
   product(bool, PSChunkLargeArrays, true,                                   \
-          "Process large arrays in chunks")
+          "Process large arrays in chunks")                                 \
+                                                                            \
+  experimental(bool, UsePSRelaxedForwardee, false,                          \
+          "Use the UsePSRelaxedForwardee to enable ps use relaxed"          \
+          "during young gc copying object")
 
 #endif // SHARE_GC_PARALLEL_PARALLEL_GLOBALS_HPP
