@@ -38,14 +38,17 @@
 #include "oops/accessDecorators.hpp"
 #include "oops/compressedOops.inline.hpp"
 #include "oops/klass.inline.hpp"
-#include "oops/oop.hpp"
 #include "runtime/biasedLocking.hpp"
 #include "runtime/interfaceSupport.inline.hpp"
 #include "runtime/jniHandles.inline.hpp"
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/thread.hpp"
 #include "utilities/macros.hpp"
+#ifdef COMPILER1
+#include "c1/c1_LIRAssembler.hpp"
+#endif
 #ifdef COMPILER2
+#include "oops/oop.hpp"
 #include "opto/compile.hpp"
 #include "opto/intrinsicnode.hpp"
 #include "opto/subnode.hpp"
@@ -3099,6 +3102,7 @@ address MacroAssembler::trampoline_call(Address entry, CodeBuffer *cbuf) {
     if (!in_scratch_emit_size) {
       address stub = emit_trampoline_stub(offset(), entry.target());
       if (stub == NULL) {
+	postcond(pc() == badAddress);
         return NULL; // CodeCache is full
       }
     }
@@ -3112,6 +3116,7 @@ address MacroAssembler::trampoline_call(Address entry, CodeBuffer *cbuf) {
     jal(pc());
   }
   // just need to return a non-null address
+  postcond(pc() != badAddress);
   return pc();
 }
 
@@ -3135,6 +3140,7 @@ address MacroAssembler::ic_call(address entry, jint method_index) {
 
 address MacroAssembler::emit_trampoline_stub(int insts_call_instruction_offset,
                                              address dest) {
+  // Max stub size: alignment nop, TrampolineStub.
   address stub = start_a_stub(NativeInstruction::instruction_size + NativeCallTrampolineStub::instruction_size);
   if (stub == NULL) {
     return NULL;  // CodeBuffer::expand failed
@@ -3253,9 +3259,9 @@ void MacroAssembler::minmax_FD(FloatRegister dst, FloatRegister src1, FloatRegis
   bind(Ldone);
 }
 
-void MacroAssembler::arrays_equals(Register a1, Register a2, Register tmp3,
-                                   Register tmp4, Register tmp5, Register tmp6, Register result,
-                                   Register cnt1, int elem_size) {
+address MacroAssembler::arrays_equals(Register a1, Register a2, Register tmp3,
+                                      Register tmp4, Register tmp5, Register tmp6, Register result,
+                                      Register cnt1, int elem_size) {
   Label DONE, SAME, NEXT_DWORD, SHORT, TAIL, TAIL2, IS_TMP5_ZR;
   Register tmp1 = t0;
   Register tmp2 = t1;
@@ -3328,6 +3334,8 @@ void MacroAssembler::arrays_equals(Register a1, Register a2, Register tmp3,
   bind(DONE);
 
   BLOCK_COMMENT("} array_equals");
+  postcond(pc() != badAddress);
+  return pc();
 }
 
 // Compare Strings
@@ -4570,7 +4578,7 @@ void MacroAssembler::string_compare_v(Register str1, Register str2, Register cnt
   bind(DONE);
 }
 
-void MacroAssembler::byte_array_inflate_v(Register src, Register dst, Register len, Register tmp) {
+address MacroAssembler::byte_array_inflate_v(Register src, Register dst, Register len, Register tmp) {
   Label loop;
   assert_different_registers(src, dst, len, tmp, t0);
 
@@ -4587,6 +4595,8 @@ void MacroAssembler::byte_array_inflate_v(Register src, Register dst, Register l
   add(dst, dst, tmp);
   bnez(len, loop);
   BLOCK_COMMENT("} byte_array_inflate_v");
+  postcond(pc() != badAddress);
+  return pc();
 }
 
 // Compress char[] array to byte[].
@@ -4635,7 +4645,7 @@ void MacroAssembler::encode_iso_array_v(Register src, Register dst, Register len
   BLOCK_COMMENT("} encode_iso_array_v");
 }
 
-void MacroAssembler::has_negatives_v(Register ary, Register len, Register result, Register tmp) {
+address MacroAssembler::has_negatives_v(Register ary, Register len, Register result, Register tmp) {
   Label loop, DONE;
 
   mv(result, true);
@@ -4654,6 +4664,8 @@ void MacroAssembler::has_negatives_v(Register ary, Register len, Register result
   mv(result, false);
 
   bind(DONE);
+  postcond(pc() != badAddress);
+  return pc();
 }
 
 // string indexof
@@ -5316,7 +5328,7 @@ const int MacroAssembler::zero_words_block_size = 8;
 // cnt:   Count in HeapWords.
 //
 // ptr, cnt, and t0 are clobbered.
-void MacroAssembler::zero_words(Register ptr, Register cnt)
+address MacroAssembler::zero_words(Register ptr, Register cnt)
 {
   assert(is_power_of_2(zero_words_block_size), "adjust this");
   assert(ptr == x28 && cnt == x29, "mismatch in register usage");
@@ -5330,7 +5342,12 @@ void MacroAssembler::zero_words(Register ptr, Register cnt)
     RuntimeAddress zero_blocks = RuntimeAddress(StubRoutines::riscv64::zero_blocks());
     assert(zero_blocks.target() != NULL, "zero_blocks stub has not been generated");
     if (StubRoutines::riscv64::complete()) {
-      trampoline_call(zero_blocks);
+      address tpc = trampoline_call(zero_blocks);
+      if (tpc == NULL) {
+        DEBUG_ONLY(reset_labels1(around));
+        postcond(pc() == badAddress);
+        return NULL;
+      }
     } else {
       jal(zero_blocks);
     }
@@ -5354,6 +5371,8 @@ void MacroAssembler::zero_words(Register ptr, Register cnt)
     bind(l);
   }
   BLOCK_COMMENT("} zero_words");
+  postcond(pc() != badAddress);
+  return pc();
 }
 
 // base:         Address of a buffer to be zeroed, 8 bytes aligned.
