@@ -1221,7 +1221,7 @@ bool os::is_first_C_frame(frame* fr) {
 
   return false;
 }
-#endif // !RISCV64 || ZERO
+#endif
 
 // Set up the boot classpath.
 
