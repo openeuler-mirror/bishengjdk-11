@@ -180,8 +180,8 @@ void VM_Version::get_processor_features() {
     ContendedPaddingWidth = dcache_line;
   }
 
-  unsigned long auxv = getauxval(AT_HWCAP);
-  unsigned long auxv2 = getauxval(AT_HWCAP2);
+  uint64_t auxv = getauxval(AT_HWCAP);
+  uint64_t  auxv2 = getauxval(AT_HWCAP2);
 
   char buf[512];
 
