@@ -109,10 +109,10 @@ define_pd_global(intx, InlineSmallCode,          1000);
           "Extend fence.i to fence.i + fence.")                         \
   product(bool, AvoidUnalignedAccesses, true,                           \
           "Avoid generating unaligned memory accesses")                 \
-  product(bool, UseVExt, false, "Use RVV instructions")                 \
   product(intx, EagerArrayCopyThreshold, 350,                           \
           "Threshod of array length by bytes to "                       \
           "trigger the eager array copy")                               \
-          range(32, 65535)
+          range(32, 65535)                                              \
+  experimental(bool, UseRVV, false, "Use RVV instructions")
 
 #endif // CPU_RISCV_GLOBALS_RISCV_HPP
