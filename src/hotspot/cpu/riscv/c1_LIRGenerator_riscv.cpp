@@ -230,7 +230,19 @@ void LIRGenerator::increment_counter(LIR_Address* addr, int step) {
   __ store(reg, addr);
 }
 
-bool LIRGenerator::strength_reduce_multiply(LIR_Opr left, int c, LIR_Opr result, LIR_Opr tmp) {
+void LIRGenerator::cmp_mem_int(LIR_Condition condition, LIR_Opr base, int disp, int c, CodeEmitInfo* info) {
+  LIR_Opr reg = new_register(T_INT);
+  __ load(generate_address(base, disp, T_INT), reg, info);
+  __ cmp(condition, reg, LIR_OprFact::intConst(c));
+}
+
+void LIRGenerator::cmp_reg_mem(LIR_Condition condition, LIR_Opr reg, LIR_Opr base, int disp, BasicType type, CodeEmitInfo* info) {
+  LIR_Opr reg1 = new_register(T_INT);
+  __ load(generate_address(base, disp, type), reg1, info);
+  __ cmp(condition, reg, reg1);
+}
+
+bool LIRGenerator::strength_reduce_multiply(LIR_Opr left, jint c, LIR_Opr result, LIR_Opr tmp) {
   if (tmp->is_valid() && c > 0 && c < max_jint) {
     if (is_power_of_2(c - 1)) {
       __ shift_left(left, exact_log2(c - 1), tmp);
@@ -391,8 +403,8 @@ void LIRGenerator::do_ArithmeticOp_Long(ArithmeticOp* x) {
     }
     if (need_zero_check) {
       CodeEmitInfo* info = state_for(x);
-      __ branch(lir_cond_equal, right.result(), LIR_OprFact::longConst(0),
-                right.result()->type(), new DivByZeroStub(info));
+      __ cmp(lir_cond_equal, right.result(), LIR_OprFact::longConst(0));
+      __ branch(lir_cond_equal, right.result()->type(), new DivByZeroStub(info));
     }
 
     rlock_result(x);
@@ -465,8 +477,8 @@ void LIRGenerator::do_ArithmeticOp_Int(ArithmeticOp* x) {
     }
     if (need_zero_check) {
       CodeEmitInfo* info = state_for(x);
-      __ branch(lir_cond_equal, right_arg->result(), LIR_OprFact::longConst(0),
-                right.result()->type(), new DivByZeroStub(info));
+      __ cmp(lir_cond_equal, right_arg->result(), LIR_OprFact::longConst(0));
+      __ branch(lir_cond_equal, right.result()->type(), new DivByZeroStub(info));
     }
 
     LIR_Opr ill = LIR_OprFact::illegalOpr;
@@ -1040,12 +1052,13 @@ void LIRGenerator::do_If(If* x) {
   }
 
   // Generate branch profiling. Profiling code doesn't kill flags.
-  profile_branch(x, cond, left, right);
+  __ cmp(lir_cond(cond), left, right);
+  profile_branch(x, cond);
   move_to_phi(x->state());
   if (x->x()->type()->is_float_kind()) {
-    __ branch(lir_cond(cond), left, right, right->type(), x->tsux(), x->usux());
+    __ branch(lir_cond(cond), right->type(), x->tsux(), x->usux());
   } else {
-    __ branch(lir_cond(cond), left, right, right->type(), x->tsux());
+    __ branch(lir_cond(cond), right->type(), x->tsux());
   }
   assert(x->default_sux() == x->fsux(), "wrong destination above");
   __ jump(x->default_sux());
