@@ -73,7 +73,7 @@ public:
 class RegisterSaver {
   const bool _save_vectors;
  public:
-  RegisterSaver(bool save_vectors) : _save_vectors(UseVExt && save_vectors) {}
+  RegisterSaver(bool save_vectors) : _save_vectors(UseRVV && save_vectors) {}
   ~RegisterSaver() {}
   OopMap* save_live_registers(MacroAssembler* masm, int additional_frame_words, int* total_frame_words);
   void restore_live_registers(MacroAssembler* masm);
