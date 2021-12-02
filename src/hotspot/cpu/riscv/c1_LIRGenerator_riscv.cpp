@@ -663,14 +663,22 @@ void LIRGenerator::do_MathIntrinsic(Intrinsic* x) {
       value.load_item();
       LIR_Opr dst = rlock_result(x);
 
-      if (x->id() == vmIntrinsics::_dsqrt) {
-        __ sqrt(value.result(), dst, LIR_OprFact::illegalOpr);
-      } else { // vmIntrinsics::_dabs
-        __ abs(value.result(), dst, LIR_OprFact::illegalOpr);
+      switch (x->id()) {
+        case vmIntrinsics::_dsqrt: {
+          __ sqrt(value.result(), dst, LIR_OprFact::illegalOpr);
+          break;
+        }
+        case vmIntrinsics::_dabs: {
+          __ abs(value.result(), dst, LIR_OprFact::illegalOpr);
+          break;
+        }
+        default:
+          ShouldNotReachHere();
       }
       break;
     }
-    default: ShouldNotReachHere();
+    default:
+      ShouldNotReachHere();
   }
 }
 

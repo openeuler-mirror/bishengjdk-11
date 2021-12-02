@@ -1186,7 +1186,8 @@ void os::print_location(outputStream* st, intptr_t x, bool verbose) {
   st->print_cr(INTPTR_FORMAT " is an unknown value", p2i(addr));
 }
 
-#if !defined(RISCV64) || defined(ZERO)
+// native stack isn't walkable for RISCV this way.
+#if !defined(RISCV) || defined(ZERO)
 // Looks like all platforms can use the same function to check if C
 // stack is walkable beyond current frame. The check for fp() is not
 // necessary on Sparc, but it's harmless.
