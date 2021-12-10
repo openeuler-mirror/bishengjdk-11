@@ -25,11 +25,6 @@
 
 include LibCommon.gmk
 
-LIBMEMCPY_FILES += \
-        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
-                memcpy.cpp \
-        )
-
 ################################################################################
 
 ifeq ($(ENABLE_KAE), true)
@@ -37,7 +32,7 @@ ifeq ($(ENABLE_KAE), true)
     $(eval $(call SetupJdkLibrary, BUILD_LIBJ2KAE, \
         NAME := j2kae, \
         OPTIMIZATION := LOW, \
-        EXTRA_FILES := $(LIBMEMCPY_FILES), \
+        EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
         CFLAGS := $(CFLAGS_JDKLIB), \
         LDFLAGS := $(LDFLAGS_JDKLIB) \
             $(call SET_SHARED_LIBRARY_ORIGIN), \
