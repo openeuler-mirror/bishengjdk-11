@@ -25,11 +25,6 @@
 
 include LibCommon.gmk
 
-LIBMEMCPY_FILES += \
-        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
-                memcpy.cpp \
-        )
-
 ################################################################################
 
 $(eval $(call SetupJdkLibrary, BUILD_LIBUNPACK, \
@@ -37,11 +32,11 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBUNPACK, \
     EXTRA_SRC := common-unpack, \
     TOOLCHAIN := TOOLCHAIN_LINK_CXX, \
     OPTIMIZATION := LOW, \
-    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     CFLAGS := $(CXXFLAGS_JDKLIB) \
         -DNO_ZLIB -DUNPACK_JNI -DFULL, \
     CFLAGS_release := -DPRODUCT, \
     EXTRA_HEADER_DIRS := $(call GetJavaHeaderDir, java.base), \
+    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     DISABLED_WARNINGS_gcc := implicit-fallthrough, \
     LDFLAGS := $(LDFLAGS_JDKLIB) $(LDFLAGS_CXX_JDK) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \

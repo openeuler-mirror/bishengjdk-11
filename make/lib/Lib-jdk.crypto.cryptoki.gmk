@@ -25,17 +25,12 @@
 
 include LibCommon.gmk
 
-LIBMEMCPY_FILES += \
-        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
-                memcpy.cpp \
-        )
-
 ################################################################################
 
 $(eval $(call SetupJdkLibrary, BUILD_LIBJ2PKCS11, \
     NAME := j2pkcs11, \
     OPTIMIZATION := LOW, \
-    EXTRA_FILES := $(LIBMEMCPY_FILES), \
+    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     CFLAGS := $(CFLAGS_JDKLIB), \
     LDFLAGS := $(LDFLAGS_JDKLIB) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \

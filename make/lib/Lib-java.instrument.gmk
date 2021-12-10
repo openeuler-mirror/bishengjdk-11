@@ -36,19 +36,14 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
   WINDOWS_JLI_LIB := $(SUPPORT_OUTPUTDIR)/native/java.base/libjli/jli.lib
 endif
 
-LIBMEMCPY_FILES += \
-        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
-                memcpy.cpp \
-        )
-
 $(eval $(call SetupJdkLibrary, BUILD_LIBINSTRUMENT, \
     NAME := instrument, \
     OPTIMIZATION := LOW, \
-    EXTRA_FILES := $(LIBMEMCPY_FILES), \
     CFLAGS := $(CFLAGS_JDKLIB) $(LIBINSTRUMENT_CFLAGS), \
     CFLAGS_debug := -DJPLIS_LOGGING, \
     CFLAGS_release := -DNO_JPLIS_LOGGING, \
     EXTRA_HEADER_DIRS := java.base:libjli, \
+    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     LDFLAGS := $(LDFLAGS_JDKLIB) \
         $(call SET_SHARED_LIBRARY_ORIGIN) \
         $(LIBINSTRUMENT_LDFLAGS), \

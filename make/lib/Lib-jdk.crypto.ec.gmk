@@ -25,11 +25,6 @@
 
 include LibCommon.gmk
 
-LIBMEMCPY_FILES += \
-        $(addprefix $(TOPDIR)/src/hotspot/share/runtime/, \
-                memcpy.cpp \
-        )
-
 ################################################################################
 
 ifeq ($(ENABLE_INTREE_EC), true)
@@ -47,7 +42,7 @@ ifeq ($(ENABLE_INTREE_EC), true)
       NAME := sunec, \
       TOOLCHAIN := TOOLCHAIN_LINK_CXX, \
       OPTIMIZATION := LOW, \
-      EXTRA_FILES := $(LIBMEMCPY_FILES), \
+      EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
       CFLAGS := $(BUILD_LIBSUNEC_CFLAGS_JDKLIB) \
           -DMP_API_COMPATIBLE -DNSS_ECC_MORE_THAN_SUITE_B, \
       CXXFLAGS := $(BUILD_LIBSUNEC_CXXFLAGS_JDKLIB), \
