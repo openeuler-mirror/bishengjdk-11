@@ -288,7 +288,7 @@ IRT_ENTRY(address,
 
   // handle arguments
   SlowSignatureHandler ssh(m, (address)from, to);
-  ssh.iterate(UCONST64(-1));
+  ssh.iterate((uint64_t)UCONST64(-1));
 
   // return result handler
   return Interpreter::result_handler(m->result_type());

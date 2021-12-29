@@ -702,7 +702,7 @@ class MacroAssembler: public Assembler {
   void oop_nequal(Register obj1, Register obj2, Label& nequal, bool is_far = false);
 #ifdef COMPILER2
   void minmax_FD(FloatRegister dst, FloatRegister src1, FloatRegister src2, bool is_double, bool is_min);
-  
+
   address arrays_equals(Register a1, Register a2, Register tmp3, Register tmp4,
                         Register tmp5, Register tmp6, Register result, Register cnt1, int elem_size);
 
@@ -765,7 +765,7 @@ class MacroAssembler: public Assembler {
   void inflate_lo32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
   void inflate_hi32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
   void ctzc_bit(Register Rd, Register Rs, bool isLL = false, Register Rtmp1 = t0, Register Rtmp2 = t1);
-  void zero_words(Register base, u_int64_t cnt);
+  void zero_words(Register base, uint64_t cnt);
   address zero_words(Register ptr, Register cnt);
   void fill_words(Register base, Register cnt, Register value);
   void zero_memory(Register addr, Register len, Register tmp1);
@@ -776,6 +776,8 @@ class MacroAssembler: public Assembler {
   static const int neg_cond_bits = 2;
   static const int unsigned_branch_mask = 1 << bool_test_bits;
   static const int double_branch_mask = 1 << bool_test_bits;
+
+  void enc_cmove(int cmpFlag, Register op1, Register op2, Register dst, Register src);
 
   // cmp
   void cmp_branch(int cmpFlag, Register op1, Register op2, Label& label, bool is_far = false);
