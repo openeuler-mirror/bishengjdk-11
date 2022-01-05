@@ -1015,6 +1015,13 @@ void MacroAssembler::enc_cmpEqNe_imm0_branch(int cmpFlag, Register op1, Label& L
       ShouldNotReachHere();
   }
 }
+
+void MacroAssembler::enc_cmove(int cmpFlag, Register op1, Register op2, Register dst, Register src) {
+  Label L;
+  cmp_branch(cmpFlag ^ (1 << neg_cond_bits), op1, op2, L);
+  mv(dst, src);
+  bind(L);
+}
 #endif
 
 void MacroAssembler::push_reg(Register Rs)
@@ -5378,7 +5385,7 @@ address MacroAssembler::zero_words(Register ptr, Register cnt)
 // base:         Address of a buffer to be zeroed, 8 bytes aligned.
 // cnt:          Immediate count in HeapWords.
 #define SmallArraySize (18 * BytesPerLong)
-void MacroAssembler::zero_words(Register base, u_int64_t cnt)
+void MacroAssembler::zero_words(Register base, uint64_t cnt)
 {
   assert_different_registers(base, t0, t1);
 

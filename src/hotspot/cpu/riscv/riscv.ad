@@ -1308,7 +1308,7 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
   MacroAssembler _masm(&cbuf);
 
   // n.b. frame size includes space for return pc and fp
-  const long framesize = C->frame_size_in_bytes();
+  const int framesize = C->frame_size_in_bytes();
   assert(framesize % (2 * wordSize) == 0, "must preserve 2 * wordSize alignment");
 
   // insert a nop at the start of the prolog so we can patch in a
@@ -9874,16 +9874,10 @@ instruct cmovI_cmpI(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOp cop) %
   %}
 
   ins_encode %{
-    Register op1 = as_Register($op1$$reg);
-    Register op2 = as_Register($op2$$reg);
-    Register dst = as_Register($dst$$reg);
-    Register src = as_Register($src$$reg);
-    int cmpFlag = $cop$$cmpcode;
-    Label L;
-    __ cmp_branch(cmpFlag ^ (1 << MacroAssembler::neg_cond_bits), op1, op2, L);
-    __ mv(dst, src);
-    __ bind(L);
-   %}
+    __ enc_cmove($cop$$cmpcode,
+                 as_Register($op1$$reg), as_Register($op2$$reg),
+                 as_Register($dst$$reg), as_Register($src$$reg));
+  %}
 
   ins_pipe(pipe_slow);
 %}
@@ -9898,16 +9892,10 @@ instruct cmovI_cmpL(iRegINoSp dst, iRegI src, iRegL op1, iRegL op2, cmpOp cop) %
   %}
 
   ins_encode %{
-    Register op1 = as_Register($op1$$reg);
-    Register op2 = as_Register($op2$$reg);
-    Register dst = as_Register($dst$$reg);
-    Register src = as_Register($src$$reg);
-    int cmpFlag = $cop$$cmpcode;
-    Label L;
-    __ cmp_branch(cmpFlag ^ (1 << MacroAssembler::neg_cond_bits), op1, op2, L);
-    __ mv(dst, src);
-    __ bind(L);
-   %}
+    __ enc_cmove($cop$$cmpcode,
+                 as_Register($op1$$reg), as_Register($op2$$reg),
+                 as_Register($dst$$reg), as_Register($src$$reg));
+  %}
 
   ins_pipe(pipe_slow);
 %}
@@ -9921,17 +9909,63 @@ instruct cmovI_cmpU(iRegINoSp dst, iRegI src, iRegI op1, iRegI op2, cmpOpU cop) 
   %}
 
   ins_encode %{
-    Register op1 = as_Register($op1$$reg);
-    Register op2 = as_Register($op2$$reg);
-    Register dst = as_Register($dst$$reg);
-    Register src = as_Register($src$$reg);
-    int cmpFlag = $cop$$cmpcode;
-    Label L;
-    __ cmp_branch((cmpFlag | MacroAssembler::unsigned_branch_mask) ^ (1 << MacroAssembler::neg_cond_bits),
-                  op1, op2, L);
-    __ mv(dst, src);
-    __ bind(L);
-   %}
+    __ enc_cmove($cop$$cmpcode | MacroAssembler::unsigned_branch_mask,
+                 as_Register($op1$$reg), as_Register($op2$$reg),
+                 as_Register($dst$$reg), as_Register($src$$reg));
+  %}
+
+  ins_pipe(pipe_slow);
+%}
+
+instruct cmovI_cmpUL(iRegINoSp dst, iRegI src, iRegL op1, iRegL op2, cmpOpU cop) %{
+  match(Set dst (CMoveI (Binary cop (CmpUL op1 op2)) (Binary dst src)));
+  ins_cost(ALU_COST + BRANCH_COST);
+  format %{ "bneg$cop $op1 $op2, skip\t#@cmovI_cmpUL\n\t"
+            "mv $dst, $src\n\t"
+            "skip:"
+  %}
+
+  ins_encode %{
+    __ enc_cmove($cop$$cmpcode | MacroAssembler::unsigned_branch_mask,
+                 as_Register($op1$$reg), as_Register($op2$$reg),
+                 as_Register($dst$$reg), as_Register($src$$reg));
+  %}
+
+  ins_pipe(pipe_slow);
+%}
+
+instruct cmovL_cmpL(iRegLNoSp dst, iRegL src, iRegL op1, iRegL op2, cmpOp cop) %{
+  match(Set dst (CMoveL (Binary cop (CmpL op1 op2)) (Binary dst src)));
+  ins_cost(ALU_COST + BRANCH_COST);
+
+  format %{ "bneg$cop $op1, $op2, skip\t#@cmovL_cmpL\n\t"
+            "mv $dst, $src\n\t"
+            "skip:"
+  %}
+
+  ins_encode %{
+    __ enc_cmove($cop$$cmpcode,
+                 as_Register($op1$$reg), as_Register($op2$$reg),
+                 as_Register($dst$$reg), as_Register($src$$reg));
+  %}
+
+  ins_pipe(pipe_slow);
+%}
+
+instruct cmovL_cmpUL(iRegLNoSp dst, iRegL src, iRegL op1, iRegL op2, cmpOpU cop) %{
+  match(Set dst (CMoveL (Binary cop (CmpUL op1 op2)) (Binary dst src)));
+  ins_cost(ALU_COST + BRANCH_COST);
+
+  format %{ "bneg$cop $op1, $op2, skip\t#@cmovL_cmpUL\n\t"
+            "mv $dst, $src\n\t"
+            "skip:"
+  %}
+
+  ins_encode %{
+    __ enc_cmove($cop$$cmpcode | MacroAssembler::unsigned_branch_mask,
+                 as_Register($op1$$reg), as_Register($op2$$reg),
+                 as_Register($dst$$reg), as_Register($src$$reg));
+  %}
 
   ins_pipe(pipe_slow);
 %}
@@ -10334,7 +10368,7 @@ instruct clearArray_imm_reg(immL cnt, iRegP_R28 base, Universe dummy, rFlagsReg 
   format %{ "ClearArray $cnt, $base\t#@clearArray_imm_reg" %}
 
   ins_encode %{
-    __ zero_words($base$$Register, (u_int64_t)$cnt$$constant);
+    __ zero_words($base$$Register, (uint64_t)$cnt$$constant);
   %}
 
   ins_pipe(pipe_class_memory);
