@@ -80,9 +80,7 @@ define_pd_global(intx, InitArrayShortSize, BytesPerLong);
 
 define_pd_global(bool, ThreadLocalHandshakes, true);
 
-#if defined(COMPILER1) || defined(COMPILER2)
 define_pd_global(intx, InlineSmallCode,          1000);
-#endif
 
 #define ARCH_FLAGS(develop, \
                    product, \
