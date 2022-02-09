@@ -443,43 +443,43 @@ void MacroAssembler::debug64(char* msg, int64_t pc, int64_t regs[])
 #endif
     if (os::message_box(msg, "Execution stopped, print registers?")) {
       ttyLocker ttyl;
-      tty->print_cr(" pc = 0x%016lx", pc);
+      tty->print_cr(" pc = 0x%016" PRIX64, pc);
 #ifndef PRODUCT
       tty->cr();
       findpc(pc);
       tty->cr();
 #endif
-      tty->print_cr(" x0 = 0x%016lx", regs[0]);
-      tty->print_cr(" x1 = 0x%016lx", regs[1]);
-      tty->print_cr(" x2 = 0x%016lx", regs[2]);
-      tty->print_cr(" x3 = 0x%016lx", regs[3]);
-      tty->print_cr(" x4 = 0x%016lx", regs[4]);
-      tty->print_cr(" x5 = 0x%016lx", regs[5]);
-      tty->print_cr(" x6 = 0x%016lx", regs[6]);
-      tty->print_cr(" x7 = 0x%016lx", regs[7]);
-      tty->print_cr(" x8 = 0x%016lx", regs[8]);
-      tty->print_cr(" x9 = 0x%016lx", regs[9]);
-      tty->print_cr("x10 = 0x%016lx", regs[10]);
-      tty->print_cr("x11 = 0x%016lx", regs[11]);
-      tty->print_cr("x12 = 0x%016lx", regs[12]);
-      tty->print_cr("x13 = 0x%016lx", regs[13]);
-      tty->print_cr("x14 = 0x%016lx", regs[14]);
-      tty->print_cr("x15 = 0x%016lx", regs[15]);
-      tty->print_cr("x16 = 0x%016lx", regs[16]);
-      tty->print_cr("x17 = 0x%016lx", regs[17]);
-      tty->print_cr("x18 = 0x%016lx", regs[18]);
-      tty->print_cr("x19 = 0x%016lx", regs[19]);
-      tty->print_cr("x20 = 0x%016lx", regs[20]);
-      tty->print_cr("x21 = 0x%016lx", regs[21]);
-      tty->print_cr("x22 = 0x%016lx", regs[22]);
-      tty->print_cr("x23 = 0x%016lx", regs[23]);
-      tty->print_cr("x24 = 0x%016lx", regs[24]);
-      tty->print_cr("x25 = 0x%016lx", regs[25]);
-      tty->print_cr("x26 = 0x%016lx", regs[26]);
-      tty->print_cr("x27 = 0x%016lx", regs[27]);
-      tty->print_cr("x28 = 0x%016lx", regs[28]);
-      tty->print_cr("x30 = 0x%016lx", regs[30]);
-      tty->print_cr("x31 = 0x%016lx", regs[31]);
+      tty->print_cr(" x0 = 0x%016" PRIx64, regs[0]);
+      tty->print_cr(" x1 = 0x%016" PRIx64, regs[1]);
+      tty->print_cr(" x2 = 0x%016" PRIx64, regs[2]);
+      tty->print_cr(" x3 = 0x%016" PRIx64, regs[3]);
+      tty->print_cr(" x4 = 0x%016" PRIx64, regs[4]);
+      tty->print_cr(" x5 = 0x%016" PRIx64, regs[5]);
+      tty->print_cr(" x6 = 0x%016" PRIx64, regs[6]);
+      tty->print_cr(" x7 = 0x%016" PRIx64, regs[7]);
+      tty->print_cr(" x8 = 0x%016" PRIx64, regs[8]);
+      tty->print_cr(" x9 = 0x%016" PRIx64, regs[9]);
+      tty->print_cr("x10 = 0x%016" PRIx64, regs[10]);
+      tty->print_cr("x11 = 0x%016" PRIx64, regs[11]);
+      tty->print_cr("x12 = 0x%016" PRIx64, regs[12]);
+      tty->print_cr("x13 = 0x%016" PRIx64, regs[13]);
+      tty->print_cr("x14 = 0x%016" PRIx64, regs[14]);
+      tty->print_cr("x15 = 0x%016" PRIx64, regs[15]);
+      tty->print_cr("x16 = 0x%016" PRIx64, regs[16]);
+      tty->print_cr("x17 = 0x%016" PRIx64, regs[17]);
+      tty->print_cr("x18 = 0x%016" PRIx64, regs[18]);
+      tty->print_cr("x19 = 0x%016" PRIx64, regs[19]);
+      tty->print_cr("x20 = 0x%016" PRIx64, regs[20]);
+      tty->print_cr("x21 = 0x%016" PRIx64, regs[21]);
+      tty->print_cr("x22 = 0x%016" PRIx64, regs[22]);
+      tty->print_cr("x23 = 0x%016" PRIx64, regs[23]);
+      tty->print_cr("x24 = 0x%016" PRIx64, regs[24]);
+      tty->print_cr("x25 = 0x%016" PRIx64, regs[25]);
+      tty->print_cr("x26 = 0x%016" PRIx64, regs[26]);
+      tty->print_cr("x27 = 0x%016" PRIx64, regs[27]);
+      tty->print_cr("x28 = 0x%016" PRIx64, regs[28]);
+      tty->print_cr("x30 = 0x%016" PRIx64, regs[30]);
+      tty->print_cr("x31 = 0x%016" PRIx64, regs[31]);
       BREAKPOINT;
     }
     ThreadStateTransition::transition(thread, _thread_in_vm, saved_state);
@@ -1096,9 +1096,13 @@ int MacroAssembler::pop_reg(unsigned int bitset, Register stack) {
   return count;
 }
 
-void MacroAssembler::push_call_clobbered_registers() {
+RegSet MacroAssembler::call_clobbered_registers() {
   // Push integer registers x7, x10-x17, x28-x31.
-  push_reg(RegSet::of(x7) + RegSet::range(x10, x17) + RegSet::range(x28, x31), sp);
+  return RegSet::of(x7) + RegSet::range(x10, x17) + RegSet::range(x28, x31);
+}
+
+void MacroAssembler::push_call_clobbered_registers() {
+  push_reg(call_clobbered_registers(), sp);
 
   // Push float registers f0-f7, f10-f17, f28-f31.
   addi(sp, sp, - wordSize * 20);
@@ -1119,7 +1123,7 @@ void MacroAssembler::pop_call_clobbered_registers() {
   }
   addi(sp, sp, wordSize * 20);
 
-  pop_reg(RegSet::of(x7) + RegSet::range(x10, x17) + RegSet::range(x28, x31), sp);
+  pop_reg(call_clobbered_registers(), sp);
 }
 
 // Push all the integer registers, except zr(x0) & sp(x2).
@@ -1372,18 +1376,6 @@ void MacroAssembler::reinit_heapbase() {
       ld(xheapbase, Address(xheapbase, offset));
     }
   }
-}
-
-void MacroAssembler::mv(Register Rd, int64_t imm64) {
-  li(Rd, imm64);
-}
-
-void MacroAssembler::mv(Register Rd, int imm) {
-  mv(Rd, (int64_t)imm);
-}
-
-void MacroAssembler::mvw(Register Rd, int32_t imm32) {
-  mv(Rd, imm32);
 }
 
 void MacroAssembler::mv(Register Rd, Address dest) {
@@ -3032,7 +3024,7 @@ void MacroAssembler::get_polling_page(Register dest, address page, int32_t &offs
   if (SafepointMechanism::uses_thread_local_poll()) {
     ld(dest, Address(xthread, Thread::polling_page_offset()));
   } else {
-    unsigned long align = (uintptr_t)page & 0xfff;
+    uint64_t align = (uint64_t)page & 0xfff;
     assert(align == 0, "polling page must be page aligned");
     la_patchable(dest, Address(page, rtype), offset);
   }
