@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,12 +25,12 @@
 #ifndef SHARE_VM_MEMORY_HEAPINSPECTION_HPP
 #define SHARE_VM_MEMORY_HEAPINSPECTION_HPP
 
-#include "gc/shared/workgroup.hpp"
 #include "memory/allocation.hpp"
 #include "oops/objArrayOop.hpp"
 #include "oops/oop.hpp"
 #include "oops/annotations.hpp"
 #include "utilities/macros.hpp"
+#include "gc/shared/workgroup.hpp"
 
 class ParallelObjectIterator;
 
@@ -370,7 +370,7 @@ class HeapInspection : public StackObj {
       _csv_format(csv_format), _print_help(print_help),
       _print_class_stats(print_class_stats), _columns(columns) {}
   void heap_inspection(outputStream* st, uint parallel_thread_num = 1) NOT_SERVICES_RETURN;
-  size_t populate_table(KlassInfoTable* cit, BoolObjectClosure* filter = NULL, uint parallel_thread_num = 1) NOT_SERVICES_RETURN_(0);
+  uintx populate_table(KlassInfoTable* cit, BoolObjectClosure* filter = NULL, uint parallel_thread_num = 1) NOT_SERVICES_RETURN_(0);
   static void find_instances_at_safepoint(Klass* k, GrowableArray<oop>* result) NOT_SERVICES_RETURN;
  private:
   void iterate_over_heap(KlassInfoTable* cit, BoolObjectClosure* filter = NULL);
@@ -380,25 +380,25 @@ class HeapInspection : public StackObj {
 // a native OOM when allocating memory for TL-KlassInfoTable.
 // _success will be set false on an OOM, and serial inspection tried.
 class ParHeapInspectTask : public AbstractGangTask {
-private:
-  ParallelObjectIterator *_poi;
-  KlassInfoTable *_shared_cit;
-  BoolObjectClosure *_filter;
+ private:
+  ParallelObjectIterator* _poi;
+  KlassInfoTable* _shared_cit;
+  BoolObjectClosure* _filter;
   uintx _missed_count;
   bool _success;
   Mutex _mutex;
 
-public:
-  ParHeapInspectTask(ParallelObjectIterator *poi,
-                     KlassInfoTable *shared_cit,
-                     BoolObjectClosure *filter) :
-    AbstractGangTask("Iterating heap"),
-    _poi(poi),
-    _shared_cit(shared_cit),
-    _filter(filter),
-    _missed_count(0),
-    _success(true),
-    _mutex(Mutex::leaf, "Parallel heap iteration data merge lock") {}
+ public:
+  ParHeapInspectTask(ParallelObjectIterator* poi,
+                     KlassInfoTable* shared_cit,
+                     BoolObjectClosure* filter) :
+      AbstractGangTask("Iterating heap"),
+      _poi(poi),
+      _shared_cit(shared_cit),
+      _filter(filter),
+      _missed_count(0),
+      _success(true),
+      _mutex(Mutex::leaf, "Parallel heap iteration data merge lock") {}
 
   uintx missed_count() const {
     return _missed_count;
@@ -410,5 +410,4 @@ public:
 
   virtual void work(uint worker_id);
 };
-
 #endif // SHARE_VM_MEMORY_HEAPINSPECTION_HPP

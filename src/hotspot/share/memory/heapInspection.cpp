@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -254,10 +254,10 @@ bool KlassInfoTable::merge_entry(const KlassInfoEntry* cie) {
 }
 
 class KlassInfoTableMergeClosure : public KlassInfoClosure {
- private:
+private:
   KlassInfoTable* _dest;
   bool _success;
-  public:
+public:
   KlassInfoTableMergeClosure(KlassInfoTable* table) : _dest(table), _success(true) {}
   void do_cinfo(KlassInfoEntry* cie) {
     _success &= _dest->merge_entry(cie);
@@ -775,11 +775,11 @@ void ParHeapInspectTask::work(uint worker_id) {
   }
 }
 
-size_t HeapInspection::populate_table(KlassInfoTable* cit, BoolObjectClosure *filter, uint parallel_thread_num) {
+uintx HeapInspection::populate_table(KlassInfoTable* cit, BoolObjectClosure *filter, uint parallel_thread_num) {
+
   // Try parallel first.
   if (parallel_thread_num > 1) {
     ResourceMark rm;
-
     WorkGang* gang = Universe::heap()->get_safepoint_workers();
     if (gang != NULL) {
       // The GC provided a WorkGang to be used during a safepoint.
@@ -793,7 +793,6 @@ size_t HeapInspection::populate_table(KlassInfoTable* cit, BoolObjectClosure *fi
 
         ParHeapInspectTask task(poi, cit, filter);
         // Run task with the active workers.
-
         gang->run_task(&task);
 
         delete poi;
@@ -806,6 +805,7 @@ size_t HeapInspection::populate_table(KlassInfoTable* cit, BoolObjectClosure *fi
 
   ResourceMark rm;
   // If no parallel iteration available, run serially.
+
   RecordInstanceClosure ric(cit, filter);
   Universe::heap()->safe_object_iterate(&ric);
   return ric.missed_count();

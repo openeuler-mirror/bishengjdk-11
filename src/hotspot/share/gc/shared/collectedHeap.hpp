@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -88,6 +88,7 @@ class GCHeapLog : public EventLogBase<GCMessage> {
 class ParallelObjectIterator : public CHeapObj<mtGC> {
 public:
   virtual void object_iterate(ObjectClosure* cl, uint worker_id) = 0;
+  virtual ~ParallelObjectIterator() {}
 };
 
 //
@@ -441,10 +442,6 @@ class CollectedHeap : public CHeapObj<mtInternal> {
   // Iterate over all objects, calling "cl.do_object" on each.
   virtual void object_iterate(ObjectClosure* cl) = 0;
 
-  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num) {
-    return NULL;
-  }
-
   // Similar to object_iterate() except iterates only
   // over live objects.
   virtual void safe_object_iterate(ObjectClosure* cl) = 0;
@@ -475,6 +472,10 @@ class CollectedHeap : public CHeapObj<mtInternal> {
   // Requires "addr" to be the start of a block, and returns "TRUE" iff
   // the block is an object.
   virtual bool block_is_obj(const HeapWord* addr) const = 0;
+
+  virtual ParallelObjectIterator* parallel_object_iterator(uint thread_num) {
+    return NULL;
+  }
 
   // Keep alive an object that was loaded with AS_NO_KEEPALIVE.
   virtual void keep_alive(oop obj) {}
