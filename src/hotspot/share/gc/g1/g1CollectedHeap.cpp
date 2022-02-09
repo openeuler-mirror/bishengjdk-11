@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -77,8 +77,8 @@
 #include "gc/shared/weakProcessor.hpp"
 #include "logging/log.hpp"
 #include "memory/allocation.hpp"
-#include "memory/heapInspection.hpp"
 #include "memory/iterator.hpp"
+#include "memory/heapInspection.hpp"
 #include "memory/metaspaceShared.hpp"
 #include "memory/resourceArea.hpp"
 #include "oops/access.inline.hpp"
@@ -153,7 +153,6 @@ void G1RegionMappingChangedListener::on_commit(uint start_idx, size_t num_region
   // take advantage of the zero_filled parameter.
   reset_from_card_cache(start_idx, num_regions);
 }
-
 
 HeapRegion* G1CollectedHeap::new_heap_region(uint hrs_index,
                                              MemRegion mr) {

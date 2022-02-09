@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -151,10 +151,9 @@ public class JMap {
         String liveopt = "-all";
         String parallel = null;
         String subopts[] = options.split(",");
-
         for (int i = 0; i < subopts.length; i++) {
             String subopt = subopts[i];
-            if (subopt.equals("") || subopt.equals("all")) {
+            if (subopt.equals("") || options.equals("all")) {
                 //  pass
             } else if (subopt.equals("live")) {
                 liveopt = "-live";
@@ -162,13 +161,15 @@ public class JMap {
                 parallel = subopt.substring("parallel=".length());
                 if (parallel == null) {
                     System.err.println("Fail: no number provided in option: '" + subopt + "'");
-                    System.exit(1);
+                    usage(1);
                 }
             } else {
+                System.err.println("Fail: invalid option: '" + subopt + "'");
                 usage(1);
             }
         }
 
+        System.out.flush();
         // inspectHeap is not the same as jcmd GC.class_histogram
         executeCommandForPid(pid, "inspectheap", liveopt, parallel);
     }
@@ -194,7 +195,8 @@ public class JMap {
         }
 
         if (filename == null) {
-            usage(1);  // invalid options or no filename
+            System.err.println("Fail: invalid option or no file name");
+            usage(1);
         }
 
         // get the canonical path - important to avoid just passing
@@ -256,8 +258,9 @@ public class JMap {
         System.err.println("        to connect to running process and print class loader statistics");
         System.err.println("    jmap -finalizerinfo <pid>");
         System.err.println("        to connect to running process and print information on objects awaiting finalization");
-        System.err.println("    jmap -histo:<histo-options> <pid>");
+        System.err.println("    jmap -histo[:live] <pid>");
         System.err.println("        to connect to running process and print histogram of java object heap");
+        System.err.println("        if the \"live\" suboption is specified, only count live objects");
         System.err.println("    jmap -dump:<dump-options> <pid>");
         System.err.println("        to connect to running process and dump java heap");
         System.err.println("    jmap -? -h --help");
@@ -268,18 +271,13 @@ public class JMap {
         System.err.println("                   all objects in the heap are dumped.");
         System.err.println("      format=b     binary format");
         System.err.println("      file=<file>  dump heap to <file>");
+        System.err.println("      parallel=<number>  parallel threads number for heap iteration:");
+        System.err.println("                         parallel=0 default behavior, use predefined number of threads");
+        System.err.println("                         parallel=1 disable parallel heap iteration");
+        System.err.println("                         parallel=<N> use N threads for parallel heap iteration");
+
         System.err.println("");
         System.err.println("    Example: jmap -dump:live,format=b,file=heap.bin <pid>");
-        System.err.println("");
-        System.err.println("    histo-options:");
-        System.err.println("      live         count only live objects");
-        System.err.println("      all          count all objects in the heap (default if one of \"live\" or \"all\" is not specified)");
-        System.err.println("      parallel=<number>  parallel threads number for heap iteration:");
-        System.err.println("                                  parallel=0 default behavior, use predefined number of threads");
-        System.err.println("                                  parallel=1 disable parallel heap iteration");
-        System.err.println("                                  parallel=<N> use N threads for parallel heap iteration");
-        System.err.println("");
-        System.err.println("    Example: jmap -histo:live,parallel=2 <pid>");
         System.exit(exit);
     }
 }

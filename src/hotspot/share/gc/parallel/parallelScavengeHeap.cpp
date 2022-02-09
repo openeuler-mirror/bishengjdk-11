@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -524,6 +524,7 @@ void ParallelScavengeHeap::object_iterate(ObjectClosure* cl) {
   old_gen()->object_iterate(cl);
 }
 
+
 // The HeapBlockClaimer is used during parallel iteration over the heap,
 // allowing workers to claim heap areas ("blocks"), gaining exclusive rights to these.
 // The eden and survivor spaces are treated as single blocks as it is hard to divide
@@ -588,6 +589,7 @@ public:
 ParallelObjectIterator* ParallelScavengeHeap::parallel_object_iterator(uint thread_num) {
   return new PSScavengeParallelObjectIterator();
 }
+
 
 HeapWord* ParallelScavengeHeap::block_start(const void* addr) const {
   if (young_gen()->is_in_reserved(addr)) {

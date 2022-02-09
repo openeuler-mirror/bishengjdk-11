@@ -114,8 +114,8 @@ reg_def R16     ( SOC, SOC, Op_RegI, 16, r16->as_VMReg()        );
 reg_def R16_H   ( SOC, SOC, Op_RegI, 16, r16->as_VMReg()->next());
 reg_def R17     ( SOC, SOC, Op_RegI, 17, r17->as_VMReg()        );
 reg_def R17_H   ( SOC, SOC, Op_RegI, 17, r17->as_VMReg()->next());
-reg_def R18     ( SOC, SOC, Op_RegI, 18, r18->as_VMReg()        );
-reg_def R18_H   ( SOC, SOC, Op_RegI, 18, r18->as_VMReg()->next());
+reg_def R18     ( SOC, SOC, Op_RegI, 18, r18_tls->as_VMReg()        );
+reg_def R18_H   ( SOC, SOC, Op_RegI, 18, r18_tls->as_VMReg()->next());
 reg_def R19     ( SOC, SOE, Op_RegI, 19, r19->as_VMReg()        );
 reg_def R19_H   ( SOC, SOE, Op_RegI, 19, r19->as_VMReg()->next());
 reg_def R20     ( SOC, SOE, Op_RegI, 20, r20->as_VMReg()        ); // caller esp
@@ -175,306 +175,307 @@ reg_def R31_H   (  NS,  NS, Op_RegI, 31, r31_sp->as_VMReg()->next());
 // register allowing it to be distinguished from the corresponding SVE
 // vector register when the SVE vector length is 128 bits.
 
-  reg_def V0   ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()          );
-  reg_def V0_H ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next()  );
-  reg_def V0_J ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(2) );
-  reg_def V0_K ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(3) );
-  reg_def V0_L ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(4) );
-  reg_def V0_M ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(5) );
-  reg_def V0_N ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(6) );
-  reg_def V0_O ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(7) );
+reg_def V0   ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()          );
+reg_def V0_H ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next()  );
+reg_def V0_J ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(2) );
+reg_def V0_K ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(3) );
+reg_def V0_L ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(4) );
+reg_def V0_M ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(5) );
+reg_def V0_N ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(6) );
+reg_def V0_O ( SOC, SOC, Op_RegF, 0, v0->as_VMReg()->next(7) );
 
-  reg_def V1   ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()          );
-  reg_def V1_H ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next()  );
-  reg_def V1_J ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(2) );
-  reg_def V1_K ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(3) );
-  reg_def V1_L ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(4) );
-  reg_def V1_M ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(5) );
-  reg_def V1_N ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(6) );
-  reg_def V1_O ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(7) );
+reg_def V1   ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()          );
+reg_def V1_H ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next()  );
+reg_def V1_J ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(2) );
+reg_def V1_K ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(3) );
+reg_def V1_L ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(4) );
+reg_def V1_M ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(5) );
+reg_def V1_N ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(6) );
+reg_def V1_O ( SOC, SOC, Op_RegF, 1, v1->as_VMReg()->next(7) );
 
-  reg_def V2   ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()          );
-  reg_def V2_H ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next()  );
-  reg_def V2_J ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(2) );
-  reg_def V2_K ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(3) );
-  reg_def V2_L ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(4) );
-  reg_def V2_M ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(5) );
-  reg_def V2_N ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(6) );
-  reg_def V2_O ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(7) );
+reg_def V2   ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()          );
+reg_def V2_H ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next()  );
+reg_def V2_J ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(2) );
+reg_def V2_K ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(3) );
+reg_def V2_L ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(4) );
+reg_def V2_M ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(5) );
+reg_def V2_N ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(6) );
+reg_def V2_O ( SOC, SOC, Op_RegF, 2, v2->as_VMReg()->next(7) );
 
-  reg_def V3   ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()          );
-  reg_def V3_H ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next()  );
-  reg_def V3_J ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(2) );
-  reg_def V3_K ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(3) );
-  reg_def V3_L ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(4) );
-  reg_def V3_M ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(5) );
-  reg_def V3_N ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(6) );
-  reg_def V3_O ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(7) );
+reg_def V3   ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()          );
+reg_def V3_H ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next()  );
+reg_def V3_J ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(2) );
+reg_def V3_K ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(3) );
+reg_def V3_L ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(4) );
+reg_def V3_M ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(5) );
+reg_def V3_N ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(6) );
+reg_def V3_O ( SOC, SOC, Op_RegF, 3, v3->as_VMReg()->next(7) );
 
-  reg_def V4   ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()          );
-  reg_def V4_H ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next()  );
-  reg_def V4_J ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(2) );
-  reg_def V4_K ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(3) );
-  reg_def V4_L ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(4) );
-  reg_def V4_M ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(5) );
-  reg_def V4_N ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(6) );
-  reg_def V4_O ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(7) );
+reg_def V4   ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()          );
+reg_def V4_H ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next()  );
+reg_def V4_J ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(2) );
+reg_def V4_K ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(3) );
+reg_def V4_L ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(4) );
+reg_def V4_M ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(5) );
+reg_def V4_N ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(6) );
+reg_def V4_O ( SOC, SOC, Op_RegF, 4, v4->as_VMReg()->next(7) );
 
-  reg_def V5   ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()          );
-  reg_def V5_H ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next()  );
-  reg_def V5_J ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(2) );
-  reg_def V5_K ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(3) );
-  reg_def V5_L ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(4) );
-  reg_def V5_M ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(5) );
-  reg_def V5_N ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(6) );
-  reg_def V5_O ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(7) );
+reg_def V5   ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()          );
+reg_def V5_H ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next()  );
+reg_def V5_J ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(2) );
+reg_def V5_K ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(3) );
+reg_def V5_L ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(4) );
+reg_def V5_M ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(5) );
+reg_def V5_N ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(6) );
+reg_def V5_O ( SOC, SOC, Op_RegF, 5, v5->as_VMReg()->next(7) );
 
-  reg_def V6   ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()          );
-  reg_def V6_H ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next()  );
-  reg_def V6_J ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(2) );
-  reg_def V6_K ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(3) );
-  reg_def V6_L ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(4) );
-  reg_def V6_M ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(5) );
-  reg_def V6_N ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(6) );
-  reg_def V6_O ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(7) );
+reg_def V6   ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()          );
+reg_def V6_H ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next()  );
+reg_def V6_J ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(2) );
+reg_def V6_K ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(3) );
+reg_def V6_L ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(4) );
+reg_def V6_M ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(5) );
+reg_def V6_N ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(6) );
+reg_def V6_O ( SOC, SOC, Op_RegF, 6, v6->as_VMReg()->next(7) );
 
-  reg_def V7   ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()          );
-  reg_def V7_H ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next()  );
-  reg_def V7_J ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(2) );
-  reg_def V7_K ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(3) );
-  reg_def V7_L ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(4) );
-  reg_def V7_M ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(5) );
-  reg_def V7_N ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(6) );
-  reg_def V7_O ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(7) );
+reg_def V7   ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()          );
+reg_def V7_H ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next()  );
+reg_def V7_J ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(2) );
+reg_def V7_K ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(3) );
+reg_def V7_L ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(4) );
+reg_def V7_M ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(5) );
+reg_def V7_N ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(6) );
+reg_def V7_O ( SOC, SOC, Op_RegF, 7, v7->as_VMReg()->next(7) );
 
-  reg_def V8   ( SOC, SOE, Op_RegF, 8, v8->as_VMReg()          );
-  reg_def V8_H ( SOC, SOE, Op_RegF, 8, v8->as_VMReg()->next()  );
-  reg_def V8_J ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(2) );
-  reg_def V8_K ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(3) );
-  reg_def V8_L ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(4) );
-  reg_def V8_M ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(5) );
-  reg_def V8_N ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(6) );
-  reg_def V8_O ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(7) );
+reg_def V8   ( SOC, SOE, Op_RegF, 8, v8->as_VMReg()          );
+reg_def V8_H ( SOC, SOE, Op_RegF, 8, v8->as_VMReg()->next()  );
+reg_def V8_J ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(2) );
+reg_def V8_K ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(3) );
+reg_def V8_L ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(4) );
+reg_def V8_M ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(5) );
+reg_def V8_N ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(6) );
+reg_def V8_O ( SOC, SOC, Op_RegF, 8, v8->as_VMReg()->next(7) );
 
-  reg_def V9   ( SOC, SOE, Op_RegF, 9, v9->as_VMReg()          );
-  reg_def V9_H ( SOC, SOE, Op_RegF, 9, v9->as_VMReg()->next()  );
-  reg_def V9_J ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(2) );
-  reg_def V9_K ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(3) );
-  reg_def V9_L ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(4) );
-  reg_def V9_M ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(5) );
-  reg_def V9_N ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(6) );
-  reg_def V9_O ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(7) );
+reg_def V9   ( SOC, SOE, Op_RegF, 9, v9->as_VMReg()          );
+reg_def V9_H ( SOC, SOE, Op_RegF, 9, v9->as_VMReg()->next()  );
+reg_def V9_J ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(2) );
+reg_def V9_K ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(3) );
+reg_def V9_L ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(4) );
+reg_def V9_M ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(5) );
+reg_def V9_N ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(6) );
+reg_def V9_O ( SOC, SOC, Op_RegF, 9, v9->as_VMReg()->next(7) );
 
-  reg_def V10   ( SOC, SOE, Op_RegF, 10, v10->as_VMReg()          );
-  reg_def V10_H ( SOC, SOE, Op_RegF, 10, v10->as_VMReg()->next()  );
-  reg_def V10_J ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(2) );
-  reg_def V10_K ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(3) );
-  reg_def V10_L ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(4) );
-  reg_def V10_M ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(5) );
-  reg_def V10_N ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(6) );
-  reg_def V10_O ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(7) );
+reg_def V10   ( SOC, SOE, Op_RegF, 10, v10->as_VMReg()          );
+reg_def V10_H ( SOC, SOE, Op_RegF, 10, v10->as_VMReg()->next()  );
+reg_def V10_J ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(2) );
+reg_def V10_K ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(3) );
+reg_def V10_L ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(4) );
+reg_def V10_M ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(5) );
+reg_def V10_N ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(6) );
+reg_def V10_O ( SOC, SOC, Op_RegF, 10, v10->as_VMReg()->next(7) );
 
-  reg_def V11   ( SOC, SOE, Op_RegF, 11, v11->as_VMReg()          );
-  reg_def V11_H ( SOC, SOE, Op_RegF, 11, v11->as_VMReg()->next()  );
-  reg_def V11_J ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(2) );
-  reg_def V11_K ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(3) );
-  reg_def V11_L ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(4) );
-  reg_def V11_M ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(5) );
-  reg_def V11_N ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(6) );
-  reg_def V11_O ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(7) );
+reg_def V11   ( SOC, SOE, Op_RegF, 11, v11->as_VMReg()          );
+reg_def V11_H ( SOC, SOE, Op_RegF, 11, v11->as_VMReg()->next()  );
+reg_def V11_J ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(2) );
+reg_def V11_K ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(3) );
+reg_def V11_L ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(4) );
+reg_def V11_M ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(5) );
+reg_def V11_N ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(6) );
+reg_def V11_O ( SOC, SOC, Op_RegF, 11, v11->as_VMReg()->next(7) );
 
-  reg_def V12   ( SOC, SOE, Op_RegF, 12, v12->as_VMReg()          );
-  reg_def V12_H ( SOC, SOE, Op_RegF, 12, v12->as_VMReg()->next()  );
-  reg_def V12_J ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(2) );
-  reg_def V12_K ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(3) );
-  reg_def V12_L ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(4) );
-  reg_def V12_M ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(5) );
-  reg_def V12_N ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(6) );
-  reg_def V12_O ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(7) );
+reg_def V12   ( SOC, SOE, Op_RegF, 12, v12->as_VMReg()          );
+reg_def V12_H ( SOC, SOE, Op_RegF, 12, v12->as_VMReg()->next()  );
+reg_def V12_J ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(2) );
+reg_def V12_K ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(3) );
+reg_def V12_L ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(4) );
+reg_def V12_M ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(5) );
+reg_def V12_N ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(6) );
+reg_def V12_O ( SOC, SOC, Op_RegF, 12, v12->as_VMReg()->next(7) );
 
-  reg_def V13   ( SOC, SOE, Op_RegF, 13, v13->as_VMReg()          );
-  reg_def V13_H ( SOC, SOE, Op_RegF, 13, v13->as_VMReg()->next()  );
-  reg_def V13_J ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(2) );
-  reg_def V13_K ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(3) );
-  reg_def V13_L ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(4) );
-  reg_def V13_M ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(5) );
-  reg_def V13_N ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(6) );
-  reg_def V13_O ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(7) );
+reg_def V13   ( SOC, SOE, Op_RegF, 13, v13->as_VMReg()          );
+reg_def V13_H ( SOC, SOE, Op_RegF, 13, v13->as_VMReg()->next()  );
+reg_def V13_J ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(2) );
+reg_def V13_K ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(3) );
+reg_def V13_L ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(4) );
+reg_def V13_M ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(5) );
+reg_def V13_N ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(6) );
+reg_def V13_O ( SOC, SOC, Op_RegF, 13, v13->as_VMReg()->next(7) );
 
-  reg_def V14   ( SOC, SOE, Op_RegF, 14, v14->as_VMReg()          );
-  reg_def V14_H ( SOC, SOE, Op_RegF, 14, v14->as_VMReg()->next()  );
-  reg_def V14_J ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(2) );
-  reg_def V14_K ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(3) );
-  reg_def V14_L ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(4) );
-  reg_def V14_M ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(5) );
-  reg_def V14_N ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(6) );
-  reg_def V14_O ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(7) );
+reg_def V14   ( SOC, SOE, Op_RegF, 14, v14->as_VMReg()          );
+reg_def V14_H ( SOC, SOE, Op_RegF, 14, v14->as_VMReg()->next()  );
+reg_def V14_J ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(2) );
+reg_def V14_K ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(3) );
+reg_def V14_L ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(4) );
+reg_def V14_M ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(5) );
+reg_def V14_N ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(6) );
+reg_def V14_O ( SOC, SOC, Op_RegF, 14, v14->as_VMReg()->next(7) );
 
-  reg_def V15   ( SOC, SOE, Op_RegF, 15, v15->as_VMReg()          );
-  reg_def V15_H ( SOC, SOE, Op_RegF, 15, v15->as_VMReg()->next()  );
-  reg_def V15_J ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(2) );
-  reg_def V15_K ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(3) );
-  reg_def V15_L ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(4) );
-  reg_def V15_M ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(5) );
-  reg_def V15_N ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(6) );
-  reg_def V15_O ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(7) );
+reg_def V15   ( SOC, SOE, Op_RegF, 15, v15->as_VMReg()          );
+reg_def V15_H ( SOC, SOE, Op_RegF, 15, v15->as_VMReg()->next()  );
+reg_def V15_J ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(2) );
+reg_def V15_K ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(3) );
+reg_def V15_L ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(4) );
+reg_def V15_M ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(5) );
+reg_def V15_N ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(6) );
+reg_def V15_O ( SOC, SOC, Op_RegF, 15, v15->as_VMReg()->next(7) );
 
-  reg_def V16   ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()          );
-  reg_def V16_H ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next()  );
-  reg_def V16_J ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(2) );
-  reg_def V16_K ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(3) );
-  reg_def V16_L ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(4) );
-  reg_def V16_M ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(5) );
-  reg_def V16_N ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(6) );
-  reg_def V16_O ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(7) );
+reg_def V16   ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()          );
+reg_def V16_H ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next()  );
+reg_def V16_J ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(2) );
+reg_def V16_K ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(3) );
+reg_def V16_L ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(4) );
+reg_def V16_M ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(5) );
+reg_def V16_N ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(6) );
+reg_def V16_O ( SOC, SOC, Op_RegF, 16, v16->as_VMReg()->next(7) );
 
-  reg_def V17   ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()          );
-  reg_def V17_H ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next()  );
-  reg_def V17_J ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(2) );
-  reg_def V17_K ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(3) );
-  reg_def V17_L ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(4) );
-  reg_def V17_M ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(5) );
-  reg_def V17_N ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(6) );
-  reg_def V17_O ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(7) );
+reg_def V17   ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()          );
+reg_def V17_H ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next()  );
+reg_def V17_J ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(2) );
+reg_def V17_K ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(3) );
+reg_def V17_L ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(4) );
+reg_def V17_M ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(5) );
+reg_def V17_N ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(6) );
+reg_def V17_O ( SOC, SOC, Op_RegF, 17, v17->as_VMReg()->next(7) );
 
-  reg_def V18   ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()          );
-  reg_def V18_H ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next()  );
-  reg_def V18_J ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(2) );
-  reg_def V18_K ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(3) );
-  reg_def V18_L ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(4) );
-  reg_def V18_M ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(5) );
-  reg_def V18_N ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(6) );
-  reg_def V18_O ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(7) );
+reg_def V18   ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()          );
+reg_def V18_H ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next()  );
+reg_def V18_J ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(2) );
+reg_def V18_K ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(3) );
+reg_def V18_L ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(4) );
+reg_def V18_M ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(5) );
+reg_def V18_N ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(6) );
+reg_def V18_O ( SOC, SOC, Op_RegF, 18, v18->as_VMReg()->next(7) );
 
-  reg_def V19   ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()          );
-  reg_def V19_H ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next()  );
-  reg_def V19_J ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(2) );
-  reg_def V19_K ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(3) );
-  reg_def V19_L ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(4) );
-  reg_def V19_M ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(5) );
-  reg_def V19_N ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(6) );
-  reg_def V19_O ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(7) );
+reg_def V19   ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()          );
+reg_def V19_H ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next()  );
+reg_def V19_J ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(2) );
+reg_def V19_K ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(3) );
+reg_def V19_L ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(4) );
+reg_def V19_M ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(5) );
+reg_def V19_N ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(6) );
+reg_def V19_O ( SOC, SOC, Op_RegF, 19, v19->as_VMReg()->next(7) );
 
-  reg_def V20   ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()          );
-  reg_def V20_H ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next()  );
-  reg_def V20_J ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(2) );
-  reg_def V20_K ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(3) );
-  reg_def V20_L ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(4) );
-  reg_def V20_M ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(5) );
-  reg_def V20_N ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(6) );
-  reg_def V20_O ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(7) );
+reg_def V20   ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()          );
+reg_def V20_H ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next()  );
+reg_def V20_J ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(2) );
+reg_def V20_K ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(3) );
+reg_def V20_L ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(4) );
+reg_def V20_M ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(5) );
+reg_def V20_N ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(6) );
+reg_def V20_O ( SOC, SOC, Op_RegF, 20, v20->as_VMReg()->next(7) );
 
-  reg_def V21   ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()          );
-  reg_def V21_H ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next()  );
-  reg_def V21_J ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(2) );
-  reg_def V21_K ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(3) );
-  reg_def V21_L ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(4) );
-  reg_def V21_M ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(5) );
-  reg_def V21_N ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(6) );
-  reg_def V21_O ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(7) );
+reg_def V21   ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()          );
+reg_def V21_H ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next()  );
+reg_def V21_J ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(2) );
+reg_def V21_K ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(3) );
+reg_def V21_L ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(4) );
+reg_def V21_M ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(5) );
+reg_def V21_N ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(6) );
+reg_def V21_O ( SOC, SOC, Op_RegF, 21, v21->as_VMReg()->next(7) );
 
-  reg_def V22   ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()          );
-  reg_def V22_H ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next()  );
-  reg_def V22_J ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(2) );
-  reg_def V22_K ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(3) );
-  reg_def V22_L ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(4) );
-  reg_def V22_M ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(5) );
-  reg_def V22_N ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(6) );
-  reg_def V22_O ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(7) );
+reg_def V22   ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()          );
+reg_def V22_H ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next()  );
+reg_def V22_J ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(2) );
+reg_def V22_K ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(3) );
+reg_def V22_L ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(4) );
+reg_def V22_M ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(5) );
+reg_def V22_N ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(6) );
+reg_def V22_O ( SOC, SOC, Op_RegF, 22, v22->as_VMReg()->next(7) );
 
-  reg_def V23   ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()          );
-  reg_def V23_H ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next()  );
-  reg_def V23_J ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(2) );
-  reg_def V23_K ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(3) );
-  reg_def V23_L ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(4) );
-  reg_def V23_M ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(5) );
-  reg_def V23_N ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(6) );
-  reg_def V23_O ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(7) );
+reg_def V23   ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()          );
+reg_def V23_H ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next()  );
+reg_def V23_J ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(2) );
+reg_def V23_K ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(3) );
+reg_def V23_L ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(4) );
+reg_def V23_M ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(5) );
+reg_def V23_N ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(6) );
+reg_def V23_O ( SOC, SOC, Op_RegF, 23, v23->as_VMReg()->next(7) );
 
-  reg_def V24   ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()          );
-  reg_def V24_H ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next()  );
-  reg_def V24_J ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(2) );
-  reg_def V24_K ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(3) );
-  reg_def V24_L ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(4) );
-  reg_def V24_M ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(5) );
-  reg_def V24_N ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(6) );
-  reg_def V24_O ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(7) );
+reg_def V24   ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()          );
+reg_def V24_H ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next()  );
+reg_def V24_J ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(2) );
+reg_def V24_K ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(3) );
+reg_def V24_L ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(4) );
+reg_def V24_M ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(5) );
+reg_def V24_N ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(6) );
+reg_def V24_O ( SOC, SOC, Op_RegF, 24, v24->as_VMReg()->next(7) );
 
-  reg_def V25   ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()          );
-  reg_def V25_H ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next()  );
-  reg_def V25_J ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(2) );
-  reg_def V25_K ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(3) );
-  reg_def V25_L ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(4) );
-  reg_def V25_M ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(5) );
-  reg_def V25_N ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(6) );
-  reg_def V25_O ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(7) );
+reg_def V25   ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()          );
+reg_def V25_H ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next()  );
+reg_def V25_J ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(2) );
+reg_def V25_K ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(3) );
+reg_def V25_L ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(4) );
+reg_def V25_M ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(5) );
+reg_def V25_N ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(6) );
+reg_def V25_O ( SOC, SOC, Op_RegF, 25, v25->as_VMReg()->next(7) );
 
-  reg_def V26   ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()          );
-  reg_def V26_H ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next()  );
-  reg_def V26_J ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(2) );
-  reg_def V26_K ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(3) );
-  reg_def V26_L ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(4) );
-  reg_def V26_M ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(5) );
-  reg_def V26_N ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(6) );
-  reg_def V26_O ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(7) );
+reg_def V26   ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()          );
+reg_def V26_H ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next()  );
+reg_def V26_J ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(2) );
+reg_def V26_K ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(3) );
+reg_def V26_L ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(4) );
+reg_def V26_M ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(5) );
+reg_def V26_N ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(6) );
+reg_def V26_O ( SOC, SOC, Op_RegF, 26, v26->as_VMReg()->next(7) );
 
-  reg_def V27   ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()          );
-  reg_def V27_H ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next()  );
-  reg_def V27_J ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(2) );
-  reg_def V27_K ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(3) );
-  reg_def V27_L ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(4) );
-  reg_def V27_M ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(5) );
-  reg_def V27_N ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(6) );
-  reg_def V27_O ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(7) );
+reg_def V27   ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()          );
+reg_def V27_H ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next()  );
+reg_def V27_J ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(2) );
+reg_def V27_K ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(3) );
+reg_def V27_L ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(4) );
+reg_def V27_M ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(5) );
+reg_def V27_N ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(6) );
+reg_def V27_O ( SOC, SOC, Op_RegF, 27, v27->as_VMReg()->next(7) );
 
-  reg_def V28   ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()          );
-  reg_def V28_H ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next()  );
-  reg_def V28_J ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(2) );
-  reg_def V28_K ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(3) );
-  reg_def V28_L ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(4) );
-  reg_def V28_M ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(5) );
-  reg_def V28_N ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(6) );
-  reg_def V28_O ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(7) );
+reg_def V28   ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()          );
+reg_def V28_H ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next()  );
+reg_def V28_J ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(2) );
+reg_def V28_K ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(3) );
+reg_def V28_L ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(4) );
+reg_def V28_M ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(5) );
+reg_def V28_N ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(6) );
+reg_def V28_O ( SOC, SOC, Op_RegF, 28, v28->as_VMReg()->next(7) );
 
-  reg_def V29   ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()          );
-  reg_def V29_H ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next()  );
-  reg_def V29_J ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(2) );
-  reg_def V29_K ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(3) );
-  reg_def V29_L ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(4) );
-  reg_def V29_M ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(5) );
-  reg_def V29_N ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(6) );
-  reg_def V29_O ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(7) );
+reg_def V29   ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()          );
+reg_def V29_H ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next()  );
+reg_def V29_J ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(2) );
+reg_def V29_K ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(3) );
+reg_def V29_L ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(4) );
+reg_def V29_M ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(5) );
+reg_def V29_N ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(6) );
+reg_def V29_O ( SOC, SOC, Op_RegF, 29, v29->as_VMReg()->next(7) );
 
-  reg_def V30   ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()          );
-  reg_def V30_H ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next()  );
-  reg_def V30_J ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(2) );
-  reg_def V30_K ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(3) );
-  reg_def V30_L ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(4) );
-  reg_def V30_M ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(5) );
-  reg_def V30_N ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(6) );
-  reg_def V30_O ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(7) );
+reg_def V30   ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()          );
+reg_def V30_H ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next()  );
+reg_def V30_J ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(2) );
+reg_def V30_K ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(3) );
+reg_def V30_L ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(4) );
+reg_def V30_M ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(5) );
+reg_def V30_N ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(6) );
+reg_def V30_O ( SOC, SOC, Op_RegF, 30, v30->as_VMReg()->next(7) );
 
-  reg_def V31   ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()          );
-  reg_def V31_H ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next()  );
-  reg_def V31_J ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(2) );
-  reg_def V31_K ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(3) );
-  reg_def V31_L ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(4) );
-  reg_def V31_M ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(5) );
-  reg_def V31_N ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(6) );
-  reg_def V31_O ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(7) );
+reg_def V31   ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()          );
+reg_def V31_H ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next()  );
+reg_def V31_J ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(2) );
+reg_def V31_K ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(3) );
+reg_def V31_L ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(4) );
+reg_def V31_M ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(5) );
+reg_def V31_N ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(6) );
+reg_def V31_O ( SOC, SOC, Op_RegF, 31, v31->as_VMReg()->next(7) );
 
 
 // ----------------------------
 // SVE Predicate Registers
 // ----------------------------
-  reg_def P0 (SOC, SOC, Op_RegVMask, 0, p0->as_VMReg());
-  reg_def P1 (SOC, SOC, Op_RegVMask, 1, p1->as_VMReg());
-  reg_def P2 (SOC, SOC, Op_RegVMask, 2, p2->as_VMReg());
-  reg_def P3 (SOC, SOC, Op_RegVMask, 3, p3->as_VMReg());
-  reg_def P4 (SOC, SOC, Op_RegVMask, 4, p4->as_VMReg());
-  reg_def P5 (SOC, SOC, Op_RegVMask, 5, p5->as_VMReg());
-  reg_def P6 (SOC, SOC, Op_RegVMask, 6, p6->as_VMReg());
-  reg_def P7 (SOC, SOC, Op_RegVMask, 7, p7->as_VMReg());
+reg_def P0 (SOC, SOC, Op_RegVMask, 0, p0->as_VMReg());
+reg_def P1 (SOC, SOC, Op_RegVMask, 1, p1->as_VMReg());
+reg_def P2 (SOC, SOC, Op_RegVMask, 2, p2->as_VMReg());
+reg_def P3 (SOC, SOC, Op_RegVMask, 3, p3->as_VMReg());
+reg_def P4 (SOC, SOC, Op_RegVMask, 4, p4->as_VMReg());
+reg_def P5 (SOC, SOC, Op_RegVMask, 5, p5->as_VMReg());
+reg_def P6 (SOC, SOC, Op_RegVMask, 6, p6->as_VMReg());
+reg_def P7 (SOC, SOC, Op_RegVMask, 7, p7->as_VMReg());
+
 
 // ----------------------------
 // Special Registers
@@ -507,7 +508,6 @@ alloc_class chunk0(
     R15, R15_H,
     R16, R16_H,
     R17, R17_H,
-    R18, R18_H,
 
     // arg registers
     R0, R0_H,
@@ -530,7 +530,7 @@ alloc_class chunk0(
     R26, R26_H,
 
     // non-allocatable registers
-
+    R18, R18_H, // platform
     R27, R27_H, // heapbase
     R28, R28_H, // thread
     R29, R29_H, // fp
@@ -702,7 +702,10 @@ reg_class no_special_reg32_no_fp(
     R15,
     R16,
     R17,
+#ifndef R18_RESERVED
+    // See comment in register_aarch64.hpp
     R18,
+#endif
     R19,
     R20,
     R21,
@@ -735,7 +738,10 @@ reg_class no_special_reg32_with_fp(
     R15,
     R16,
     R17,
+#ifndef R18_RESERVED
+    // See comment in register_aarch64.hpp
     R18,
+#endif
     R19,
     R20,
     R21,
@@ -771,7 +777,10 @@ reg_class no_special_reg_no_fp(
     R15, R15_H,
     R16, R16_H,
     R17, R17_H,
+#ifndef R18_RESERVED
+    // See comment in register_aarch64.hpp
     R18, R18_H,
+#endif
     R19, R19_H,
     R20, R20_H,
     R21, R21_H,
@@ -804,7 +813,10 @@ reg_class no_special_reg_with_fp(
     R15, R15_H,
     R16, R16_H,
     R17, R17_H,
+#ifndef R18_RESERVED
+    // See comment in register_aarch64.hpp
     R18, R18_H,
+#endif
     R19, R19_H,
     R20, R20_H,
     R21, R21_H,
@@ -944,7 +956,10 @@ reg_class no_special_ptr_reg(
     R15, R15_H,
     R16, R16_H,
     R17, R17_H,
+#ifndef R18_RESERVED
+    // See comment in register_aarch64.hpp
     R18, R18_H,
+#endif
     R19, R19_H,
     R20, R20_H,
     R21, R21_H,
@@ -2745,6 +2760,13 @@ const RegMask Matcher::method_handle_invoke_SP_save_mask() {
 bool size_fits_all_mem_uses(AddPNode* addp, int shift) {
   for (DUIterator_Fast imax, i = addp->fast_outs(imax); i < imax; i++) {
     Node* u = addp->fast_out(i);
+    if (u->is_LoadStore()) {
+      // On AArch64, LoadStoreNodes (i.e. compare and swap
+      // instructions) only take register indirect as an operand, so
+      // any attempt to use an AddPNode as an input to a LoadStoreNode
+      // must fail.
+      return false;
+    }
     if (u->is_Mem()) {
       int opsize = u->as_Mem()->memory_size();
       assert(opsize > 0, "unexpected memory operand size");
@@ -3460,7 +3482,7 @@ encode %{
         if (con < (address)(uintptr_t)os::vm_page_size()) {
           __ mov(dst_reg, con);
         } else {
-          uintptr_t offset;
+          uint64_t offset;
           __ adrp(dst_reg, con, offset);
           __ add(dst_reg, dst_reg, offset);
         }
