@@ -173,9 +173,9 @@ class Address {
   Address(Register r, long o)
     : _base(r),     _offset(o), _mode(base_plus_offset), _target(NULL) { }
   Address(Register r, long long o)
-     : _base(r),     _offset(o), _mode(base_plus_offset), _target(NULL) { }
+    : _base(r),     _offset(o), _mode(base_plus_offset), _target(NULL) { }
   Address(Register r, unsigned int o)
-     : _base(r),     _offset(o), _mode(base_plus_offset), _target(NULL) { }
+    : _base(r),     _offset(o), _mode(base_plus_offset), _target(NULL) { }
   Address(Register r, unsigned long o)
     : _base(r),     _offset(o), _mode(base_plus_offset), _target(NULL) { }
   Address(Register r, unsigned long long o)

@@ -476,6 +476,7 @@ class MacroAssembler: public Assembler {
   void pop_reg(Register Rd);
   int  push_reg(unsigned int bitset, Register stack);
   int  pop_reg(unsigned int bitset, Register stack);
+  static RegSet call_clobbered_registers();
   void push_call_clobbered_registers();
   void pop_call_clobbered_registers();
   void pusha();
@@ -493,9 +494,15 @@ class MacroAssembler: public Assembler {
   }
 
   // mv
-  void mv(Register Rd, int64_t imm64);
-  void mv(Register Rd, int imm);
-  void mvw(Register Rd, int32_t imm32);
+  inline void mv(Register Rd, int imm64)                { li(Rd, (int64_t)imm64); }
+  inline void mv(Register Rd, long imm64)               { li(Rd, (int64_t)imm64); }
+  inline void mv(Register Rd, long long imm64)          { li(Rd, (int64_t)imm64); }
+  inline void mv(Register Rd, unsigned int imm64)       { li(Rd, (int64_t)imm64); }
+  inline void mv(Register Rd, unsigned long imm64)      { li(Rd, (int64_t)imm64); }
+  inline void mv(Register Rd, unsigned long long imm64) { li(Rd, (int64_t)imm64); }
+
+  inline void mvw(Register Rd, int32_t imm32) { mv(Rd, imm32); }
+
   void mv(Register Rd, Address dest);
   void mv(Register Rd, address addr);
   void mv(Register Rd, RegisterOrConstant src);
