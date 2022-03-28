@@ -42,7 +42,6 @@ include CoreLibraries.gmk
 $(eval $(call SetupJdkLibrary, BUILD_LIBNET, \
     NAME := net, \
     OPTIMIZATION := LOW, \
-    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     CFLAGS := $(CFLAGS_JDKLIB), \
     DISABLED_WARNINGS_gcc := format-nonliteral, \
     DISABLED_WARNINGS_clang := parentheses-equality constant-logical-operand, \

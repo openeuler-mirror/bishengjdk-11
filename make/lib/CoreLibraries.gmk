@@ -75,7 +75,6 @@ endif
 
 $(eval $(call SetupJdkLibrary, BUILD_LIBVERIFY, \
     NAME := verify, \
-    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     OPTIMIZATION := $(LIBVERIFY_OPTIMIZATION), \
     CFLAGS := $(CFLAGS_JDKLIB), \
     DISABLED_WARNINGS_gcc := implicit-fallthrough, \
@@ -105,7 +104,6 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJAVA, \
     System.c_CFLAGS := $(VERSION_CFLAGS), \
     jdk_util.c_CFLAGS := $(VERSION_CFLAGS), \
     EXTRA_HEADER_DIRS := libfdlibm, \
-    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     WARNINGS_AS_ERRORS_xlc := false, \
     DISABLED_WARNINGS_gcc := unused-result, \
     DISABLED_WARNINGS_solstudio := E_STATEMENT_NOT_REACHED, \
@@ -147,7 +145,6 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBZIP, \
     NAME := zip, \
     OPTIMIZATION := LOW, \
     EXCLUDES := $(LIBZIP_EXCLUDES), \
-    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     CFLAGS := $(CFLAGS_JDKLIB) \
         $(LIBZ_CFLAGS), \
     CFLAGS_unix := $(BUILD_LIBZIP_MMAP) -UDEBUG, \
@@ -167,7 +164,6 @@ TARGETS += $(BUILD_LIBZIP)
 $(eval $(call SetupJdkLibrary, BUILD_LIBJIMAGE, \
     NAME := jimage, \
     TOOLCHAIN := TOOLCHAIN_LINK_CXX, \
-    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     OPTIMIZATION := LOW, \
     CFLAGS := $(CFLAGS_JDKLIB), \
     CXXFLAGS := $(CXXFLAGS_JDKLIB), \
@@ -241,7 +237,6 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJLI, \
     OUTPUT_DIR := $(LIBJLI_OUTPUT_DIR), \
     EXCLUDE_FILES := $(LIBJLI_EXCLUDE_FILES), \
     EXTRA_FILES := $(LIBJLI_EXTRA_FILES), \
-    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     OPTIMIZATION := HIGH, \
     CFLAGS := $(CFLAGS_JDKLIB) $(LIBJLI_CFLAGS), \
     DISABLED_WARNINGS_gcc := unused-function implicit-fallthrough, \

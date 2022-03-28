@@ -93,7 +93,6 @@ $(eval $(call SetupJdkExecutable, BUILD_UNPACKEXE, \
     MANIFEST := $(TOPDIR)/src/jdk.pack/windows/native/unpack200/unpack200_proto.exe.manifest, \
     MANIFEST_VERSION := $(VERSION_NUMBER_FOUR_POSITIONS), \
     EXTRA_OBJECT_FILES := $(UNPACKEXE_ZIPOBJS) \
-                          $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX) \
 ))
 
 TARGETS += $(BUILD_UNPACKEXE)

@@ -36,7 +36,6 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBUNPACK, \
         -DNO_ZLIB -DUNPACK_JNI -DFULL, \
     CFLAGS_release := -DPRODUCT, \
     EXTRA_HEADER_DIRS := $(call GetJavaHeaderDir, java.base), \
-    EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
     DISABLED_WARNINGS_gcc := implicit-fallthrough, \
     LDFLAGS := $(LDFLAGS_JDKLIB) $(LDFLAGS_CXX_JDK) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \

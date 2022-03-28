@@ -32,7 +32,6 @@ ifeq ($(ENABLE_KAE), true)
     $(eval $(call SetupJdkLibrary, BUILD_LIBJ2KAE, \
         NAME := j2kae, \
         OPTIMIZATION := LOW, \
-        EXTRA_OBJECT_FILES := $(SUPPORT_OUTPUTDIR)/memcpy$(OBJ_SUFFIX), \
         CFLAGS := $(CFLAGS_JDKLIB), \
         LDFLAGS := $(LDFLAGS_JDKLIB) \
             $(call SET_SHARED_LIBRARY_ORIGIN), \
