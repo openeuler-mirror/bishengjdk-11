@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -53,12 +53,12 @@ public class VerifyCACerts {
             + File.separator + "security" + File.separator + "cacerts";
 
     // The numbers of certs now.
-    private static final int COUNT = 84;
+    private static final int COUNT = 86;
 
     // SHA-256 of cacerts, can be generated with
     // shasum -a 256 cacerts | sed -e 's/../&:/g' | tr '[:lower:]' '[:upper:]' | cut -c1-95
     private static final String CHECKSUM
-            = "D3:05:21:64:FA:D7:CD:29:E8:CB:57:E7:47:ED:79:9B:47:D8:0E:75:2D:CA:83:BB:86:AF:D9:43:FD:3E:17:85";
+            = "89:78:5A:96:F4:B2:68:4C:91:C0:32:2C:ED:2D:6B:3B:26:B8:37:C3:07:DD:9E:50:87:53:53:7A:24:98:97:E0";
 
     // map of cert alias to SHA-256 fingerprint
     @SuppressWarnings("serial")
@@ -92,6 +92,12 @@ public class VerifyCACerts {
                     "E7:93:C9:B0:2F:D8:AA:13:E2:1C:31:22:8A:CC:B0:81:19:64:3B:74:9C:89:89:64:B1:74:6D:46:C3:D4:CB:D2");
             put("usertrusteccca [jdk]",
                     "4F:F4:60:D5:4B:9C:86:DA:BF:BC:FC:57:12:E0:40:0D:2B:ED:3F:BC:4D:4F:BD:AA:86:E0:6A:DC:D2:A9:AD:7A");
+            put("utnuserfirstobjectca [jdk]",
+                    "6F:FF:78:E4:00:A7:0C:11:01:1C:D8:59:77:C4:59:FB:5A:F9:6A:3D:F0:54:08:20:D0:F4:B8:60:78:75:E5:8F");
+            put("addtrustexternalca [jdk]",
+                    "68:7F:A4:51:38:22:78:FF:F0:C8:B1:1F:8D:43:D5:76:67:1C:6E:B2:BC:EA:B4:13:FB:83:D9:65:D0:6D:2F:F2");
+            put("addtrustqualifiedca [jdk]",
+                    "80:95:21:08:05:DB:4B:BC:35:5E:44:28:D8:FD:6E:C2:CD:E3:AB:5F:B9:7A:99:42:98:8E:B8:F4:DC:D0:60:16");
             put("baltimorecybertrustca [jdk]",
                     "16:AF:57:A9:F6:76:B0:AB:12:60:95:AA:5E:BA:DE:F2:2A:B3:11:19:D6:44:AC:95:CD:4B:93:DB:F3:F2:6A:EB");
             put("digicertglobalrootca [jdk]",
@@ -110,8 +116,6 @@ public class VerifyCACerts {
                     "7E:37:CB:8B:4C:47:09:0C:AB:36:55:1B:A6:F4:5D:B8:40:68:0F:BA:16:6A:95:2D:B1:00:71:7F:43:05:3F:C2");
             put("digicerthighassuranceevrootca [jdk]",
                     "74:31:E5:F4:C3:C1:CE:46:90:77:4F:0B:61:E0:54:40:88:3B:A9:A0:1E:D0:0B:A6:AB:D7:80:6E:D3:B1:18:CF");
-            put("geotrustglobalca [jdk]",
-                    "FF:85:6A:2D:25:1D:CD:88:D3:66:56:F4:50:12:67:98:CF:AB:AA:DE:40:79:9C:72:2D:E4:D2:B5:DB:36:A7:3A");
             put("geotrustprimaryca [jdk]",
                     "37:D5:10:06:C5:12:EA:AB:62:64:21:F1:EC:8C:92:01:3F:C5:F8:2A:E9:8E:E5:33:EB:46:19:B8:DE:B4:D0:6C");
             put("geotrustprimarycag2 [jdk]",
@@ -240,14 +244,12 @@ public class VerifyCACerts {
     @SuppressWarnings("serial")
     private static final HashSet<String> EXPIRY_EXC_ENTRIES = new HashSet<>() {
         {
-            // Valid until: Wed Mar 17 02:51:37 PDT 2021
-            add("luxtrustglobalrootca [jdk]");
-            // Valid until: Wed Mar 17 11:33:33 PDT 2021
-            add("quovadisrootca [jdk]");
-	    // Valid until: Wed Dec 15 08:00:00 UTC 2021
-	    add("globalsignr2ca [jdk]");
-	    // Valid until: Thu Sep 30 14:01:15 UTC 2021
-	    add("identrustdstx3 [jdk]");
+            // Valid until: Tue Jul 09 14:40:36 EDT 2019
+            add("utnuserfirstobjectca [jdk]");
+            // Valid until: Sat May 30 10:38:31 GMT 2020
+            add("addtrustexternalca [jdk]");
+            // Valid until: Sat May 30 10:44:50 GMT 2020
+            add("addtrustqualifiedca [jdk]");
         }
     };
 
