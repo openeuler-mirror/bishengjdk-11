@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -913,7 +913,7 @@ void InterpreterMacroAssembler::test_method_data_pointer(Register mdp,
 void InterpreterMacroAssembler::set_method_data_pointer_for_bcp() {
   assert(ProfileInterpreter, "must be profiling interpreter");
   Label set_mdp;
-  push_reg(0xc00, sp); // save x10, x11
+  push_reg(RegSet::of(x10, x11), sp); // save x10, x11
 
   // Test MDO to avoid the call if it is NULL.
   ld(x10, Address(xmethod, in_bytes(Method::method_data_offset())));
@@ -926,7 +926,7 @@ void InterpreterMacroAssembler::set_method_data_pointer_for_bcp() {
   add(x10, x11, x10);
   sd(x10, Address(fp, frame::interpreter_frame_mdp_offset * wordSize));
   bind(set_mdp);
-  pop_reg(0xc00, sp);
+  pop_reg(RegSet::of(x10, x11), sp);
 }
 
 void InterpreterMacroAssembler::verify_method_data_pointer() {

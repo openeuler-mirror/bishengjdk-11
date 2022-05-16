@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1464,7 +1464,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
 
   // Generate stack overflow check
   if (UseStackBanging) {
-    __ bang_stack_with_offset(JavaThread::stack_shadow_zone_size());
+    __ bang_stack_with_offset(checked_cast<int>(JavaThread::stack_shadow_zone_size()));
   } else {
     Unimplemented();
   }
@@ -2340,7 +2340,7 @@ void SharedRuntime::generate_deopt_blob() {
   __ sub(sp, sp, x9);
 
   // Push interpreter frames in a loop
-  __ li(t0, 0xDEADDEAD);               // Make a recognizable pattern
+  __ li(t0, (uint64_t)0xDEADDEAD);     // Make a recognizable pattern
   __ mv(t1, t0);
   Label loop;
   __ bind(loop);

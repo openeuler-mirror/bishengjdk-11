@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -122,7 +122,7 @@ void LIR_Assembler::arith_op_single_cpu_right_constant(LIR_Code code, LIR_Opr le
         case lir_sub: __ subw(dreg, lreg, c); break;
         default:      ShouldNotReachHere();
       }
-    break;
+      break;
     case T_OBJECT:  // fall through
     case T_ADDRESS:
       switch (code) {
@@ -130,8 +130,9 @@ void LIR_Assembler::arith_op_single_cpu_right_constant(LIR_Code code, LIR_Opr le
         case lir_sub: __ sub(dreg, lreg, c); break;
         default:      ShouldNotReachHere();
       }
-    break;
-    ShouldNotReachHere();
+      break;
+    default:
+      ShouldNotReachHere();
   }
 }
 

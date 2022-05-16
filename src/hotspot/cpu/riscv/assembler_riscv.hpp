@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -193,7 +193,7 @@ class Address {
   Address(address target, relocInfo::relocType rtype = relocInfo::external_word_type);
 
   const Register base() const {
-    guarantee((_mode == base_plus_offset | _mode == pcrel | _mode == literal), "wrong mode");
+    guarantee((_mode == base_plus_offset || _mode == pcrel || _mode == literal), "wrong mode");
     return _base;
   }
   long offset() const {
@@ -318,7 +318,7 @@ public:
   static inline uint32_t extract(uint32_t val, unsigned msb, unsigned lsb) {
     assert_cond(msb >= lsb && msb <= 31);
     unsigned nbits = msb - lsb + 1;
-    uint32_t mask = (1U << nbits) - 1;
+    uint32_t mask = checked_cast<uint32_t>(right_n_bits(nbits));
     uint32_t result = val >> lsb;
     result &= mask;
     return result;
@@ -335,8 +335,8 @@ public:
     assert_cond(a != NULL);
     assert_cond(msb >= lsb && msb <= 31);
     unsigned nbits = msb - lsb + 1;
-    guarantee(val < (1U << nbits), "Field too big for insn");
-    unsigned mask = (1U << nbits) - 1;
+    guarantee(val < (1ULL << nbits), "Field too big for insn");
+    unsigned mask = checked_cast<unsigned>(right_n_bits(nbits));
     val <<= lsb;
     mask <<= lsb;
     unsigned target = *(unsigned *)a;

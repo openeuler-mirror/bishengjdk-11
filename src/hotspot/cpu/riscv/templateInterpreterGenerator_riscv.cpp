@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -954,7 +954,7 @@ void TemplateInterpreterGenerator::bang_stack_shadow_pages(bool native_call) {
   // an interpreter frame with greater than a page of locals, so each page
   // needs to be checked.  Only true for non-native.
   if (UseStackBanging) {
-    const int n_shadow_pages = JavaThread::stack_shadow_zone_size() / os::vm_page_size();
+    const int n_shadow_pages = checked_cast<int>(JavaThread::stack_shadow_zone_size()) / os::vm_page_size();
     const int start_page = native_call ? n_shadow_pages : 1;
     const int page_size = os::vm_page_size();
     for (int pages = start_page; pages <= n_shadow_pages ; pages++) {
@@ -1263,11 +1263,11 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     __ addi(t1, zr, JavaThread::stack_guard_yellow_reserved_disabled);
     __ bne(t0, t1, no_reguard);
 
-    __ pusha(); // only save smashed registers
+    __ push_call_clobbered_registers();
     __ mv(c_rarg0, xthread);
     __ mv(t1, CAST_FROM_FN_PTR(address, SharedRuntime::reguard_yellow_pages));
     __ jalr(t1);
-    __ popa(); // only restore smashed registers
+    __ pop_call_clobbered_registers();
     __ bind(no_reguard);
   }
 
