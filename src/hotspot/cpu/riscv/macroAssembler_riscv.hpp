@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2015, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -139,13 +139,6 @@ class MacroAssembler: public Assembler {
 
   // thread in the default location (xthread)
   void reset_last_Java_frame(bool clear_fp);
-
-  void call_native(address entry_point,
-                   Register arg_0);
-  void call_native_base(
-    address entry_point,                // the entry point
-    Label*  retaddr = NULL
-  );
 
   virtual void call_VM_leaf_base(
     address entry_point,                // the entry point
@@ -479,8 +472,6 @@ class MacroAssembler: public Assembler {
   static RegSet call_clobbered_registers();
   void push_call_clobbered_registers();
   void pop_call_clobbered_registers();
-  void pusha();
-  void popa();
   void push_CPU_state(bool save_vectors = false, int vector_size_in_bytes = 0);
   void pop_CPU_state(bool restore_vectors = false, int vector_size_in_bytes = 0);
 

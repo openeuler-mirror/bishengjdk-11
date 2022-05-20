@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -513,7 +513,7 @@ void MacroAssembler::resolve_jobject(Register value, Register thread, Register t
 
 void MacroAssembler::stop(const char* msg) {
   address ip = pc();
-  pusha();
+  push_reg(RegSet::range(x0, x31), sp);
   if(msg != NULL && ip != NULL) {
     li(c_rarg0, (uintptr_t)(address)msg);
     li(c_rarg1, (uintptr_t)(address)ip);
@@ -550,28 +550,19 @@ void MacroAssembler::emit_static_call_stub() {
   movptr_with_offset(t0, 0, offset);
   jalr(x0, t0, offset);
 }
+
 void MacroAssembler::call_VM_leaf_base(address entry_point,
                                        int number_of_arguments,
                                        Label *retaddr) {
-  call_native_base(entry_point, retaddr);
-  ifence();
-}
-
-void MacroAssembler::call_native(address entry_point, Register arg_0) {
-  pass_arg0(this, arg_0);
-  call_native_base(entry_point);
-}
-
-void MacroAssembler::call_native_base(address entry_point, Label *retaddr) {
-  Label E, L;
   int32_t offset = 0;
-  push_reg(0x80000040, sp);   // push << t0 & xmethod >> to sp
+  push_reg(RegSet::of(t0, xmethod), sp);   // push << t0 & xmethod >> to sp
   movptr_with_offset(t0, entry_point, offset);
   jalr(x1, t0, offset);
   if (retaddr != NULL) {
     bind(*retaddr);
   }
-  pop_reg(0x80000040, sp);   // pop << t0 & xmethod >> from sp
+  pop_reg(RegSet::of(t0, xmethod), sp);   // pop << t0 & xmethod >> from sp
+  ifence();
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, int number_of_arguments) {
@@ -1126,18 +1117,9 @@ void MacroAssembler::pop_call_clobbered_registers() {
   pop_reg(call_clobbered_registers(), sp);
 }
 
-// Push all the integer registers, except zr(x0) & sp(x2).
-void MacroAssembler::pusha() {
-  push_reg(0xfffffffa, sp);
-}
-
-void MacroAssembler::popa() {
-  pop_reg(0xfffffffa, sp);
-}
-
 void MacroAssembler::push_CPU_state(bool save_vectors, int vector_size_in_bytes) {
   // integer registers, except zr(x0) & ra(x1) & sp(x2)
-  push_reg(0xfffffff8, sp);
+  push_reg(RegSet::range(x3, x31), sp);
 
   // float registers
   addi(sp, sp, - 32 * wordSize);
@@ -1173,7 +1155,7 @@ void MacroAssembler::pop_CPU_state(bool restore_vectors, int vector_size_in_byte
   addi(sp, sp, 32 * wordSize);
 
   // integer registers, except zr(x0) & ra(x1) & sp(x2)
-  pop_reg(0xfffffff8, sp);
+  pop_reg(RegSet::range(x3, x31), sp);
 }
 
 static int patch_offset_in_jal(address branch, int64_t offset) {

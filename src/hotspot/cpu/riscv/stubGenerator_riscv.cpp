@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2020, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -535,7 +535,7 @@ class StubGenerator: public StubCodeGenerator {
 
     Label exit, error;
 
-    __ push_reg(0x3000, sp);   // save c_rarg2 and c_rarg3
+    __ push_reg(RegSet::of(c_rarg2, c_rarg3), sp);   // save c_rarg2 and c_rarg3
 
     __ la(c_rarg2, ExternalAddress((address) StubRoutines::verify_oop_count_addr()));
     __ ld(c_rarg3, Address(c_rarg2));
@@ -561,14 +561,14 @@ class StubGenerator: public StubCodeGenerator {
     // return if everything seems ok
     __ bind(exit);
 
-    __ pop_reg(0x3000, sp);   // pop c_rarg2 and c_rarg3
+    __ pop_reg(RegSet::of(c_rarg2, c_rarg3), sp);   // pop c_rarg2 and c_rarg3
     __ ret();
 
     // handle errors
     __ bind(error);
-    __ pop_reg(0x3000, sp);   // pop c_rarg2 and c_rarg3
+    __ pop_reg(RegSet::of(c_rarg2, c_rarg3), sp);   // pop c_rarg2 and c_rarg3
 
-    __ pusha();
+    __ push_reg(RegSet::range(x0, x31), sp);
     // prepare parameters for debug64, c_rarg0: address of error message,
     // c_rarg1: return address, c_rarg2: address of regs on stack
     __ mv(c_rarg0, t0);             // pass address of error message
@@ -953,7 +953,7 @@ class StubGenerator: public StubCodeGenerator {
 
   // Scan over array at a for count oops, verifying each one.
   // Preserves a and count, clobbers t0 and t1.
-  void verify_oop_array(size_t size, Register a, Register count, Register temp) {
+  void verify_oop_array(int size, Register a, Register count, Register temp) {
     Label loop, end;
     __ mv(t1, zr);
     __ slli(t0, count, exact_log2(size));
@@ -961,7 +961,7 @@ class StubGenerator: public StubCodeGenerator {
     __ bgeu(t1, t0, end);
 
     __ add(temp, a, t1);
-    if (size == (size_t)wordSize) {
+    if (size == wordSize) {
       __ ld(temp, Address(temp, 0));
       __ verify_oop(temp);
     } else {
@@ -1022,12 +1022,12 @@ class StubGenerator: public StubCodeGenerator {
       // save regs before copy_memory
       __ push_reg(RegSet::of(d, count), sp);
     }
-    copy_memory(aligned, s, d, count, t0, size);
+    copy_memory(aligned, s, d, count, t0, checked_cast<int>(size));
 
     if (is_oop) {
       __ pop_reg(RegSet::of(d, count), sp);
       if (VerifyOops) {
-        verify_oop_array(size, d, count, t2);
+        verify_oop_array(checked_cast<int>(size), d, count, t2);
       }
     }
 
@@ -1054,7 +1054,7 @@ class StubGenerator: public StubCodeGenerator {
   // the hardware handle it.  The two dwords within qwords that span
   // cache line boundaries will still be loaded and stored atomically.
   //
-  address generate_conjoint_copy(size_t size, bool aligned, bool is_oop, address nooverlap_target,
+  address generate_conjoint_copy(int size, bool aligned, bool is_oop, address nooverlap_target,
                                  address* entry, const char* name,
                                  bool dest_uninitialized = false) {
     const Register s = c_rarg0, d = c_rarg1, count = c_rarg2;
@@ -1302,7 +1302,7 @@ class StubGenerator: public StubCodeGenerator {
   address generate_disjoint_oop_copy(bool aligned, address* entry,
                                      const char* name, bool dest_uninitialized) {
     const bool is_oop = true;
-    const size_t size = UseCompressedOops ? sizeof (jint) : sizeof (jlong);
+    const int size = UseCompressedOops ? sizeof (jint) : sizeof (jlong);
     return generate_disjoint_copy(size, aligned, is_oop, entry, name, dest_uninitialized);
   }
 
@@ -1320,7 +1320,7 @@ class StubGenerator: public StubCodeGenerator {
                                      address nooverlap_target, address* entry,
                                      const char* name, bool dest_uninitialized) {
     const bool is_oop = true;
-    const size_t size = UseCompressedOops ? sizeof (jint) : sizeof (jlong);
+    const int size = UseCompressedOops ? sizeof (jint) : sizeof (jlong);
     return generate_conjoint_copy(size, aligned, is_oop, nooverlap_target, entry,
                                   name, dest_uninitialized);
   }

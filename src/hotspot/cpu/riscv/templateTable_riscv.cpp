@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -98,10 +98,6 @@ static inline Address daddress(Register r, Register temp,
 
 static inline Address aaddress(Register r, Register temp, InterpreterMacroAssembler* _masm) {
   return iaddress(r, temp, _masm);
-}
-
-static inline Address at_rsp() {
-  return Address(esp, 0);
 }
 
 // At top of Java expression stack which may be different than esp().  It
@@ -2340,6 +2336,7 @@ void TemplateTable::resolve_cache_and_index(int byte_no,
   switch (code) {
     case Bytecodes::_nofast_getfield: code = Bytecodes::_getfield; break;
     case Bytecodes::_nofast_putfield: code = Bytecodes::_putfield; break;
+    default: break;
   }
 
   assert(byte_no == f1_byte || byte_no == f2_byte, "byte_no out of range");
