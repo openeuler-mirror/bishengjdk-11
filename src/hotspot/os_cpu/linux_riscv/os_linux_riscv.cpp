@@ -349,6 +349,15 @@ JVM_handle_linux_signal(int sig,
     }
   }
 
+  // Handle SafeFetch faults
+  if (uc != NULL) {
+    address const pc = (address) os::Linux::ucontext_get_pc(uc);
+    if (StubRoutines::is_safefetch_fault(pc)) {
+      os::Linux::ucontext_set_pc(uc, StubRoutines::continuation_for_safefetch_fault(pc));
+      return 1;
+    }
+  }
+
   // decide if this trap can be handled by a stub
   address stub = NULL;
 
@@ -357,11 +366,6 @@ JVM_handle_linux_signal(int sig,
   //%note os_trap_1
   if (info != NULL && uc != NULL && thread != NULL) {
     pc = (address) os::Linux::ucontext_get_pc(uc);
-
-    if (StubRoutines::is_safefetch_fault(pc)) {
-      os::Linux::ucontext_set_pc(uc, StubRoutines::continuation_for_safefetch_fault(pc));
-      return 1;
-    }
 
     // Handle ALL stack overflow variations here
     if (sig == SIGSEGV) {
