@@ -892,9 +892,10 @@ class StubGenerator: public StubCodeGenerator {
     assert_different_registers(t0, thirty_two, alsrc, shr, shl);
     int unit = is_backwards ? -wordSize : wordSize;
     int offset = is_backwards ? -wordSize : 0;
-    Label loop;
+    Label loop, done;
 
     __ li(thirty_two, 32);
+    __ blt(count_in_bytes, thirty_two, done);
 
     __ bind(loop);
     __ ld(tmp2, alsrc, unit);
@@ -925,6 +926,8 @@ class StubGenerator: public StubCodeGenerator {
     __ add(dst, dst, unit * 4);
     __ sub(count_in_bytes, count_in_bytes, 32);
     __ bge(count_in_bytes, thirty_two, loop);
+
+    __ bind(done);
   }
 
   void dst_aligned_copy_8bytes_loop(Register alsrc, Register dst,
