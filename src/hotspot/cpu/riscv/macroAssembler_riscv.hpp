@@ -48,17 +48,19 @@ class MacroAssembler: public Assembler {
   void align(int modulus);
 
   // Stack frame creation/removal
+  // Note that SP must be updated to the right place before saving/restoring RA and FP
+  // because signal based thread suspend/resume could happend asychronously
   void enter() {
     addi(sp, sp, - 2 * wordSize);
     sd(lr, Address(sp, wordSize));
     sd(fp, Address(sp));
-    mv(fp, sp);
+    addi(fp, sp, 2 * wordSize);
   }
 
   void leave() {
-    mv(sp, fp);
+    addi(sp, fp, - 2 * wordSize);
     ld(fp, Address(sp));
-    ld(lr, Address(sp, wordSize));
+    ld(ra, Address(sp, wordSize));
     addi(sp, sp, 2 * wordSize);
   }
 
