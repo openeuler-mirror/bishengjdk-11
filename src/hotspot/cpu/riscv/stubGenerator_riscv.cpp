@@ -97,7 +97,7 @@ class StubGenerator: public StubCodeGenerator {
   // There is no return from the stub itself as any Java result
   // is written to result
   //
-  // we save x1 (lr) as the return PC at the base of the frame and
+  // we save x1 (ra) as the return PC at the base of the frame and
   // link x8 (fp) below it as the frame pointer installing sp (x2)
   // into fp.
   //
@@ -144,7 +144,7 @@ class StubGenerator: public StubCodeGenerator {
   //  -4 [ parameter size (x16) ]
   //  -3 [ thread         (x17) ]
   //  -2 [ saved fp       (x8)  ] 
-  //  -1 [ saved lr       (x1)  ] 
+  //  -1 [ saved ra       (x1)  ] 
   //   0 [                      ] <--- fp == saved sp (x2)
 
   // Call stub stack layout word offsets from fp
@@ -439,7 +439,7 @@ class StubGenerator: public StubCodeGenerator {
   // x10: exception
   // x13: throwing pc
   //
-  // NOTE: At entry of this stub, exception-pc must be in LR !!
+  // NOTE: At entry of this stub, exception-pc must be in RA !!
 
   // NOTE: this is always used as a jump target within generated code
   // so it just needs to be generated code with no x86 prolog
@@ -448,7 +448,7 @@ class StubGenerator: public StubCodeGenerator {
     StubCodeMark mark(this, "StubRoutines", "forward exception");
     address start = __ pc();
 
-    // Upon entry, LR points to the return address returning into
+    // Upon entry, RA points to the return address returning into
     // Java (interpreted or compiled) code; i.e., the return address
     // becomes the throwing pc.
     //
@@ -472,24 +472,24 @@ class StubGenerator: public StubCodeGenerator {
 
     // call the VM to find the handler address associated with the
     // caller address. pass thread in x10 and caller pc (ret address)
-    // in x11. n.b. the caller pc is in lr, unlike x86 where it is on
+    // in x11. n.b. the caller pc is in ra, unlike x86 where it is on
     // the stack.
-    __ mv(c_rarg1, lr);
-    // lr will be trashed by the VM call so we move it to x9
+    __ mv(c_rarg1, ra);
+    // ra will be trashed by the VM call so we move it to x9
     // (callee-saved) because we also need to pass it to the handler
     // returned by this call.
-    __ mv(x9, lr);
+    __ mv(x9, ra);
     BLOCK_COMMENT("call exception_handler_for_return_address");
     __ call_VM_leaf(CAST_FROM_FN_PTR(address,
                          SharedRuntime::exception_handler_for_return_address),
                     xthread, c_rarg1);
-    // we should not really care that lr is no longer the callee
+    // we should not really care that ra is no longer the callee
     // address. we saved the value the handler needs in x9 so we can
     // just copy it to x13. however, the C2 handler will push its own
     // frame and then calls into the VM and the VM code asserts that
     // the PC for the frame above the handler belongs to a compiled
-    // Java method. So, we restore lr here to satisfy that assert.
-    __ mv(lr, x9);
+    // Java method. So, we restore ra here to satisfy that assert.
+    __ mv(ra, x9);
     // setup x10 & x13 & clear pending exception
     __ mv(x13, x9);
     __ mv(x9, x10);
@@ -525,7 +525,7 @@ class StubGenerator: public StubCodeGenerator {
   // Stack after saving c_rarg3:
   //    [tos + 0]: saved c_rarg3
   //    [tos + 1]: saved c_rarg2
-  //    [tos + 2]: saved lr
+  //    [tos + 2]: saved ra
   //    [tos + 3]: saved t1
   //    [tos + 4]: saved x10
   //    [tos + 5]: saved t0
@@ -573,7 +573,7 @@ class StubGenerator: public StubCodeGenerator {
     // prepare parameters for debug64, c_rarg0: address of error message,
     // c_rarg1: return address, c_rarg2: address of regs on stack
     __ mv(c_rarg0, t0);             // pass address of error message
-    __ mv(c_rarg1, lr);             // pass return address
+    __ mv(c_rarg1, ra);             // pass return address
     __ mv(c_rarg2, sp);             // pass address of regs on stack
 #ifndef PRODUCT
     assert(frame::arg_reg_save_area_bytes == 0, "not expecting frame reg save area");
@@ -2867,11 +2867,11 @@ class StubGenerator: public StubCodeGenerator {
     // thread-local storage and also sets up last_Java_sp slightly
     // differently than the real call_VM
 
-    __ enter(); // Save FP and LR before call
+    __ enter(); // Save FP and RA before call
 
     assert(is_even(framesize / 2), "sp not 16-byte aligned");
 
-    // lr and fp are already in place
+    // ra and fp are already in place
     __ addi(sp, fp, 0 - ((unsigned)framesize << LogBytesPerInt)); // prolog
 
     int frame_complete = __ pc() - start;

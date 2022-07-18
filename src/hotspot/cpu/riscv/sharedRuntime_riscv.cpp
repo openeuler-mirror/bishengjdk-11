@@ -247,7 +247,7 @@ void SharedRuntime::generate_trampoline(MacroAssembler *masm, address destinatio
 // (like the placement of the register window) the slots must be biased by
 // the following value.
 static int reg2offset_in(VMReg r) {
-  // Account for saved fp and lr
+  // Account for saved fp and ra
   // This should really be in_preserve_stack_slots
   return r->reg2stack() * VMRegImpl::stack_slot_size;
 }
@@ -372,7 +372,7 @@ static void patch_callers_callsite(MacroAssembler *masm) {
 #endif
 
   __ mv(c_rarg0, xmethod);
-  __ mv(c_rarg1, lr);
+  __ mv(c_rarg1, ra);
   int32_t offset = 0;
   __ la_patchable(t0, RuntimeAddress(CAST_FROM_FN_PTR(address, SharedRuntime::fixup_callers_callsite)), offset);
   __ jalr(x1, t0, offset);
@@ -1694,7 +1694,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   const Register obj_reg  = x9;  // Will contain the oop
   const Register lock_reg = x30;  // Address of compiler lock object (BasicLock)
   const Register old_hdr  = x30;  // value of old header at unlock time
-  const Register tmp      = lr;
+  const Register tmp      = ra;
 
   Label slow_path_lock;
   Label lock_done;
@@ -2306,9 +2306,9 @@ void SharedRuntime::generate_deopt_blob() {
   __ sub(x12, x12, 2 * wordSize);
   __ add(sp, sp, x12);
   __ ld(fp, Address(sp, 0));
-  __ ld(lr, Address(sp, wordSize));
+  __ ld(ra, Address(sp, wordSize));
   __ addi(sp, sp, 2 * wordSize);
-  // LR should now be the return address to the caller (3)
+  // RA should now be the return address to the caller (3)
 
 #ifdef ASSERT
   // Compilers generate code that bang the stack by as much as the
@@ -2349,7 +2349,7 @@ void SharedRuntime::generate_deopt_blob() {
   __ ld(x9, Address(x14, 0));          // Load frame size
   __ addi(x14, x14, wordSize);
   __ sub(x9, x9, 2 * wordSize);        // We'll push pc and fp by hand
-  __ ld(lr, Address(x12, 0));          // Load pc
+  __ ld(ra, Address(x12, 0));          // Load pc
   __ addi(x12, x12, wordSize);
   __ enter();                          // Save old & set new fp
   __ sub(sp, sp, x9);                  // Prolog
@@ -2361,7 +2361,7 @@ void SharedRuntime::generate_deopt_blob() {
   __ bnez(x13, loop);
 
     // Re-push self-frame
-  __ ld(lr, Address(x12));
+  __ ld(ra, Address(x12));
   __ enter();
 
   // Allocate a full sized register save area.  We subtract 2 because
@@ -2433,11 +2433,11 @@ void SharedRuntime::generate_uncommon_trap_blob() {
 
   address start = __ pc();
 
-  // Push self-frame.  We get here with a return address in LR
+  // Push self-frame.  We get here with a return address in RA
   // and sp should be 16 byte aligned
   // push fp and retaddr by hand
   __ addi(sp, sp, -2 * wordSize);
-  __ sd(lr, Address(sp, wordSize));
+  __ sd(ra, Address(sp, wordSize));
   __ sd(fp, Address(sp, 0));
   // we don't expect an arg reg save area
 #ifndef PRODUCT
@@ -2510,9 +2510,9 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   __ sub(x12, x12, 2 * wordSize);
   __ add(sp, sp, x12);
   __ ld(fp, sp, 0);
-  __ ld(lr, sp, wordSize);
+  __ ld(ra, sp, wordSize);
   __ addi(sp, sp, 2 * wordSize);
-  // LR should now be the return address to the caller (3) frame
+  // RA should now be the return address to the caller (3) frame
 
 #ifdef ASSERT
   // Compilers generate code that bang the stack by as much as the
@@ -2558,7 +2558,7 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   __ bind(loop);
   __ ld(x11, Address(x15, 0));       // Load frame size
   __ sub(x11, x11, 2 * wordSize);    // We'll push pc and fp by hand
-  __ ld(lr, Address(x12, 0));        // Save return address
+  __ ld(ra, Address(x12, 0));        // Save return address
   __ enter();                        // and old fp & set new fp
   __ sub(sp, sp, x11);               // Prolog
   __ sd(sender_sp, Address(fp, frame::interpreter_frame_sender_sp_offset * wordSize)); // Make it walkable
@@ -2569,7 +2569,7 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   __ add(x12, x12, wordSize);        // Bump array pointer (pcs)
   __ subw(x13, x13, 1);              // Decrement counter
   __ bgtz(x13, loop);
-  __ ld(lr, Address(x12, 0));        // save final return address
+  __ ld(ra, Address(x12, 0));        // save final return address
   // Re-push self-frame
   __ enter();                        // & old fp & set new fp
 
@@ -2880,7 +2880,7 @@ void OptoRuntime::generate_exception_blob() {
   // push fp and retaddr by hand
   // Exception pc is 'return address' for stack walker
   __ addi(sp, sp, -2 * wordSize);
-  __ sd(lr, Address(sp, wordSize));
+  __ sd(ra, Address(sp, wordSize));
   __ sd(fp, Address(sp));
   // there are no callee save registers and we don't expect an
   // arg reg save area
