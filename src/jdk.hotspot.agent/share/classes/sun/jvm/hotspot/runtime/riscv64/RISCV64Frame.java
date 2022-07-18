@@ -45,12 +45,12 @@ public class RISCV64Frame extends Frame {
   }
 
   // Java frames
-  private static final int LINK_OFFSET                =  0;
-  private static final int RETURN_ADDR_OFFSET         =  1;
-  private static final int SENDER_SP_OFFSET           =  2;
+  private static final int LINK_OFFSET                =  -2;
+  private static final int RETURN_ADDR_OFFSET         =  -1;
+  private static final int SENDER_SP_OFFSET           =   0;
 
   // Interpreter frames
-  private static final int INTERPRETER_FRAME_SENDER_SP_OFFSET = -1;
+  private static final int INTERPRETER_FRAME_SENDER_SP_OFFSET = -3;
   private static final int INTERPRETER_FRAME_LAST_SP_OFFSET   = INTERPRETER_FRAME_SENDER_SP_OFFSET - 1;
   private static final int INTERPRETER_FRAME_METHOD_OFFSET    = INTERPRETER_FRAME_LAST_SP_OFFSET - 1;
   private static       int INTERPRETER_FRAME_MDX_OFFSET;         // Non-core builds only
@@ -64,7 +64,7 @@ public class RISCV64Frame extends Frame {
   private static       int INTERPRETER_FRAME_MONITOR_BLOCK_BOTTOM_OFFSET;
 
   // Entry frames
-  private static       int ENTRY_FRAME_CALL_WRAPPER_OFFSET = -8;
+  private static       int ENTRY_FRAME_CALL_WRAPPER_OFFSET = -10;
 
   // Native frames
   private static final int NATIVE_FRAME_INITIAL_PARAM_OFFSET =  2;
@@ -385,11 +385,11 @@ public class RISCV64Frame extends Frame {
     Address senderSP = getUnextendedSP().addOffsetTo(cb.getFrameSize());
 
     // The return_address is always the word on the stack
-    Address senderPC = senderSP.getAddressAt(-1 * VM.getVM().getAddressSize());
+    Address senderPC = senderSP.getAddressAt(RETURN_ADDR_OFFSET * VM.getVM().getAddressSize());
 
     // This is the saved value of FP which may or may not really be an FP.
     // It is only an FP if the sender is an interpreter frame.
-    Address savedFPAddr = senderSP.addOffsetTo(- SENDER_SP_OFFSET * VM.getVM().getAddressSize());
+    Address savedFPAddr = senderSP.addOffsetTo(LINK_OFFSET * VM.getVM().getAddressSize());
 
     if (map.getUpdateMap()) {
       // Tell GC to use argument oopmaps for some runtime stubs that need it.

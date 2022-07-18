@@ -2966,7 +2966,7 @@ void MacroAssembler::build_frame(int framesize) {
   sub(sp, sp, framesize);
   sd(fp, Address(sp, framesize - 2 * wordSize));
   sd(lr, Address(sp, framesize - wordSize));
-  if (PreserveFramePointer) { add(fp, sp, framesize - 2 * wordSize); }
+  if (PreserveFramePointer) { add(fp, sp, framesize); }
 }
 
 void MacroAssembler::remove_frame(int framesize) {

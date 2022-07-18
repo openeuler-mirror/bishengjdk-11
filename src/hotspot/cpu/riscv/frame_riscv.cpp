@@ -102,7 +102,7 @@ bool frame::safe_for_sender(JavaThread *thread) {
   // to construct the sender and do some validation of it. This goes a long way
   // toward eliminating issues when we get in frame construction code
 
-  if (_cb != NULL ) {
+  if (_cb != NULL) {
 
     // First check if frame is complete and tester is reliable
     // Unfortunately we can only check frame complete for runtime stubs and nmethod
@@ -137,14 +137,13 @@ bool frame::safe_for_sender(JavaThread *thread) {
         return false;
       }
 
-      sender_pc = (address) this->fp()[return_addr_offset];
+      sender_pc = (address)this->fp()[return_addr_offset];
       // for interpreted frames, the value below is the sender "raw" sp,
       // which can be different from the sender unextended sp (the sp seen
       // by the sender) because of current frame local variables
       sender_sp = (intptr_t*) addr_at(sender_sp_offset);
       sender_unextended_sp = (intptr_t*) this->fp()[interpreter_frame_sender_sp_offset];
       saved_fp = (intptr_t*) this->fp()[link_offset];
-
     } else {
       // must be some sort of compiled/runtime frame
       // fp does not have to be safe (although it could be check for c1?)
@@ -160,9 +159,8 @@ bool frame::safe_for_sender(JavaThread *thread) {
         return false;
       }
       sender_unextended_sp = sender_sp;
-      sender_pc = (address) *(sender_sp-1);
-      // Note: frame::sender_sp_offset is only valid for compiled frame
-      saved_fp = (intptr_t*) *(sender_sp - frame::sender_sp_offset);
+      sender_pc = (address) *(sender_sp + frame::return_addr_offset);
+      saved_fp = (intptr_t*) *(sender_sp + frame::link_offset);
     }
 
 
@@ -172,7 +170,6 @@ bool frame::safe_for_sender(JavaThread *thread) {
       // fp is always saved in a recognizable place in any code we generate. However
       // only if the sender is interpreted/call_stub (c1 too?) are we certain that the saved fp
       // is really a frame pointer.
-
       bool saved_fp_safe = ((address)saved_fp < thread->stack_base()) && (saved_fp > sender_sp);
 
       if (!saved_fp_safe) {
@@ -180,16 +177,14 @@ bool frame::safe_for_sender(JavaThread *thread) {
       }
 
       // construct the potential sender
-
       frame sender(sender_sp, sender_unextended_sp, saved_fp, sender_pc);
 
       return sender.is_interpreted_frame_valid(thread);
-
     }
 
     // We must always be able to find a recognizable pc
     CodeBlob* sender_blob = CodeCache::find_blob_unsafe(sender_pc);
-    if (sender_pc == NULL ||  sender_blob == NULL) {
+    if (sender_pc == NULL || sender_blob == NULL) {
       return false;
     }
 
@@ -217,7 +212,6 @@ bool frame::safe_for_sender(JavaThread *thread) {
       }
 
       // construct the potential sender
-
       frame sender(sender_sp, sender_unextended_sp, saved_fp, sender_pc);
 
       // Validate the JavaCallWrapper an entry frame must have
@@ -238,7 +232,6 @@ bool frame::safe_for_sender(JavaThread *thread) {
 
     // If the frame size is 0 something (or less) is bad because every nmethod has a non-zero frame size
     // because the return address counts against the callee's frame.
-
     if (sender_blob->frame_size() <= 0) {
       assert(!sender_blob->is_compiled(), "should count return address at least");
       return false;
@@ -248,7 +241,6 @@ bool frame::safe_for_sender(JavaThread *thread) {
     // code cache (current frame) is called by an entity within the code cache that entity
     // should not be anything but the call stub (already covered), the interpreter (already covered)
     // or an nmethod.
-
     if (!sender_blob->is_compiled()) {
         return false;
     }
@@ -264,14 +256,12 @@ bool frame::safe_for_sender(JavaThread *thread) {
 
   // Must be native-compiled frame. Since sender will try and use fp to find
   // linkages it must be safe
-
   if (!fp_safe) {
     return false;
   }
 
   // Will the pc we fetch be non-zero (which we'll find at the oldest frame)
-
-  if ((address) this->fp()[c_frame_return_addr_offset] == NULL) { return false; }
+  if ((address)this->fp()[return_addr_offset] == NULL) { return false; }
 
   return true;
 }
@@ -462,9 +452,9 @@ frame frame::sender_for_compiled_frame(RegisterMap* map) const {
   intptr_t* unextended_sp = l_sender_sp;
 
   // the return_address is always the word on the stack
-  address sender_pc = (address) *(l_sender_sp-1);
+  address sender_pc = (address) *(l_sender_sp + frame::return_addr_offset);
 
-  intptr_t** saved_fp_addr = (intptr_t**) (l_sender_sp - frame::sender_sp_offset);
+  intptr_t** saved_fp_addr = (intptr_t**) (l_sender_sp + frame::link_offset);
 
   assert(map != NULL, "map must be set");
   if (map->update_map()) {
