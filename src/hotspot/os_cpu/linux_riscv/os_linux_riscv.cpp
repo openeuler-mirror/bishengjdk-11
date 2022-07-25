@@ -176,8 +176,8 @@ bool os::Linux::get_frame_at_stack_banging_point(JavaThread* thread, ucontext_t*
       // stack overflow handling
       return false;
     } else {
-      // In compiled code, the stack banging is performed before LR
-      // has been saved in the frame.  LR is live, and SP and FP
+      // In compiled code, the stack banging is performed before RA
+      // has been saved in the frame.  RA is live, and SP and FP
       // belong to the caller.
       intptr_t* frame_fp = os::Linux::ucontext_get_fp(uc);
       intptr_t* frame_sp = os::Linux::ucontext_get_sp(uc);

@@ -52,7 +52,7 @@ class MacroAssembler: public Assembler {
   // because signal based thread suspend/resume could happend asychronously
   void enter() {
     addi(sp, sp, - 2 * wordSize);
-    sd(lr, Address(sp, wordSize));
+    sd(ra, Address(sp, wordSize));
     sd(fp, Address(sp));
     addi(fp, sp, 2 * wordSize);
   }

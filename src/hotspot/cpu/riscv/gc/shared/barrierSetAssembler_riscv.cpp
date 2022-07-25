@@ -35,7 +35,7 @@ void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators,
                                   Register dst, Address src, Register tmp1, Register tmp_thread) {
   assert_cond(masm != NULL);
 
-  // LR is live. It must be saved around calls.
+  // RA is live. It must be saved around calls.
 
   bool in_heap = (decorators & IN_HEAP) != 0;
   bool in_native = (decorators & IN_NATIVE) != 0;
