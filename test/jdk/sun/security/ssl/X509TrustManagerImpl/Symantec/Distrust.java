@@ -61,7 +61,7 @@ public class Distrust {
 
     // Each of the subCAs with a delayed distrust date have a test certificate
     // chain stored in a file named "<subCA>-chain.pem".
-    private static String[] subCAsToTest = new String[] {"appleistca8g1"};
+    private static String[] subCAsToTest = new String[]{"appleistca8g1"};
 
     // A date that is after the restrictions take affect
     private static final Date APRIL_17_2019 =
