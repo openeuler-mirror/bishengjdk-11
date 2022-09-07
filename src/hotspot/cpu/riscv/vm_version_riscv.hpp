@@ -43,8 +43,7 @@ public:
     decl(F,            "F",            5)     \
     decl(D,            "D",            3)     \
     decl(C,            "C",            2)     \
-    decl(V,            "V",           21)     \
-    decl(B,            "B",            1)
+    decl(V,            "V",           21)
 
 #define DECLARE_CPU_FEATURE_FLAG(id, name, bit) CPU_##id = (1 << bit),
     CPU_FEATURE_FLAGS(DECLARE_CPU_FEATURE_FLAG)

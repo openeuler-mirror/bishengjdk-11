@@ -30,7 +30,7 @@
 #include "asm/register.hpp"
 #include "assembler_riscv.inline.hpp"
 
-#define registerSize 64
+#define XLEN 64
 
 // definitions of various symbolic names for machine registers
 
@@ -1187,15 +1187,15 @@ enum operand_size { int8, int16, int32, uint32, int64 };
 
 #undef INSN
 
+// ==========================
+// RISC-V Vector Extension
+// ==========================
 enum SEW {
-  e8    = 0b000,
-  e16   = 0b001,
-  e32   = 0b010,
-  e64   = 0b011,
-  e128  = 0b100,
-  e256  = 0b101,
-  e512  = 0b110,
-  e1024 = 0b111,
+  e8,
+  e16,
+  e32,
+  e64,
+  RESERVED,
 };
 
 enum LMUL {
@@ -1218,9 +1218,18 @@ enum VTA {
   ta, // agnostic
 };
 
+static Assembler::SEW elembytes_to_sew(int ebytes) {
+  assert(ebytes > 0 && ebytes <= 8, "unsupported element size");
+  return (Assembler::SEW) exact_log2(ebytes);
+}
+
+static Assembler::SEW elemtype_to_sew(BasicType etype) {
+  return Assembler::elembytes_to_sew(type2aelembytes(etype));
+}
+
 #define patch_vtype(hsb, lsb, vlmul, vsew, vta, vma, vill)   \
     if (vill == 1) {                                         \
-      guarantee((vlmul | vsew | vsew | vta | vma == 0),      \
+      guarantee((vlmul | vsew | vta | vma == 0),             \
                 "the other bits in vtype shall be zero");    \
     }                                                        \
     patch((address)&insn, lsb + 2, lsb, vlmul);              \
@@ -1775,7 +1784,6 @@ enum VectorMask {
   INSN(vwsub_wx,  0b1010111, 0b110, 0b110111);
   INSN(vwsubu_wx, 0b1010111, 0b110, 0b110110);
   INSN(vwadd_wx,  0b1010111, 0b110, 0b110101);
-  INSN(vwadd_wv,  0b1010111, 0b010, 0b110101);
   INSN(vwaddu_wx, 0b1010111, 0b110, 0b110100);
   INSN(vwsub_vx,  0b1010111, 0b110, 0b110011);
   INSN(vwsubu_vx, 0b1010111, 0b110, 0b110010);
@@ -2122,28 +2130,9 @@ enum Nf {
 
 #undef INSN
 
-#define INSN(NAME, op, width, mop, mew)                                                                   \
-  void NAME(VectorRegister Vs3, Register Rs1, VectorRegister Vs2, VectorMask vm = unmasked, Nf nf = g1) { \
-    patch_VLdSt(op, Vs3, width, Rs1, Vs2->encoding_nocheck(), vm, mop, mew, nf);                          \
-  }
-
-  // Vector unordered-indexed store instructions
-  INSN(vsuxei8_v,  0b0100111, 0b000, 0b01, 0b0);
-  INSN(vsuxei16_v, 0b0100111, 0b101, 0b01, 0b0);
-  INSN(vsuxei32_v, 0b0100111, 0b110, 0b01, 0b0);
-  INSN(vsuxei64_v, 0b0100111, 0b111, 0b01, 0b0);
-
-  // Vector ordered indexed store instructions
-  INSN(vsoxei8_v,  0b0100111, 0b000, 0b11, 0b0);
-  INSN(vsoxei16_v, 0b0100111, 0b101, 0b11, 0b0);
-  INSN(vsoxei32_v, 0b0100111, 0b110, 0b11, 0b0);
-  INSN(vsoxei64_v, 0b0100111, 0b111, 0b11, 0b0);
-
-#undef INSN
-
-#define INSN(NAME, op, width, mop, mew)                                                                   \
-  void NAME(VectorRegister Vs3, Register Rs1, Register Rs2, VectorMask vm = unmasked, Nf nf = g1) {       \
-    patch_VLdSt(op, Vs3, width, Rs1, Rs2->encoding_nocheck(), vm, mop, mew, nf);                          \
+#define INSN(NAME, op, width, mop, mew)                                                             \
+  void NAME(VectorRegister Vs3, Register Rs1, Register Rs2, VectorMask vm = unmasked, Nf nf = g1) { \
+    patch_VLdSt(op, Vs3, width, Rs1, Rs2->encoding_nocheck(), vm, mop, mew, nf);                    \
   }
 
   INSN(vsse8_v,  0b0100111, 0b000, 0b10, 0b0);
@@ -2153,6 +2142,103 @@ enum Nf {
 
 #undef INSN
 #undef patch_VLdSt
+
+// ====================================
+// RISC-V Bit-Manipulation Extension
+// Currently only support Zba and Zbb.
+// ====================================
+#define INSN(NAME, op, funct3, funct7)                  \
+  void NAME(Register Rd, Register Rs1, Register Rs2) {  \
+    unsigned insn = 0;                                  \
+    patch((address)&insn, 6,  0, op);                   \
+    patch((address)&insn, 14, 12, funct3);              \
+    patch((address)&insn, 31, 25, funct7);              \
+    patch_reg((address)&insn, 7, Rd);                   \
+    patch_reg((address)&insn, 15, Rs1);                 \
+    patch_reg((address)&insn, 20, Rs2);                 \
+    emit(insn);                                         \
+  }
+
+  INSN(add_uw,    0b0111011, 0b000, 0b0000100);
+  INSN(rol,       0b0110011, 0b001, 0b0110000);
+  INSN(rolw,      0b0111011, 0b001, 0b0110000);
+  INSN(ror,       0b0110011, 0b101, 0b0110000);
+  INSN(rorw,      0b0111011, 0b101, 0b0110000);
+  INSN(sh1add,    0b0110011, 0b010, 0b0010000);
+  INSN(sh2add,    0b0110011, 0b100, 0b0010000);
+  INSN(sh3add,    0b0110011, 0b110, 0b0010000);
+  INSN(sh1add_uw, 0b0111011, 0b010, 0b0010000);
+  INSN(sh2add_uw, 0b0111011, 0b100, 0b0010000);
+  INSN(sh3add_uw, 0b0111011, 0b110, 0b0010000);
+  INSN(andn,      0b0110011, 0b111, 0b0100000);
+  INSN(orn,       0b0110011, 0b110, 0b0100000);
+  INSN(xnor,      0b0110011, 0b100, 0b0100000);
+  INSN(max,       0b0110011, 0b110, 0b0000101);
+  INSN(maxu,      0b0110011, 0b111, 0b0000101);
+  INSN(min,       0b0110011, 0b100, 0b0000101);
+  INSN(minu,      0b0110011, 0b101, 0b0000101);
+
+#undef INSN
+
+#define INSN(NAME, op, funct3, funct12)                 \
+  void NAME(Register Rd, Register Rs1) {                \
+    unsigned insn = 0;                                  \
+    patch((address)&insn, 6, 0, op);                    \
+    patch((address)&insn, 14, 12, funct3);              \
+    patch((address)&insn, 31, 20, funct12);             \
+    patch_reg((address)&insn, 7, Rd);                   \
+    patch_reg((address)&insn, 15, Rs1);                 \
+    emit(insn);                                         \
+  }
+
+  INSN(rev8,   0b0010011, 0b101, 0b011010111000);
+  INSN(sext_b, 0b0010011, 0b001, 0b011000000100);
+  INSN(sext_h, 0b0010011, 0b001, 0b011000000101);
+  INSN(zext_h, 0b0111011, 0b100, 0b000010000000);
+  INSN(clz,    0b0010011, 0b001, 0b011000000000);
+  INSN(clzw,   0b0011011, 0b001, 0b011000000000);
+  INSN(ctz,    0b0010011, 0b001, 0b011000000001);
+  INSN(ctzw,   0b0011011, 0b001, 0b011000000001);
+  INSN(cpop,   0b0010011, 0b001, 0b011000000010);
+  INSN(cpopw,  0b0011011, 0b001, 0b011000000010);
+  INSN(orc_b,  0b0010011, 0b101, 0b001010000111);
+
+#undef INSN
+
+#define INSN(NAME, op, funct3, funct6)                  \
+  void NAME(Register Rd, Register Rs1, unsigned shamt) {\
+    guarantee(shamt <= 0x3f, "Shamt is invalid");       \
+    unsigned insn = 0;                                  \
+    patch((address)&insn, 6, 0, op);                    \
+    patch((address)&insn, 14, 12, funct3);              \
+    patch((address)&insn, 25, 20, shamt);               \
+    patch((address)&insn, 31, 26, funct6);              \
+    patch_reg((address)&insn, 7, Rd);                   \
+    patch_reg((address)&insn, 15, Rs1);                 \
+    emit(insn);                                         \
+  }
+
+  INSN(rori,    0b0010011, 0b101, 0b011000);
+  INSN(slli_uw, 0b0011011, 0b001, 0b000010);
+
+#undef INSN
+
+#define INSN(NAME, op, funct3, funct7)                  \
+  void NAME(Register Rd, Register Rs1, unsigned shamt){ \
+    guarantee(shamt <= 0x1f, "Shamt is invalid");       \
+    unsigned insn = 0;                                  \
+    patch((address)&insn, 6, 0, op);                    \
+    patch((address)&insn, 14, 12, funct3);              \
+    patch((address)&insn, 24, 20, shamt);               \
+    patch((address)&insn, 31, 25, funct7);              \
+    patch_reg((address)&insn, 7, Rd);                   \
+    patch_reg((address)&insn, 15, Rs1);                 \
+    emit(insn);                                         \
+  }
+
+  INSN(roriw, 0b0011011, 0b101, 0b0110000);
+  
+#undef INSN
 
   void bgt(Register Rs, Register Rt, const address &dest);
   void ble(Register Rs, Register Rt, const address &dest);
@@ -2178,6 +2264,10 @@ enum Nf {
   void addw(Register Rd, Register Rn, int64_t increment, Register temp = t0);
   void sub(Register Rd, Register Rn, int64_t decrement, Register temp = t0);
   void subw(Register Rd, Register Rn, int64_t decrement, Register temp = t0);
+
+  // RVB pseudo instructions
+  // zero extend word
+  void zext_w(Register Rd, Register Rs);
 
   Assembler(CodeBuffer* code) : AbstractAssembler(code) {
   }

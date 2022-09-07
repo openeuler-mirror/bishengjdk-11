@@ -418,8 +418,7 @@ Address MacroAssembler::argument_address(RegisterOrConstant arg_slot,
     return Address(esp, arg_slot.as_constant() * stackElementSize + offset);
   } else {
     assert_different_registers(t0, arg_slot.as_register());
-    slli(t0, arg_slot.as_register(), exact_log2(stackElementSize));
-    add(t0, esp, t0);
+    shadd(t0, arg_slot.as_register(), esp, t0, exact_log2(stackElementSize));
     return Address(t0, offset);
   }
 }
@@ -649,6 +648,10 @@ void MacroAssembler::negw(Register Rd, Register Rs) {
 
 void MacroAssembler::sext_w(Register Rd, Register Rs) {
   addiw(Rd, Rs, 0);
+}
+
+void MacroAssembler::zext_b(Register Rd, Register Rs) {
+  andi(Rd, Rs, 0xFF);
 }
 
 void MacroAssembler::seqz(Register Rd, Register Rs) {
@@ -1446,136 +1449,162 @@ void MacroAssembler::store_sized_value(Address dst, Register src, size_t size_in
   }
 }
 
-void MacroAssembler::reverseb16(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // This method is only used for grev16
-  // Rd = Rs[47:0] Rs[55:48] Rs[63:56]
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1);
-  srli(Rtmp1, Rs, 48);
-  andi(Rtmp2, Rtmp1, 0xff);
-  slli(Rtmp2, Rtmp2, 8);
-  srli(Rtmp1, Rtmp1, 8);
-  orr(Rtmp1, Rtmp1, Rtmp2);
-  slli(Rd, Rs, 16);
-  orr(Rd, Rd, Rtmp1);
+// rotate right with imm bits
+void MacroAssembler::ror_imm(Register dst, Register src, uint32_t shift, Register tmp)
+{
+  if (UseZbb) {
+    rori(dst, src, shift);
+    return;
+  }
+
+  assert_different_registers(dst, tmp);
+  assert(shift < 64, "shift amount must be < 64");
+  slli(tmp, src, 64 - shift);
+  srli(dst, src, shift);
+  orr(dst, dst, tmp);
 }
 
-void MacroAssembler::reverseh32(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // This method is only used for grev32
-  // Rd[63:0] = Rs[31:0] Rs[47:32] Rs[63:48]
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1);
-  srli(Rtmp1, Rs, 32);
-  slli(Rtmp2, Rtmp1, 48);
-  srli(Rtmp2, Rtmp2, 32);
-  srli(Rtmp1, Rtmp1, 16);
-  orr(Rtmp1, Rtmp1, Rtmp2);
-  slli(Rd, Rs, 32);
-  orr(Rd, Rd, Rtmp1);
-}
-
-void MacroAssembler::grevh(Register Rd, Register Rs, Register Rtmp) {
-  // Reverse bytes in half-word
-  // Rd[15:0] = Rs[7:0] Rs[15:8] (sign-extend to 64 bits)
-  assert_different_registers(Rs, Rtmp);
-  assert_different_registers(Rd, Rtmp);
-  srli(Rtmp, Rs, 8);
-  andi(Rtmp, Rtmp, 0xFF);
+// reverse bytes in halfword in lower 16 bits and sign-extend
+// Rd[15:0] = Rs[7:0] Rs[15:8] (sign-extend to 64 bits)
+void MacroAssembler::revb_h_h(Register Rd, Register Rs, Register tmp) {
+  if (UseZbb) {
+    rev8(Rd, Rs);
+    srai(Rd, Rd, 48);
+    return;
+  }
+  assert_different_registers(Rs, tmp);
+  assert_different_registers(Rd, tmp);
+  srli(tmp, Rs, 8);
+  andi(tmp, tmp, 0xFF);
   slli(Rd, Rs, 56);
   srai(Rd, Rd, 48); // sign-extend
-  orr(Rd, Rd, Rtmp);
+  orr(Rd, Rd, tmp);
 }
 
-void MacroAssembler::grevhu(Register Rd, Register Rs, Register Rtmp) {
-  // Reverse bytes in half-word
-  // Rd[15:0] = Rs[7:0] Rs[15:8] (zero-extend to 64 bits)
-  assert_different_registers(Rs, Rtmp);
-  assert_different_registers(Rd, Rtmp);
-  srli(Rtmp, Rs, 8);
-  andi(Rtmp, Rtmp, 0xFF);
+// reverse bytes in lower word and sign-extend
+// Rd[31:0] = Rs[7:0] Rs[15:8] Rs[23:16] Rs[31:24] (sign-extend to 64 bits)
+void MacroAssembler::revb_w_w(Register Rd, Register Rs, Register tmp1, Register tmp2) {
+  if (UseZbb) {
+    rev8(Rd, Rs);
+    srai(Rd, Rd, 32);
+    return;
+  }
+  assert_different_registers(Rs, tmp1, tmp2);
+  assert_different_registers(Rd, tmp1, tmp2);
+  revb_h_w_u(Rd, Rs, tmp1, tmp2);
+  slli(tmp2, Rd, 48);
+  srai(tmp2, tmp2, 32); // sign-extend
+  srli(Rd, Rd, 16);
+  orr(Rd, Rd, tmp2);
+}
+
+// reverse bytes in halfword in lower 16 bits and zero-extend
+// Rd[15:0] = Rs[7:0] Rs[15:8] (zero-extend to 64 bits)
+void MacroAssembler::revb_h_h_u(Register Rd, Register Rs, Register tmp) {
+  if (UseZbb) {
+    rev8(Rd, Rs);
+    srli(Rd, Rd, 48);
+    return;
+  }
+  assert_different_registers(Rs, tmp);
+  assert_different_registers(Rd, tmp);
+  srli(tmp, Rs, 8);
+  andi(tmp, tmp, 0xFF);
   andi(Rd, Rs, 0xFF);
   slli(Rd, Rd, 8);
-  orr(Rd, Rd, Rtmp);
+  orr(Rd, Rd, tmp);
 }
 
-void MacroAssembler::grev16w(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // Reverse bytes in half-word (32bit)
-  // Rd[31:0] = Rs[23:16] Rs[31:24] Rs[7:0] Rs[15:8] (sign-extend to 64 bits)
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1, Rtmp2);
-  srli(Rtmp2, Rs, 16);
-  grevh(Rtmp2, Rtmp2, Rtmp1);
-  grevhu(Rd, Rs, Rtmp1);
-  slli(Rtmp2, Rtmp2, 16);
-  orr(Rd, Rd, Rtmp2);
+// reverse bytes in halfwords in lower 32 bits and zero-extend
+// Rd[31:0] = Rs[23:16] Rs[31:24] Rs[7:0] Rs[15:8] (zero-extend to 64 bits)
+void MacroAssembler::revb_h_w_u(Register Rd, Register Rs, Register tmp1, Register tmp2) {
+  if (UseZbb) {
+    rev8(Rd, Rs);
+    rori(Rd, Rd, 32);
+    roriw(Rd, Rd, 16);
+    zero_extend(Rd, Rd, 32);
+    return;
+  }
+  assert_different_registers(Rs, tmp1, tmp2);
+  assert_different_registers(Rd, tmp1, tmp2);
+  srli(tmp2, Rs, 16);
+  revb_h_h_u(tmp2, tmp2, tmp1);
+  revb_h_h_u(Rd, Rs, tmp1);
+  slli(tmp2, tmp2, 16);
+  orr(Rd, Rd, tmp2);
 }
 
-void MacroAssembler::grev16wu(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // Reverse bytes in half-word (32bit)
-  // Rd[31:0] = Rs[23:16] Rs[31:24] Rs[7:0] Rs[15:8] (zero-extend to 64 bits)
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1, Rtmp2);
-  srli(Rtmp2, Rs, 16);
-  grevhu(Rtmp2, Rtmp2, Rtmp1);
-  grevhu(Rd, Rs, Rtmp1);
-  slli(Rtmp2, Rtmp2, 16);
-  orr(Rd, Rd, Rtmp2);
+// This method is only used for revb_h
+// Rd = Rs[47:0] Rs[55:48] Rs[63:56]
+void MacroAssembler::revb_h_helper(Register Rd, Register Rs, Register tmp1, Register tmp2) {
+  assert_different_registers(Rs, tmp1, tmp2);
+  assert_different_registers(Rd, tmp1);
+  srli(tmp1, Rs, 48);
+  andi(tmp2, tmp1, 0xFF);
+  slli(tmp2, tmp2, 8);
+  srli(tmp1, tmp1, 8);
+  orr(tmp1, tmp1, tmp2);
+  slli(Rd, Rs, 16);
+  orr(Rd, Rd, tmp1);
 }
-
-void MacroAssembler::grevw(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // Reverse bytes in word (32bit)
-  // Rd[31:0] = Rs[7:0] Rs[15:8] Rs[23:16] Rs[31:24] (sign-extend to 64 bits)
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1, Rtmp2);
-  grev16wu(Rd, Rs, Rtmp1, Rtmp2);
-  slli(Rtmp2, Rd, 48);
-  srai(Rtmp2, Rtmp2, 32); // sign-extend
-  srli(Rd, Rd, 16);
-  orr(Rd, Rd, Rtmp2);
-}
-
-void MacroAssembler::grevwu(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // Reverse bytes in word (32bit)
-  // Rd[31:0] = Rs[7:0] Rs[15:8] Rs[23:16] Rs[31:24] (zero-extend to 64 bits)
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1, Rtmp2);
-  grev16wu(Rd, Rs, Rtmp1, Rtmp2);
-  slli(Rtmp2, Rd, 48);
-  srli(Rtmp2, Rtmp2, 32);
-  srli(Rd, Rd, 16);
-  orr(Rd, Rd, Rtmp2);
-}
-
-void MacroAssembler::grev16(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // Reverse bytes in half-word (64bit)
-  // Rd[63:0] = Rs[55:48] Rs[63:56] Rs[39:32] Rs[47:40] Rs[23:16] Rs[31:24] Rs[7:0] Rs[15:8]
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1, Rtmp2);
-  reverseb16(Rd, Rs, Rtmp1, Rtmp2);
+// reverse bytes in each halfword
+// Rd[63:0] = Rs[55:48] Rs[63:56] Rs[39:32] Rs[47:40] Rs[23:16] Rs[31:24] Rs[7:0] Rs[15:8]
+void MacroAssembler::revb_h(Register Rd, Register Rs, Register tmp1, Register tmp2) {
+  if (UseZbb) {
+    assert_different_registers(Rs, tmp1);
+    assert_different_registers(Rd, tmp1);
+    rev8(Rd, Rs);
+    zero_extend(tmp1, Rd, 32);
+    roriw(tmp1, tmp1, 16);
+    slli(tmp1, tmp1, 32);
+    srli(Rd, Rd, 32);
+    roriw(Rd, Rd, 16);
+    zero_extend(Rd, Rd, 32);
+    orr(Rd, Rd, tmp1);
+    return;
+  }
+  assert_different_registers(Rs, tmp1, tmp2);
+  assert_different_registers(Rd, tmp1, tmp2);
+  revb_h_helper(Rd, Rs, tmp1, tmp2);
   for (int i = 0; i < 3; ++i) {
-    reverseb16(Rd, Rd, Rtmp1, Rtmp2);
+    revb_h_helper(Rd, Rd, tmp1, tmp2);
   }
 }
 
-void MacroAssembler::grev32(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // Reverse bytes in word (64bit)
-  // Rd[63:0] = Rs[39:32] Rs[47:40] Rs[55:48] Rs[63:56] Rs[7:0] Rs[15:8] Rs[23:16] Rs[31:24]
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1, Rtmp2);
-  grev16(Rd, Rs, Rtmp1, Rtmp2);
-  reverseh32(Rd, Rd, Rtmp1, Rtmp2);
-  reverseh32(Rd, Rd, Rtmp1, Rtmp2);
+// reverse bytes in each word
+// Rd[63:0] = Rs[39:32] Rs[47:40] Rs[55:48] Rs[63:56] Rs[7:0] Rs[15:8] Rs[23:16] Rs[31:24]
+void MacroAssembler::revb_w(Register Rd, Register Rs, Register tmp1, Register tmp2) {
+  if (UseZbb) {
+    rev8(Rd, Rs);
+    rori(Rd, Rd, 32);
+    return;
+  }
+  assert_different_registers(Rs, tmp1, tmp2);
+  assert_different_registers(Rd, tmp1, tmp2);
+  revb(Rd, Rs, tmp1, tmp2);
+  ror_imm(Rd, Rd, 32);
 }
 
-void MacroAssembler::grev(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2) {
-  // Reverse bytes in double-word (64bit)
-  // Rd[63:0] = Rs[7:0] Rs[15:8] Rs[23:16] Rs[31:24] Rs[39:32] Rs[47,40] Rs[55,48] Rs[63:56]
-  assert_different_registers(Rs, Rtmp1, Rtmp2);
-  assert_different_registers(Rd, Rtmp1, Rtmp2);
-  grev32(Rd, Rs, Rtmp1, Rtmp2);
-  slli(Rtmp2, Rd, 32);
-  srli(Rd, Rd, 32);
-  orr(Rd, Rd, Rtmp2);
+// reverse bytes in doubleword
+// Rd[63:0] = Rs[7:0] Rs[15:8] Rs[23:16] Rs[31:24] Rs[39:32] Rs[47,40] Rs[55,48] Rs[63:56]
+void MacroAssembler::revb(Register Rd, Register Rs, Register tmp1, Register tmp2) {
+  if (UseZbb) {
+    rev8(Rd, Rs);
+    return;
+  }
+  assert_different_registers(Rs, tmp1, tmp2);
+  assert_different_registers(Rd, tmp1, tmp2);
+  andi(tmp1, Rs, 0xFF);
+  slli(tmp1, tmp1, 8);
+  for (int step = 8; step < 56; step += 8) {
+    srli(tmp2, Rs, step);
+    andi(tmp2, tmp2, 0xFF);
+    orr(tmp1, tmp1, tmp2);
+    slli(tmp1, tmp1, 8);
+  }
+  srli(Rd, Rs, 56);
+  andi(Rd, Rd, 0xFF);
+  orr(Rd, tmp1, Rd);
 }
 
 void MacroAssembler::andi(Register Rd, Register Rn, int64_t increment, Register tmp) {
@@ -1830,8 +1859,7 @@ void MacroAssembler::decode_klass_not_null(Register dst, Register src, Register 
   if (Universe::narrow_klass_shift() != 0) {
     assert(LogKlassAlignmentInBytes == Universe::narrow_klass_shift(), "decode alg wrong");
     assert_different_registers(t0, xbase);
-    slli(t0, src, LogKlassAlignmentInBytes);
-    add(dst, xbase, t0);
+    shadd(dst, src, xbase, t0, LogKlassAlignmentInBytes);
   } else {
     add(dst, xbase, src);
   }
@@ -1858,7 +1886,7 @@ void MacroAssembler::encode_klass_not_null(Register dst, Register src, Register 
 
   if (((uint64_t)(uintptr_t)Universe::narrow_klass_base() & 0xffffffff) == 0 &&
       Universe::narrow_klass_shift() == 0) {
-    zero_ext(dst, src, 32); // clear upper 32 bits
+    zero_extend(dst, src, 32);
     return;
   }
 
@@ -1910,8 +1938,7 @@ void  MacroAssembler::decode_heap_oop(Register d, Register s) {
     Label done;
     mv(d, s);
     beqz(s, done);
-    slli(d, s, LogMinObjAlignmentInBytes);
-    add(d, xheapbase, d);
+    shadd(d, s, xheapbase, d, LogMinObjAlignmentInBytes);
     bind(done);
   }
   verify_oop(d, "broken oop in decode_heap_oop");
@@ -2013,8 +2040,7 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
   lwu(scan_temp, Address(recv_klass, Klass::vtable_length_offset()));
 
   // %%% Could store the aligned, prescaled offset in the klassoop.
-  slli(scan_temp, scan_temp, 3);
-  add(scan_temp, recv_klass, scan_temp);
+  shadd(scan_temp, scan_temp, recv_klass, scan_temp, 3);
   add(scan_temp, scan_temp, vtable_base);
 
   if (return_method) {
@@ -2064,8 +2090,7 @@ void MacroAssembler::lookup_virtual_method(Register recv_klass,
   int vtable_offset_in_bytes = base + vtableEntry::method_offset_in_bytes();
 
   if (vtable_index.is_register()) {
-    slli(method_result, vtable_index.as_register(), LogBytesPerWord);
-    add(method_result, recv_klass, method_result);
+    shadd(method_result, vtable_index.as_register(), recv_klass, method_result, LogBytesPerWord);
     ld(method_result, Address(method_result, vtable_offset_in_bytes));
   } else {
     vtable_offset_in_bytes += vtable_index.as_constant() * wordSize;
@@ -2207,7 +2232,7 @@ void MacroAssembler::load_reserved(Register addr,
       break;
     case uint32:
       lr_w(t0, addr, acquire);
-      clear_upper_bits(t0, 32);
+      zero_extend(t0, t0, 32);
       break;
     default:
       ShouldNotReachHere();
@@ -2249,7 +2274,7 @@ void MacroAssembler::cmpxchg_narrow_value_helper(Register addr, Register expecte
     addi(mask, zr, 0xff);
   } else {
     addi(mask, zr, -1);
-    zero_ext(mask, mask, registerSize - 16);
+    zero_extend(mask, mask, 16);
   }
   sll(mask, mask, shift);
 
@@ -2303,9 +2328,9 @@ void MacroAssembler::cmpxchg_narrow_value(Register addr, Register expected,
   }
 
   if (size == int8) {
-    sign_ext(result, result, registerSize - 8);
+    sign_extend(result, result, 8);
   } else if (size == int16) {
-    sign_ext(result, result, registerSize - 16);
+    sign_extend(result, result, 16);
   }
 }
 
@@ -2437,7 +2462,7 @@ ATOMIC_XCHG(xchgalw, amoswap_w, Assembler::aq, Assembler::rl)
 #define ATOMIC_XCHGU(OP1, OP2)                                                       \
 void MacroAssembler::atomic_##OP1(Register prev, Register newv, Register addr) {     \
   atomic_##OP2(prev, newv, addr);                                                    \
-  clear_upper_bits(prev, 32);                                                        \
+  zero_extend(prev, prev, 32);                                                       \
   return;                                                                            \
 }
 
@@ -3043,7 +3068,7 @@ void  MacroAssembler::set_narrow_oop(Register dst, jobject obj) {
   RelocationHolder rspec = oop_Relocation::spec(oop_index);
   code_section()->relocate(inst_mark(), rspec);
   li32(dst, 0xDEADBEEF);
-  clear_upper_bits(dst, 32); // clear upper 32bit, do not sign extend.
+  zero_extend(dst, dst, 32);
 }
 
 void  MacroAssembler::set_narrow_klass(Register dst, Klass* k) {
@@ -3057,7 +3082,7 @@ void  MacroAssembler::set_narrow_klass(Register dst, Klass* k) {
   code_section()->relocate(inst_mark(), rspec);
   narrowKlass nk = Klass::encode_klass(k);
   li32(dst, nk);
-  clear_upper_bits(dst, 32); // clear upper 32bit, do not sign extend.
+  zero_extend(dst, dst, 32);
 }
 
 // Maybe emit a call via a trampoline.  If the code cache is small
@@ -4037,8 +4062,8 @@ void MacroAssembler::string_indexof(Register haystack, Register needle,
   sub(nlen_tmp, needle_len, 1); // m - 1, index of the last element in pattern
   Register orig_haystack = tmp5;
   mv(orig_haystack, haystack);
-  slli(haystack_end, result_tmp, haystack_chr_shift); // result_tmp = tmp4
-  add(haystack_end, haystack, haystack_end);
+  // result_tmp = tmp4
+  shadd(haystack_end, result_tmp, haystack, haystack_end, haystack_chr_shift);
   sub(ch2, needle_len, 1); // bc offset init value, ch2 is t1
   mv(tmp3, needle);
 
@@ -4067,8 +4092,8 @@ void MacroAssembler::string_indexof(Register haystack, Register needle,
   sub(ch2, ch2, 1); // for next pattern element, skip distance -1
   bgtz(ch2, BCLOOP);
 
-  slli(tmp6, needle_len, needle_chr_shift);
-  add(tmp6, tmp6, needle); // tmp6: pattern end, address after needle
+  // tmp6: pattern end, address after needle
+  shadd(tmp6, needle_len, needle, tmp6, needle_chr_shift);
   if (needle_isL == haystack_isL) {
     // load last 8 bytes (8LL/4UU symbols)
     ld(tmp6, Address(tmp6, -wordSize));
@@ -4078,10 +4103,10 @@ void MacroAssembler::string_indexof(Register haystack, Register needle,
     // convert Latin1 to UTF. eg: 0x0000abcd -> 0x0a0b0c0d
     // We'll have to wait until load completed, but it's still faster than per-character loads+checks
     srli(tmp3, tmp6, BitsPerByte * (wordSize / 2 - needle_chr_size)); // pattern[m-1], eg:0x0000000a
-    slli(ch2, tmp6, registerSize - 24);
-    srli(ch2, ch2, registerSize - 8); // pattern[m-2], 0x0000000b
-    slli(ch1, tmp6, registerSize - 16);
-    srli(ch1, ch1, registerSize - 8); // pattern[m-3], 0x0000000c
+    slli(ch2, tmp6, XLEN - 24);
+    srli(ch2, ch2, XLEN - 8); // pattern[m-2], 0x0000000b
+    slli(ch1, tmp6, XLEN - 16);
+    srli(ch1, ch1, XLEN - 8); // pattern[m-3], 0x0000000c
     andi(tmp6, tmp6, 0xff); // pattern[m-4], 0x0000000d
     slli(ch2, ch2, 16);
     orr(ch2, ch2, ch1); // 0x00000b0c
@@ -4099,8 +4124,7 @@ void MacroAssembler::string_indexof(Register haystack, Register needle,
   //   move j with bad char offset table
   bind(BMLOOPSTR2);
   // compare pattern to source string backward
-  slli(result, nlen_tmp, haystack_chr_shift);
-  add(result, haystack, result);
+  shadd(result, nlen_tmp, haystack, result, haystack_chr_shift);
   (this->*haystack_load_1chr)(skipch, Address(result), noreg);
   sub(nlen_tmp, nlen_tmp, firstStep); // nlen_tmp is positive here, because needle_len >= 8
   if (needle_isL == haystack_isL) {
@@ -4124,11 +4148,9 @@ void MacroAssembler::string_indexof(Register haystack, Register needle,
   }
 
   bind(BMLOOPSTR1);
-  slli(ch1, nlen_tmp, needle_chr_shift);
-  add(ch1, ch1, needle);
+  shadd(ch1, nlen_tmp, needle, ch1, needle_chr_shift);
+  shadd(ch2, nlen_tmp, haystack, ch2, haystack_chr_shift);
   (this->*needle_load_1chr)(ch1, Address(ch1), noreg);
-  slli(ch2, nlen_tmp, haystack_chr_shift);
-  add(ch2, haystack, ch2);
   (this->*haystack_load_1chr)(ch2, Address(ch2), noreg);
 
   bind(BMLOOPSTR1_AFTER_LOAD);
@@ -4155,8 +4177,8 @@ void MacroAssembler::string_indexof(Register haystack, Register needle,
 
   bind(BMADV);
   sub(nlen_tmp, needle_len, 1);
-  slli(result, result_tmp, haystack_chr_shift);
-  add(haystack, haystack, result); // move haystack after bad char skip offset
+  // move haystack after bad char skip offset
+  shadd(haystack, result_tmp, haystack, result, haystack_chr_shift);
   ble(haystack, haystack_end, BMLOOPSTR2);
   add(sp, sp, ASIZE);
   j(NOMATCH);
@@ -4456,8 +4478,7 @@ void MacroAssembler::clear_array_v(Register base, Register cnt) {
   vsetvli(t0, cnt, Assembler::e64, Assembler::m4);
   vse64_v(v0, base);
   sub(cnt, cnt, t0);
-  slli(t0, t0, 3);
-  add(base, base, t0);
+  shadd(base, t0, base, t0, 3);
   bnez(cnt, loop);
 }
 
@@ -4543,8 +4564,7 @@ void MacroAssembler::string_compare_v(Register str1, Register str2, Register cnt
     bgez(tmp2, DIFFERENCE);
     sub(cnt2, cnt2, tmp1);
     add(strL, strL, tmp1);
-    slli(tmp1, tmp1, 1);
-    add(strU, strU, tmp1);
+    shadd(strU, tmp1, strU, tmp1, 1);
     bnez(cnt2, loop);
     j(DONE);
   }
@@ -4572,8 +4592,7 @@ address MacroAssembler::byte_array_inflate_v(Register src, Register dst, Registe
   vse16_v(v0, dst);
   sub(len, len, tmp);
   add(src, src, tmp);
-  slli(tmp, tmp, 1);
-  add(dst, dst, tmp);
+  shadd(dst, tmp, dst, tmp, 1);
   bnez(len, loop);
   BLOCK_COMMENT("} byte_array_inflate_v");
   postcond(pc() != badAddress);
@@ -4614,8 +4633,7 @@ void MacroAssembler::encode_iso_array_v(Register src, Register dst, Register len
   add(result, result, t0);
   add(dst, dst, t0);
   sub(len, len, t0);
-  slli(t0, t0, 1);
-  add(src, src, t0);
+  shadd(src, t0, src, t0, 1);
   bnez(len, loop);
   j(DONE);
 
@@ -4708,16 +4726,6 @@ void MacroAssembler::cadc(Register dst, Register src1, Register src2, Register c
   sltu(carry, dst, src2);
 }
 
-// rotate right with imm bits
-void MacroAssembler::ror(Register dst, Register src, uint32_t imm, Register tmp)
-{
-  assert_different_registers(dst, tmp);
-  assert(imm <= 64, "should less equal than 64");
-  slli(tmp, src, 64 - imm);
-  srli(dst, src, imm);
-  orr(dst, dst, tmp);
-}
-
 void MacroAssembler::add2_with_carry(Register final_dest_hi, Register dest_hi, Register dest_lo,
                                      Register src1, Register src2, Register carry)
 {
@@ -4740,11 +4748,9 @@ void MacroAssembler::mul_add(Register out, Register in, Register offset,
   mv(out, zr);
   j(L_end);
   bind(L_not_zero);
-  zero_ext(k, k, 32);
-  slli(t0, offset, LogBytesPerInt);
-  add(offset, out, t0);
-  slli(t0, len, LogBytesPerInt);
-  add(in, in, t0);
+  zero_extend(k, k, 32);
+  shadd(offset, offset, out, t0, LogBytesPerInt);
+  shadd(in, len, in, t0, LogBytesPerInt);
   mv(out, zr);
 
   if (AvoidUnalignedAccesses) {
@@ -4780,7 +4786,7 @@ void MacroAssembler::mul_add(Register out, Register in, Register offset,
 
   sub(in, in, 8);
   ld(tmp1, Address(in, 0));
-  ror(tmp1, tmp1, 32); // convert to little-endian
+  ror_imm(tmp1, tmp1, 32); // convert to little-endian
 
   const Register carry = out;
   const Register src1_hi = t0;
@@ -4791,9 +4797,9 @@ void MacroAssembler::mul_add(Register out, Register in, Register offset,
   mul(src1_lo, k, tmp1);
   sub(offset, offset, 8);
   ld(src2, Address(offset, 0));
-  ror(src2, src2, 32, tmp1);
+  ror_imm(src2, src2, 32, tmp1);
   add2_with_carry(carry, src1_hi, src1_lo, carry, src2, tmp1);
-  ror(src1_lo, src1_lo, 32, tmp1); // back to big-endian
+  ror_imm(src1_lo, src1_lo, 32, tmp1); // back to big-endian
   sd(src1_lo, Address(offset, 0));
   j(L_loop_2);
 
@@ -4830,23 +4836,20 @@ void MacroAssembler::multiply_32_x_32_loop(Register x, Register xstart, Register
 
   Label L_first_loop, L_first_loop_exit;
 
-  slli(t0, xstart, LogBytesPerInt);
-  add(t0, x, t0);
+  shadd(t0, xstart, x, t0, LogBytesPerInt);
   lwu(x_xstart, Address(t0, 0));
 
   bind(L_first_loop);
   sub(idx, idx, 1);
   bltz(idx, L_first_loop_exit);
 
-  slli(t0, idx, LogBytesPerInt);
-  add(t0, y, t0);
+  shadd(t0, idx, y, t0, LogBytesPerInt);
   lwu(y_idx, Address(t0, 0));
   mul(product, x_xstart, y_idx);
   add(product, product, carry);
   srli(carry, product, 32);
   sub(kdx, kdx, 1);
-  slli(t0, kdx, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, kdx, z, t0, LogBytesPerInt);
   sw(product, Address(t0, 0));
   j(L_first_loop);
 
@@ -4877,10 +4880,9 @@ void MacroAssembler::multiply_64_x_64_loop(Register x, Register xstart, Register
   sub(xstart, xstart, 1);
   bltz(xstart, L_one_x);
 
-  slli(t0, xstart, LogBytesPerInt);
-  add(t0, x, t0);
+  shadd(t0, xstart, x, t0, LogBytesPerInt);
   ld(x_xstart, Address(t0, 0));
-  ror(x_xstart, x_xstart, 32); // convert big-endian to little-endian
+  ror_imm(x_xstart, x_xstart, 32); // convert big-endian to little-endian
 
   bind(L_first_loop);
   sub(idx, idx, 1);
@@ -4888,10 +4890,9 @@ void MacroAssembler::multiply_64_x_64_loop(Register x, Register xstart, Register
   sub(idx, idx, 1);
   bltz(idx, L_one_y);
 
-  slli(t0, idx, LogBytesPerInt);
-  add(t0, y, t0);
+  shadd(t0, idx, y, t0, LogBytesPerInt);
   ld(y_idx, Address(t0, 0));
-  ror(y_idx, y_idx, 32); // convert big-endian to little-endian
+  ror_imm(y_idx, y_idx, 32); // convert big-endian to little-endian
   bind(L_multiply);
 
   mulhu(t0, x_xstart, y_idx);
@@ -4900,9 +4901,8 @@ void MacroAssembler::multiply_64_x_64_loop(Register x, Register xstart, Register
   adc(carry, t0, zr, t1);
 
   sub(kdx, kdx, 2);
-  ror(product, product, 32); // back to big-endian
-  slli(t0, kdx, LogBytesPerInt);
-  add(t0, z, t0);
+  ror_imm(product, product, 32); // back to big-endian
+  shadd(t0, kdx, z, t0, LogBytesPerInt);
   sd(product, Address(t0, 0));
 
   j(L_first_loop);
@@ -4957,16 +4957,14 @@ void MacroAssembler::multiply_128_x_128_loop(Register y, Register z,
   bltz(jdx, L_third_loop_exit);
   sub(idx, idx, 4);
 
-  slli(t0, idx, LogBytesPerInt);
-  add(t0, y, t0);
+  shadd(t0, idx, y, t0, LogBytesPerInt);
   ld(yz_idx2, Address(t0, 0));
   ld(yz_idx1, Address(t0, wordSize));
 
-  slli(t0, idx, LogBytesPerInt);
-  add(tmp6, z, t0);
+  shadd(tmp6, idx, z, t0, LogBytesPerInt);
 
-  ror(yz_idx1, yz_idx1, 32); // convert big-endian to little-endian
-  ror(yz_idx2, yz_idx2, 32);
+  ror_imm(yz_idx1, yz_idx1, 32); // convert big-endian to little-endian
+  ror_imm(yz_idx2, yz_idx2, 32);
 
   ld(t1, Address(tmp6, 0));
   ld(t0, Address(tmp6, wordSize));
@@ -4974,8 +4972,8 @@ void MacroAssembler::multiply_128_x_128_loop(Register y, Register z,
   mul(tmp3, product_hi, yz_idx1); //  yz_idx1 * product_hi -> tmp4:tmp3
   mulhu(tmp4, product_hi, yz_idx1);
 
-  ror(t0, t0, 32, tmp); // convert big-endian to little-endian
-  ror(t1, t1, 32, tmp);
+  ror_imm(t0, t0, 32, tmp); // convert big-endian to little-endian
+  ror_imm(t1, t1, 32, tmp);
 
   mul(tmp, product_hi, yz_idx2); //  yz_idx2 * product_hi -> carry2:tmp
   mulhu(carry2, product_hi, yz_idx2);
@@ -4988,8 +4986,8 @@ void MacroAssembler::multiply_128_x_128_loop(Register y, Register z,
   cad(tmp4, tmp4, t1, carry2);
   adc(carry, carry, zr, carry2);
 
-  ror(tmp3, tmp3, 32); // convert little-endian to big-endian
-  ror(tmp4, tmp4, 32);
+  ror_imm(tmp3, tmp3, 32); // convert little-endian to big-endian
+  ror_imm(tmp4, tmp4, 32);
   sd(tmp4, Address(tmp6, 0));
   sd(tmp3, Address(tmp6, wordSize));
 
@@ -5004,22 +5002,20 @@ void MacroAssembler::multiply_128_x_128_loop(Register y, Register z,
   sub(idx, idx, 2);
   bltz(idx, L_check_1);
 
-  slli(t0, idx, LogBytesPerInt);
-  add(t0, y, t0);
+  shadd(t0, idx, y, t0, LogBytesPerInt);
   ld(yz_idx1, Address(t0, 0));
-  ror(yz_idx1, yz_idx1, 32);
+  ror_imm(yz_idx1, yz_idx1, 32);
 
   mul(tmp3, product_hi, yz_idx1); //  yz_idx1 * product_hi -> tmp4:tmp3
   mulhu(tmp4, product_hi, yz_idx1);
 
-  slli(t0, idx, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, idx, z, t0, LogBytesPerInt);
   ld(yz_idx2, Address(t0, 0));
-  ror(yz_idx2, yz_idx2, 32, tmp);
+  ror_imm(yz_idx2, yz_idx2, 32, tmp);
 
   add2_with_carry(carry, tmp4, tmp3, carry, yz_idx2, tmp);
 
-  ror(tmp3, tmp3, 32, tmp);
+  ror_imm(tmp3, tmp3, 32, tmp);
   sd(tmp3, Address(t0, 0));
 
   bind(L_check_1);
@@ -5027,22 +5023,18 @@ void MacroAssembler::multiply_128_x_128_loop(Register y, Register z,
   andi(idx, idx, 0x1);
   sub(idx, idx, 1);
   bltz(idx, L_post_third_loop_done);
-  slli(t0, idx, LogBytesPerInt);
-  add(t0, y, t0);
+  shadd(t0, idx, y, t0, LogBytesPerInt);
   lwu(tmp4, Address(t0, 0));
   mul(tmp3, tmp4, product_hi); //  tmp4 * product_hi -> carry2:tmp3
   mulhu(carry2, tmp4, product_hi);
 
-  slli(t0, idx, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, idx, z, t0, LogBytesPerInt);
   lwu(tmp4, Address(t0, 0));
 
   add2_with_carry(carry2, carry2, tmp3, tmp4, carry);
 
-  slli(t0, idx, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, idx, z, t0, LogBytesPerInt);
   sw(tmp3, Address(t0, 0));
-
   slli(t0, carry2, 32);
   srli(carry, tmp3, 32);
   orr(carry, carry, t0);
@@ -5104,8 +5096,7 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
   }
 
   multiply_32_x_32_loop(x, xstart, x_xstart, y, y_idx, z, carry, product, idx, kdx);
-  slli(t0, xstart, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, xstart, z, t0, LogBytesPerInt);
   sw(carry, Address(t0, 0));
 
   Label L_second_loop_1;
@@ -5117,11 +5108,9 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
   sub(sp, sp, 2 * wordSize);
   sd(z, Address(sp, 0));
   sd(zr, Address(sp, wordSize));
-  slli(t0, xstart, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, xstart, z, t0, LogBytesPerInt);
   addi(z, t0, 4);
-  slli(t0, xstart, LogBytesPerInt);
-  add(t0, x, t0);
+  shadd(t0, xstart, x, t0, LogBytesPerInt);
   lwu(product, Address(t0, 0));
   Label L_third_loop, L_third_loop_exit;
 
@@ -5129,13 +5118,11 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
   sub(jdx, jdx, 1);
   bltz(jdx, L_third_loop_exit);
 
-  slli(t0, jdx, LogBytesPerInt);
-  add(t0, y, t0);
+  shadd(t0, jdx, y, t0, LogBytesPerInt);
   lwu(t0, Address(t0, 0));
   mul(t1, t0, product);
   add(t0, t1, carry);
-  slli(t1, jdx, LogBytesPerInt);
-  add(tmp6, z, t1);
+  shadd(tmp6, jdx, z, t1, LogBytesPerInt);
   lwu(t1, Address(tmp6, 0));
   add(t0, t0, t1);
   sw(t0, Address(tmp6, 0));
@@ -5145,8 +5132,7 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
   bind(L_third_loop_exit);
   ld(z, Address(sp, 0));
   addi(sp, sp, 2 * wordSize);
-  slli(t0, xstart, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, xstart, z, t0, LogBytesPerInt);
   sw(carry, Address(t0, 0));
 
   j(L_second_loop_1);
@@ -5161,15 +5147,13 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
   sub(kdx, kdx, 1);
   beqz(kdx, L_carry);
 
-  slli(t0, kdx, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, kdx, z, t0, LogBytesPerInt);
   sw(carry, Address(t0, 0));
   srli(carry, carry, 32);
   sub(kdx, kdx, 1);
 
   bind(L_carry);
-  slli(t0, kdx, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, kdx, z, t0, LogBytesPerInt);
   sw(carry, Address(t0, 0));
 
   // Second and third (nested) loops.
@@ -5198,16 +5182,14 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
   sd(z, Address(sp, 0));
 
   Label L_last_x;
-  slli(t0, xstart, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, xstart, z, t0, LogBytesPerInt);
   addi(z, t0, 4);
   sub(xstart, xstart, 1); // i = xstart-1;
   bltz(xstart, L_last_x);
 
-  slli(t0, xstart, LogBytesPerInt);
-  add(t0, x, t0);
+  shadd(t0, xstart, x, t0, LogBytesPerInt);
   ld(product_hi, Address(t0, 0));
-  ror(product_hi, product_hi, 32); // convert big-endian to little-endian
+  ror_imm(product_hi, product_hi, 32); // convert big-endian to little-endian
 
   Label L_third_loop_prologue;
   bind(L_third_loop_prologue);
@@ -5224,8 +5206,7 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
   addi(sp, sp, 4 * wordSize);
 
   addi(tmp3, xlen, 1);
-  slli(t0, tmp3, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, tmp3, z, t0, LogBytesPerInt);
   sw(carry, Address(t0, 0));
 
   sub(tmp3, tmp3, 1);
@@ -5233,8 +5214,7 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
 
   // z[i] = (int) carry;
   srli(carry, carry, 32);
-  slli(t0, tmp3, LogBytesPerInt);
-  add(t0, z, t0);
+  shadd(t0, tmp3, z, t0, LogBytesPerInt);
   sw(carry, Address(t0, 0));
   j(L_second_loop_2);
 
@@ -5250,50 +5230,58 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen, Register y, Regi
 // count bits of trailing zero chars from lsb to msb until first non-zero element.
 // For LL case, one byte for one element, so shift 8 bits once, and for other case,
 // shift 16 bits once.
-void MacroAssembler::ctzc_bit(Register Rd, Register Rs, bool isLL, Register Rtmp1, Register Rtmp2)
+void MacroAssembler::ctzc_bit(Register Rd, Register Rs, bool isLL, Register tmp1, Register tmp2)
 {
-  assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
+  if (UseZbb) {
+    assert_different_registers(Rd, Rs, tmp1);
+    int step = isLL ? 8 : 16;
+    ctz(Rd, Rs);
+    andi(tmp1, Rd, step - 1);
+    sub(Rd, Rd, tmp1);
+    return;
+  }
+  assert_different_registers(Rd, Rs, tmp1, tmp2);
   Label Loop;
   int step = isLL ? 8 : 16;
   li(Rd, -step);
-  mv(Rtmp2, Rs);
+  mv(tmp2, Rs);
 
   bind(Loop);
   addi(Rd, Rd, step);
-  andi(Rtmp1, Rtmp2, ((1 << step) - 1));
-  srli(Rtmp2, Rtmp2, step);
-  beqz(Rtmp1, Loop);
+  andi(tmp1, tmp2, ((1 << step) - 1));
+  srli(tmp2, tmp2, step);
+  beqz(tmp1, Loop);
 }
 
 // This instruction reads adjacent 4 bytes from the lower half of source register,
 // inflate into a register, for example:
 // Rs: A7A6A5A4A3A2A1A0
 // Rd: 00A300A200A100A0
-void MacroAssembler::inflate_lo32(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
+void MacroAssembler::inflate_lo32(Register Rd, Register Rs, Register tmp1, Register tmp2)
 {
-  assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
-  li(Rtmp1, 0xFF000000);  // first byte mask at lower word
-  andr(Rd, Rs, Rtmp1);
+  assert_different_registers(Rd, Rs, tmp1, tmp2);
+  li(tmp1, 0xFF000000);  // first byte mask at lower word
+  andr(Rd, Rs, tmp1);
   for (int i = 0; i < 2; i++) {
     slli(Rd, Rd, wordSize);
-    srli(Rtmp1, Rtmp1, wordSize);
-    andr(Rtmp2, Rs, Rtmp1);
-    orr(Rd, Rd, Rtmp2);
+    srli(tmp1, tmp1, wordSize);
+    andr(tmp2, Rs, tmp1);
+    orr(Rd, Rd, tmp2);
   }
   slli(Rd, Rd, wordSize);
-  andi(Rtmp2, Rs, 0xFF);  // last byte mask at lower word
-  orr(Rd, Rd, Rtmp2);
+  andi(tmp2, Rs, 0xFF);  // last byte mask at lower word
+  orr(Rd, Rd, tmp2);
 }
 
 // This instruction reads adjacent 4 bytes from the upper half of source register,
 // inflate into a register, for example:
 // Rs: A7A6A5A4A3A2A1A0
 // Rd: 00A700A600A500A4
-void MacroAssembler::inflate_hi32(Register Rd, Register Rs, Register Rtmp1, Register Rtmp2)
+void MacroAssembler::inflate_hi32(Register Rd, Register Rs, Register tmp1, Register tmp2)
 {
-  assert_different_registers(Rd, Rs, Rtmp1, Rtmp2);
+  assert_different_registers(Rd, Rs, tmp1, tmp2);
   srli(Rs, Rs, 32);   // only upper 32 bits are needed
-  inflate_lo32(Rd, Rs, Rtmp1, Rtmp2);
+  inflate_lo32(Rd, Rs, tmp1, tmp2);
 }
 
 // The size of the blocks erased by the zero_blocks stub.  We must
@@ -5430,8 +5418,8 @@ void MacroAssembler::fill_words(Register base, Register cnt, Register value)
 
   andi(t0, cnt, unroll - 1);
   sub(cnt, cnt, t0);
-  slli(t1, t0, 3);
-  add(base, base, t1); // align 8, so first sd n % 8 = mod, next loop sd 8 * n.
+  // align 8, so first sd n % 8 = mod, next loop sd 8 * n.
+  shadd(base, t0, base, t1, 3);
   la(t1, entry);
   slli(t0, t0, 2); // sd_inst_nums * 4; t0 is cnt % 8, so t1 = t1 - sd_inst_nums * 4, 4 is sizeof(inst)
   sub(t1, t1, t0);
@@ -5555,8 +5543,7 @@ void MacroAssembler::zero_memory(Register addr, Register len, Register tmp1) {
   andi(t0, len, unroll - 1);  // t0 = cnt % unroll
   sub(len, len, t0);          // cnt -= unroll
   // tmp1 always points to the end of the region we're about to zero
-  slli(t1, t0, LogBytesPerWord);
-  add(tmp1, addr, t1);
+  shadd(tmp1, t0, addr, t1, LogBytesPerWord);
   la(t1, entry);
   slli(t0, t0, 2);
   sub(t1, t1, t0);
@@ -5571,14 +5558,66 @@ void MacroAssembler::zero_memory(Register addr, Register len, Register tmp1) {
   bnez(len, loop);
 }
 
-void MacroAssembler::zero_ext(Register dst, Register src, int clear_bits) {
-  slli(dst, src, clear_bits);
-  srli(dst, dst, clear_bits);
+// shift left by shamt and add
+// Rd = (Rs1 << shamt) + Rs2
+void MacroAssembler::shadd(Register Rd, Register Rs1, Register Rs2, Register tmp, int shamt) {
+  if (UseZba) {
+    if (shamt == 1) {
+      sh1add(Rd, Rs1, Rs2);
+      return;
+    } else if (shamt == 2) {
+      sh2add(Rd, Rs1, Rs2);
+      return;
+    } else if (shamt == 3) {
+      sh3add(Rd, Rs1, Rs2);
+      return;
+    }
+  }
+
+  if (shamt != 0) {
+    slli(tmp, Rs1, shamt);
+    add(Rd, Rs2, tmp);
+  } else {
+    add(Rd, Rs1, Rs2);
+  }
 }
 
-void MacroAssembler::sign_ext(Register dst, Register src, int clear_bits) {
-  slli(dst, src, clear_bits);
-  srai(dst, dst, clear_bits);
+void MacroAssembler::zero_extend(Register dst, Register src, int bits) {
+  if (UseZba && bits == 32) {
+    zext_w(dst, src);
+    return;
+  }
+
+  if (UseZbb && bits == 16) {
+    zext_h(dst, src);
+    return;
+  }
+
+  if (bits == 8) {
+    zext_b(dst, src);
+  } else {
+    slli(dst, src, XLEN - bits);
+    srli(dst, dst, XLEN - bits);
+  }
+}
+
+void MacroAssembler::sign_extend(Register dst, Register src, int bits) {
+  if (UseZbb) {
+    if (bits == 8) {
+      sext_b(dst, src);
+      return;
+    } else if (bits == 16) {
+      sext_h(dst, src);
+      return;
+    }
+  }
+
+  if (bits == 32) {
+    sext_w(dst, src);
+  } else {
+    slli(dst, src, XLEN - bits);
+    srai(dst, dst, XLEN - bits);
+  }
 }
 
 void MacroAssembler::cmp_l2i(Register dst, Register src1, Register src2, Register tmp)

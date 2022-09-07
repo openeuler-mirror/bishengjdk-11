@@ -366,7 +366,7 @@ address TemplateInterpreterGenerator::generate_ArrayIndexOutOfBounds_handler() {
   // setup parameters
 
   // convention: expect aberrant index in register x11
-  __ zero_ext(c_rarg2, x11, 32);
+  __ zero_extend(c_rarg2, x11, 32);
   // convention: expect array in register x13
   __ mv(c_rarg1, x13);
   __ call_VM(noreg,
@@ -455,8 +455,7 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   __ ld(x11, Address(x11, ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()));
   __ andi(x11, x11, ConstantPoolCacheEntry::parameter_size_mask);
 
-  __ slli(t0, x11, 3);
-  __ add(esp, esp, t0);
+  __ shadd(esp, x11, esp, t0, 3);
 
   // Restore machine SP
   __ ld(t0, Address(xmethod, Method::const_offset()));
@@ -685,8 +684,7 @@ void TemplateInterpreterGenerator::generate_stack_overflow_check(void) {
 
   // locals + overhead, in bytes
   __ mv(x10, overhead_size);
-  __ slli(t0, x13, Interpreter::logStackElementSize);
-  __ add(x10, x10, t0);  // 2 slots per parameter.
+  __ shadd(x10, x13, x10, t0, Interpreter::logStackElementSize);  // 2 slots per parameter.
 
   const Address stack_limit(xthread, JavaThread::stack_overflow_limit_offset());
   __ ld(t0, stack_limit);
@@ -996,8 +994,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // for natives the size of locals is zero
 
   // compute beginning of parameters (xlocals)
-  __ slli(xlocals, x12, 3);
-  __ add(xlocals, esp, xlocals);
+  __ shadd(xlocals, x12, esp, xlocals, 3);
   __ addi(xlocals, xlocals, -wordSize);
 
   // Pull SP back to minimum size: this avoids holes in the stack
@@ -1392,8 +1389,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   generate_stack_overflow_check();
 
   // compute beginning of parameters (xlocals)
-  __ slli(t1, x12, 3);
-  __ add(xlocals, esp, t1);
+  __ shadd(xlocals, x12, esp, t1, 3);
   __ add(xlocals, xlocals, -wordSize);
 
   // Make room for additional locals
