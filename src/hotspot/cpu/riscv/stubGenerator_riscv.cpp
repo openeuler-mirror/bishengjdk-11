@@ -1514,8 +1514,8 @@ class StubGenerator: public StubCodeGenerator {
     __ bgtu(temp, t0, L_failed);
 
     // Have to clean up high 32 bits of 'src_pos' and 'dst_pos'.
-    __ clear_upper_bits(src_pos, 32);
-    __ clear_upper_bits(dst_pos, 32);
+    __ zero_extend(src_pos, src_pos, 32);
+    __ zero_extend(dst_pos, dst_pos, 32);
 
     BLOCK_COMMENT("arraycopy_range_checks done");
   }
@@ -1729,8 +1729,8 @@ class StubGenerator: public StubCodeGenerator {
     // Get array_header_in_bytes()
     int lh_header_size_width = exact_log2(Klass::_lh_header_size_mask + 1);
     int lh_header_size_msb = Klass::_lh_header_size_shift + lh_header_size_width;
-    __ slli(t0_offset, lh, registerSize - lh_header_size_msb);          // left shift to remove 24 ~ 32;
-    __ srli(t0_offset, t0_offset, registerSize - lh_header_size_width); // array_offset
+    __ slli(t0_offset, lh, XLEN - lh_header_size_msb);          // left shift to remove 24 ~ 32;
+    __ srli(t0_offset, t0_offset, XLEN - lh_header_size_width); // array_offset
 
     __ add(src, src, t0_offset);           // src array offset
     __ add(dst, dst, t0_offset);           // dst array offset
@@ -1759,20 +1759,16 @@ class StubGenerator: public StubCodeGenerator {
     __ j(RuntimeAddress(byte_copy_entry));
 
   __ BIND(L_copy_shorts);
-    __ slli(t0, src_pos, 1);
-    __ add(from, src, t0); // src_addr
-    __ slli(t0, dst_pos, 1);
-    __ add(to, dst, t0); // dst_addr
+    __ shadd(from, src_pos, src, t0, 1); // src_addr
+    __ shadd(to, dst_pos, dst, t0, 1); // dst_addr
     __ addw(count, scratch_length, zr); // length
     __ j(RuntimeAddress(short_copy_entry));
 
   __ BIND(L_copy_ints);
     __ andi(t0, x22_elsize, 1);
     __ bnez(t0, L_copy_longs);
-    __ slli(t0, src_pos, 2);
-    __ add(from, src, t0); // src_addr
-    __ slli(t0, dst_pos, 2);
-    __ add(to, dst, t0); // dst_addr
+    __ shadd(from, src_pos, src, t0, 2); // src_addr
+    __ shadd(to, dst_pos, dst, t0, 2); // dst_addr
     __ addw(count, scratch_length, zr); // length
     __ j(RuntimeAddress(int_copy_entry));
 
@@ -1790,10 +1786,8 @@ class StubGenerator: public StubCodeGenerator {
       BLOCK_COMMENT("} assert long copy done");
     }
 #endif
-    __ slli(t0, src_pos, 3);
-    __ add(from, src, t0); // src_addr
-    __ slli(t0, dst_pos, 3);
-    __ add(to, dst, t0); // dst_addr
+    __ shadd(from, src_pos, src, t0, 3); // src_addr
+    __ shadd(to, dst_pos, dst, t0, 3); // dst_addr
     __ addw(count, scratch_length, zr); // length
     __ j(RuntimeAddress(long_copy_entry));
 
@@ -1810,11 +1804,9 @@ class StubGenerator: public StubCodeGenerator {
     arraycopy_range_checks(src, src_pos, dst, dst_pos, scratch_length,
                            t1, L_failed);
 
-    __ slli(t0, src_pos, LogBytesPerHeapOop);
-    __ add(from, t0, src);
+    __ shadd(from, src_pos, src, t0, LogBytesPerHeapOop);
     __ add(from, from, arrayOopDesc::base_offset_in_bytes(T_OBJECT));
-    __ slli(t0, dst_pos, LogBytesPerHeapOop);
-    __ add(to, t0, dst);
+    __ shadd(to, dst_pos, dst, t0, LogBytesPerHeapOop);
     __ add(to, to, arrayOopDesc::base_offset_in_bytes(T_OBJECT));
     __ addw(count, scratch_length, zr); // length
   __ BIND(L_plain_copy);
@@ -1835,11 +1827,9 @@ class StubGenerator: public StubCodeGenerator {
       __ load_klass(dst_klass, dst); // reload
 
       // Marshal the base address arguments now, freeing registers.
-      __ slli(t0, src_pos, LogBytesPerHeapOop);
-      __ add(from, t0, src);
+      __ shadd(from, src_pos, src, t0, LogBytesPerHeapOop);
       __ add(from, from, arrayOopDesc::base_offset_in_bytes(T_OBJECT));
-      __ slli(t0, dst_pos, LogBytesPerHeapOop);
-      __ add(to, t0, dst);
+      __ shadd(to, dst_pos, dst, t0, LogBytesPerHeapOop);
       __ add(to, to, arrayOopDesc::base_offset_in_bytes(T_OBJECT));
       __ addw(count, length, zr);           // length (reloaded)
       const Register sco_temp = c_rarg3;      // this register is free now
@@ -2000,8 +1990,7 @@ class StubGenerator: public StubCodeGenerator {
     // Note that the total length is no less than 8 bytes.
     if (t == T_BYTE || t == T_SHORT) {
       __ beqz(count, L_exit1);
-      __ slli(tmp_reg, count, shift);
-      __ add(to, to, tmp_reg); // points to the end
+      __ shadd(to, count, to, tmp_reg, shift); // points to the end
       __ sd(value, Address(to, -8)); // overwrite some elements
       __ bind(L_exit1);
       __ leave();
@@ -2329,8 +2318,7 @@ class StubGenerator: public StubCodeGenerator {
         __ j(DONE); // no character left
       } else {
         // Unaligned accesses. Load from non-byte aligned address.
-        __ slli(t0, cnt2, 1);     // now in bytes
-        __ add(strU, strU, t0);   // Address of last 8 bytes in UTF-16 string
+        __ shadd(strU, cnt2, strU, t0, 1); // convert cnt2 into bytes and get Address of last 8 bytes in UTF-16 string
         __ add(strL, strL, cnt2); // Address of last 16 bytes in Latin1 string
         // last 16 characters
         compare_string_8_x_LU(tmpL, tmpU, strL, strU, DIFF);
@@ -2592,10 +2580,8 @@ class StubGenerator: public StubCodeGenerator {
     __ bne(ch1, ch2, L_SMALL_CMP_LOOP_NOMATCH);
 
     __ bind(L_SMALL_CMP_LOOP);
-    __ slli(first, trailing_zero, needle_chr_shift);
-    __ add(first, needle, first);
-    __ slli(ch2, trailing_zero, haystack_chr_shift);
-    __ add(ch2, haystack, ch2);
+    __ shadd(first, trailing_zero, needle, first, needle_chr_shift);
+    __ shadd(ch2, trailing_zero, haystack, ch2, haystack_chr_shift);
     needle_isL ? __ lbu(first, Address(first)) : __ lhu(first, Address(first));
     haystack_isL ? __ lbu(ch2, Address(ch2)) : __ lhu(ch2, Address(ch2));
     __ add(trailing_zero, trailing_zero, 1);
@@ -2641,11 +2627,9 @@ class StubGenerator: public StubCodeGenerator {
 
     // compare one char
     __ bind(L_CMP_LOOP);
-    __ slli(needle_len, trailing_zero, needle_chr_shift);
-    __ add(needle_len, needle, needle_len);
+    __ shadd(needle_len, trailing_zero, needle, needle_len, needle_chr_shift);
     needle_isL ? __ lbu(needle_len, Address(needle_len)) : __ lhu(needle_len, Address(needle_len));
-    __ slli(ch2, trailing_zero, haystack_chr_shift);
-    __ add(ch2, haystack, ch2);
+    __ shadd(ch2, trailing_zero, haystack, ch2, haystack_chr_shift);
     haystack_isL ? __ lbu(ch2, Address(ch2)) : __ lhu(ch2, Address(ch2));
     __ add(trailing_zero, trailing_zero, 1); // next char index
     __ srli(tmp, haystack_len, BitsPerByte * wordSize / 2);
@@ -3142,12 +3126,10 @@ class StubGenerator: public StubCodeGenerator {
       // Rj == i-len
 
       // Ra as temp register
-      slli(Ra, Rj, LogBytesPerWord);
-      add(Pa, Pa_base, Ra);
-      add(Pm, Pm_base, Ra);
-      slli(Ra, len, LogBytesPerWord);
-      add(Pb, Pb_base, Ra);
-      add(Pn, Pn_base, Ra);
+      shadd(Pa, Rj, Pa_base, Ra, LogBytesPerWord);
+      shadd(Pm, Rj, Pm_base, Ra, LogBytesPerWord);
+      shadd(Pb, len, Pb_base, Ra, LogBytesPerWord);
+      shadd(Pn, len, Pn_base, Ra, LogBytesPerWord);
 
       // Ra = *++Pa;
       // Rb = *--Pb;
@@ -3176,8 +3158,7 @@ class StubGenerator: public StubCodeGenerator {
       // store it.
       // Pm_base[i-len] = tmp;
       // Rj as temp register
-      slli(Rj, Rj, LogBytesPerWord);
-      add(Rj, Pm_base, Rj);
+      shadd(Rj, Rj, Pm_base, Rj, LogBytesPerWord);
       sd(tmp, Address(Rj));
 
       // tmp = tmp1; tmp1 = tmp2; tmp2 = 0;
@@ -3212,8 +3193,7 @@ class StubGenerator: public StubCodeGenerator {
             add(Rm, Rm, t0);
             add(Rm, Rm, Rn);
             sltu(t0, Rm, Rn);
-            slli(Rn, i, LogBytesPerWord); // Rn as temp register
-            add(Rn, Pm_base, Rn);
+            shadd(Rn, i, Pm_base, Rn, LogBytesPerWord); // Rn as temp register
             sd(Rm, Address(Rn));
             add(i, i, 1);
             slli(Rn, i, LogBytesPerWord);
@@ -3238,8 +3218,7 @@ class StubGenerator: public StubCodeGenerator {
     void reverse(Register d, Register s, Register len, Register tmp1, Register tmp2) {
       assert(tmp1 < x28 && tmp2 < x28, "register corruption");
 
-      slli(tmp1, len, LogBytesPerWord);
-      add(s, s, tmp1);
+      shadd(s, len, s, tmp1, LogBytesPerWord);
       mv(tmp1, len);
       unroll_2(tmp1,  &MontgomeryMultiplyGenerator::reverse1, d, s, tmp2);
       slli(tmp1, len, LogBytesPerWord);
@@ -3249,7 +3228,7 @@ class StubGenerator: public StubCodeGenerator {
     void reverse1(Register d, Register s, Register tmp) {
       addi(s, s, -wordSize);
       ld(tmp, Address(s));
-      ror(tmp, tmp, 32, t0);
+      ror_imm(tmp, tmp, 32, t0);
       sd(tmp, Address(d));
       addi(d, d, wordSize);
     }

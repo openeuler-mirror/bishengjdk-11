@@ -60,10 +60,6 @@
 #define HWCAP_ISA_V  (1 << ('V' - 'A'))
 #endif
 
-#ifndef HWCAP_ISA_B
-#define HWCAP_ISA_B  (1 << ('B' - 'A'))
-#endif
-
 #define read_csr(csr)                                           \
 ({                                                              \
         register unsigned long __v;                             \
@@ -90,7 +86,10 @@ void VM_Version::get_cpu_info() {
   STATIC_ASSERT(CPU_D == HWCAP_ISA_D);
   STATIC_ASSERT(CPU_C == HWCAP_ISA_C);
   STATIC_ASSERT(CPU_V == HWCAP_ISA_V);
-  STATIC_ASSERT(CPU_B == HWCAP_ISA_B);
+
+  // RISC-V has four bit-manipulation ISA-extensions: Zba/Zbb/Zbc/Zbs.
+  // Availability for those extensions could not be queried from HWCAP.
+  // TODO: Add proper detection for those extensions.
   _features = auxv & (
       HWCAP_ISA_I |
       HWCAP_ISA_M |
@@ -98,6 +97,5 @@ void VM_Version::get_cpu_info() {
       HWCAP_ISA_F |
       HWCAP_ISA_D |
       HWCAP_ISA_C |
-      HWCAP_ISA_V |
-      HWCAP_ISA_B);
+      HWCAP_ISA_V);
 }

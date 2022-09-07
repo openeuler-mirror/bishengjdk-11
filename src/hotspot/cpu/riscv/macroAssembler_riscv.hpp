@@ -395,7 +395,8 @@ class MacroAssembler: public Assembler {
   void notr(Register Rd, Register Rs);
   void neg(Register Rd, Register Rs);
   void negw(Register Rd, Register Rs);
-  void sext_w(Register Rd, Register Rs);        // mv Rd[31:0], Rs[31:0]
+  void sext_w(Register Rd, Register Rs);
+  void zext_b(Register Rd, Register Rs);
   void seqz(Register Rd, Register Rs);          // set if = zero
   void snez(Register Rd, Register Rs);          // set if != zero
   void sltz(Register Rd, Register Rs);          // set if < zero
@@ -510,19 +511,15 @@ class MacroAssembler: public Assembler {
   void vncvt_x_x_w(VectorRegister vd, VectorRegister vs, VectorMask vm = unmasked);
   void vfneg_v(VectorRegister vd, VectorRegister vs);
 
-  // grev
-  void reverseb16(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2= t1);  // reverse bytes in 16-bit and move to lower
-  void reverseh32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2= t1);  // reverse half-words in 32-bit and move to lower
-  void grevh(Register Rd, Register Rs, Register Rtmp = t0);                            // basic reverse bytes in 16-bit halfwords, sign-extend
-  void grev16w(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);    // reverse bytes in 16-bit halfwords(32), sign-extend
-  void grevw(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);      // reverse bytes(32), sign-extend
-  void grev16(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2= t1);      // reverse bytes in 16-bit halfwords
-  void grev32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2= t1);      // reverse bytes in 32-bit words
-  void grev(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);       // reverse bytes in 64-bit double-words
-  void grevhu(Register Rd, Register Rs, Register Rtmp = t0);                           // basic reverse bytes in 16-bit halfwords, zero-extend
-  void grev16wu(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);   // reverse bytes in 16-bit halfwords(32), zero-extend
-  void grevwu(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);     // reverse bytes(32), zero-extend
-
+  // revb
+  void revb_h_h(Register Rd, Register Rs, Register tmp = t0);                           // reverse bytes in halfword in lower 16 bits, sign-extend
+  void revb_w_w(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2 = t1);      // reverse bytes in lower word, sign-extend
+  void revb_h_h_u(Register Rd, Register Rs, Register tmp = t0);                         // reverse bytes in halfword in lower 16 bits, zero-extend
+  void revb_h_w_u(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2 = t1);    // reverse bytes in halfwords in lower 32 bits, zero-extend
+  void revb_h_helper(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2= t1);  // reverse bytes in upper 16 bits (48:63) and move to lower
+  void revb_h(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2= t1);         // reverse bytes in each halfword
+  void revb_w(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2= t1);         // reverse bytes in each word
+  void revb(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2 = t1);          // reverse bytes in doubleword
 
   void andi(Register Rd, Register Rn, int64_t increment, Register temp = t0);
   void orptr(Address adr, RegisterOrConstant src, Register tmp1 = t0, Register tmp2 = t1);
@@ -674,17 +671,6 @@ class MacroAssembler: public Assembler {
 
 #endif // COMPILER2
 
-  void clear_upper_bits(Register r, unsigned upper_bits) {
-    assert(upper_bits < 64, "bit count to clear must be less than 64");
-
-    int sig_bits = 64 - upper_bits; // significance bits
-    if (sig_bits < 12) {
-      andi(r, r, (1UL << sig_bits) - 1);
-    } else {
-      zero_ext(r, r, upper_bits);
-    }
-  }
-
   // Frame creation and destruction shared between JITs.
   void build_frame(int framesize);
   void remove_frame(int framesize);
@@ -700,6 +686,7 @@ class MacroAssembler: public Assembler {
   void cmpptr(Register src1, Address src2, Label& equal);
   void oop_equal(Register obj1, Register obj2, Label& equal, bool is_far = false); // cmpoop
   void oop_nequal(Register obj1, Register obj2, Label& nequal, bool is_far = false);
+  void ror_imm(Register dst, Register src, uint32_t shift, Register tmp = t0);
 #ifdef COMPILER2
   void minmax_FD(FloatRegister dst, FloatRegister src1, FloatRegister src2, bool is_double, bool is_min);
 
@@ -740,7 +727,6 @@ class MacroAssembler: public Assembler {
   void adc(Register dst, Register src1, Register src2, Register carry);
   void add2_with_carry(Register final_dest_hi, Register dest_hi, Register dest_lo,
                        Register src1, Register src2, Register carry = t0);
-  void ror(Register dst, Register src, uint32_t imm, Register tmp = t0);
   void mul_add(Register out, Register in, Register offset,
                Register len, Register k, Register tmp1, Register tmp2);
   void multiply_32_x_32_loop(Register x, Register xstart, Register x_xstart,
@@ -762,13 +748,17 @@ class MacroAssembler: public Assembler {
                        Register tmp1, Register tmp2, Register tmp3, Register tmp4,
                        Register tmp5, Register tmp6, Register product_hi);
 #endif // COMPILER2
-  void inflate_lo32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
-  void inflate_hi32(Register Rd, Register Rs, Register Rtmp1 = t0, Register Rtmp2 = t1);
-  void ctzc_bit(Register Rd, Register Rs, bool isLL = false, Register Rtmp1 = t0, Register Rtmp2 = t1);
+  void inflate_lo32(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2 = t1);
+  void inflate_hi32(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2 = t1);
+  
+  void ctzc_bit(Register Rd, Register Rs, bool isLL = false, Register tmp1 = t0, Register tmp2 = t1);
   void zero_words(Register base, uint64_t cnt);
   address zero_words(Register ptr, Register cnt);
   void fill_words(Register base, Register cnt, Register value);
   void zero_memory(Register addr, Register len, Register tmp1);
+
+   // shift left by shamt and add
+  void shadd(Register Rd, Register Rs1, Register Rs2, Register tmp, int shamt);
 
 #ifdef COMPILER2
   // refer to conditional_branches and float_conditional_branches
@@ -854,13 +844,13 @@ class MacroAssembler: public Assembler {
         sltu(Rt, zr, Rt);
         break;
       case T_CHAR   :
-        zero_ext(Rt, Rt, registerSize - 16);
+        zero_extend(Rt, Rt, 16);
         break;
       case T_BYTE   :
-        sign_ext(Rt, Rt, registerSize - 8);
+        sign_extend(Rt, Rt, 8);
         break;
       case T_SHORT  :
-        sign_ext(Rt, Rt, registerSize - 16);
+        sign_extend(Rt, Rt, 16);
         break;
       case T_INT    :
         addw(Rt, Rt, zr);
@@ -878,8 +868,8 @@ class MacroAssembler: public Assembler {
   void double_compare(Register result, FloatRegister Rs1, FloatRegister Rs2, int unordered_result);
 
   // Zero/Sign-extend
-  void zero_ext(Register dst, Register src, int clear_bits);
-  void sign_ext(Register dst, Register src, int clear_bits);
+  void zero_extend(Register dst, Register src, int bits);
+  void sign_extend(Register dst, Register src, int bits);
 
   // compare src1 and src2 and get -1/0/1 in dst.
   // if [src1 > src2], dst = 1;

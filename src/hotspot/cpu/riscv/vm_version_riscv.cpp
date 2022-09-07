@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1997, 2016, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -86,10 +86,6 @@ void VM_Version::get_processor_features() {
     FLAG_SET_DEFAULT(UseCRC32CIntrinsics, false);
   }
 
-  if (FLAG_IS_DEFAULT(AvoidUnalignedAccesses)) {
-    FLAG_SET_DEFAULT(AvoidUnalignedAccesses, true);
-  }
-
   if (UseRVV) {
     if (!(_features & CPU_V)) {
       warning("RVV is not supported on this CPU");
@@ -99,6 +95,19 @@ void VM_Version::get_processor_features() {
       _initial_vector_length = get_current_vector_length();
     }
   }
+
+  if (FLAG_IS_DEFAULT(AvoidUnalignedAccesses)) {
+    FLAG_SET_DEFAULT(AvoidUnalignedAccesses, true);
+  }
+
+  if (UseZbb) {
+    if (FLAG_IS_DEFAULT(UsePopCountInstruction)) {
+      FLAG_SET_DEFAULT(UsePopCountInstruction, true);
+    }
+  } else {
+    FLAG_SET_DEFAULT(UsePopCountInstruction, false);
+  }
+
 
 #ifdef COMPILER2
   get_c2_processor_features();

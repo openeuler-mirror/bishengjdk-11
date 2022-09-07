@@ -113,6 +113,8 @@ define_pd_global(intx, InlineSmallCode,          1000);
           "Threshod of array length by bytes to "                       \
           "trigger the eager array copy")                               \
           range(0, 65535)                                               \
-  experimental(bool, UseRVV, false, "Use RVV instructions")
+  experimental(bool, UseRVV, false, "Use RVV instructions")             \
+  experimental(bool, UseZba, false, "Use Zba instructions")             \
+  experimental(bool, UseZbb, false, "Use Zbb instructions")
 
 #endif // CPU_RISCV_GLOBALS_RISCV_HPP
