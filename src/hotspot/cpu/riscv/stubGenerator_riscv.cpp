@@ -114,27 +114,38 @@ class StubGenerator: public StubCodeGenerator {
   // we don't need to save x6-x7 and x28-x31 which both C and Java treat as
   // volatile
   //
-  // we save x18-x27 which Java uses as temporary registers and C
-  // expects to be callee-save
+  // we save x9, x18-x27, f8-f9, and f18-f27 which Java uses as temporary
+  // registers and C expects to be callee-save
   //
   // so the stub frame looks like this when we enter Java code
   //
   //     [ return_from_Java     ] <--- sp
   //     [ argument word n      ]
   //      ...
-  // -23 [ argument word 1      ]
-  // -22 [ saved x27            ] <--- sp_after_call
-  // -21 [ saved x26            ]
-  // -20 [ saved x25            ]
-  // -19 [ saved x24            ]
-  // -18 [ saved x23            ]
-  // -17 [ saved x22            ]
-  // -16 [ saved x21            ]
-  // -15 [ saved x20            ]
-  // -14 [ saved x19            ]
-  // -13 [ saved x18            ]
-  // -12 [ saved x9             ]
-  // -11 [ thread pointer (x4)  ]
+  // -34 [ argument word 1      ]
+  // -33 [ saved f27            ] <--- sp_after_call
+  // -32 [ saved f26            ]
+  // -31 [ saved f25            ]
+  // -30 [ saved f24            ]
+  // -29 [ saved f23            ]
+  // -28 [ saved f22            ]
+  // -27 [ saved f21            ]
+  // -26 [ saved f20            ]
+  // -25 [ saved f19            ]
+  // -24 [ saved f18            ]
+  // -23 [ saved f9             ]
+  // -22 [ saved f8             ]
+  // -21 [ saved x27            ]
+  // -20 [ saved x26            ]
+  // -19 [ saved x25            ]
+  // -18 [ saved x24            ]
+  // -17 [ saved x23            ]
+  // -16 [ saved x22            ]
+  // -15 [ saved x21            ]
+  // -14 [ saved x20            ]
+  // -13 [ saved x19            ]
+  // -12 [ saved x18            ]
+  // -11 [ saved x9             ]
   // -10 [ call wrapper   (x10) ]
   //  -9 [ result         (x11) ]
   //  -8 [ result type    (x12) ]
@@ -149,21 +160,32 @@ class StubGenerator: public StubCodeGenerator {
 
   // Call stub stack layout word offsets from fp
   enum call_stub_layout {
-    sp_after_call_off  = -22,
+    sp_after_call_off  = -33,
 
-    x27_off            = -22,
-    x26_off            = -21,
-    x25_off            = -20,
-    x24_off            = -19,
-    x23_off            = -18,
-    x22_off            = -17,
-    x21_off            = -16,
-    x20_off            = -15,
-    x19_off            = -14,
-    x18_off            = -13,
-    x9_off             = -12,
+    f27_off            = -33,
+    f26_off            = -32,
+    f25_off            = -31,
+    f24_off            = -30,
+    f23_off            = -29,
+    f22_off            = -28,
+    f21_off            = -27,
+    f20_off            = -26,
+    f19_off            = -25,
+    f18_off            = -24,
+    f9_off             = -23,
+    f8_off             = -22,
 
-    x4_off             = -11,
+    x27_off            = -21,
+    x26_off            = -20,
+    x25_off            = -19,
+    x24_off            = -18,
+    x23_off            = -17,
+    x22_off            = -16,
+    x21_off            = -15,
+    x20_off            = -14,
+    x19_off            = -13,
+    x18_off            = -12,
+    x9_off             = -11,
 
     call_wrapper_off   = -10,
     result_off         =  -9,
@@ -197,6 +219,19 @@ class StubGenerator: public StubCodeGenerator {
 
     const Address thread        (fp, thread_off         * wordSize);
 
+    const Address f27_save      (fp, f27_off            * wordSize);
+    const Address f26_save      (fp, f26_off            * wordSize);
+    const Address f25_save      (fp, f25_off            * wordSize);
+    const Address f24_save      (fp, f24_off            * wordSize);
+    const Address f23_save      (fp, f23_off            * wordSize);
+    const Address f22_save      (fp, f22_off            * wordSize);
+    const Address f21_save      (fp, f21_off            * wordSize);
+    const Address f20_save      (fp, f20_off            * wordSize);
+    const Address f19_save      (fp, f19_off            * wordSize);
+    const Address f18_save      (fp, f18_off            * wordSize);
+    const Address f9_save       (fp, f9_off             * wordSize);
+    const Address f8_save       (fp, f8_off             * wordSize);
+
     const Address x27_save      (fp, x27_off            * wordSize);
     const Address x26_save      (fp, x26_off            * wordSize);
     const Address x25_save      (fp, x25_off            * wordSize);
@@ -209,7 +244,6 @@ class StubGenerator: public StubCodeGenerator {
     const Address x18_save      (fp, x18_off            * wordSize);
 
     const Address x9_save       (fp, x9_off             * wordSize);
-    const Address x4_save       (fp, x4_off             * wordSize);
 
     // stub code
 
@@ -231,7 +265,6 @@ class StubGenerator: public StubCodeGenerator {
     __ sd(c_rarg1, result);
     __ sd(c_rarg0, call_wrapper);
 
-    __ sd(x4, x4_save);
     __ sd(x9, x9_save);
 
     __ sd(x18, x18_save);
@@ -244,6 +277,19 @@ class StubGenerator: public StubCodeGenerator {
     __ sd(x25, x25_save);
     __ sd(x26, x26_save);
     __ sd(x27, x27_save);
+
+    __ fsd(f8,  f8_save);
+    __ fsd(f9,  f9_save);
+    __ fsd(f18, f18_save);
+    __ fsd(f19, f19_save);
+    __ fsd(f20, f20_save);
+    __ fsd(f21, f21_save);
+    __ fsd(f22, f22_save);
+    __ fsd(f23, f23_save);
+    __ fsd(f24, f24_save);
+    __ fsd(f25, f25_save);
+    __ fsd(f26, f26_save);
+    __ fsd(f27, f27_save);
 
     // install Java thread in global register now we have saved
     // whatever value it held
@@ -336,6 +382,19 @@ class StubGenerator: public StubCodeGenerator {
 #endif
 
     // restore callee-save registers
+    __ fld(f27, f27_save);
+    __ fld(f26, f26_save);
+    __ fld(f25, f25_save);
+    __ fld(f24, f24_save);
+    __ fld(f23, f23_save);
+    __ fld(f22, f22_save);
+    __ fld(f21, f21_save);
+    __ fld(f20, f20_save);
+    __ fld(f19, f19_save);
+    __ fld(f18, f18_save);
+    __ fld(f9,  f9_save);
+    __ fld(f8,  f8_save);
+
     __ ld(x27, x27_save);
     __ ld(x26, x26_save);
     __ ld(x25, x25_save);
@@ -348,7 +407,6 @@ class StubGenerator: public StubCodeGenerator {
     __ ld(x18, x18_save);
 
     __ ld(x9, x9_save);
-    __ ld(x4, x4_save);
 
     __ ld(c_rarg0, call_wrapper);
     __ ld(c_rarg1, result);
