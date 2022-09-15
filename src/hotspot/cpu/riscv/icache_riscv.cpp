@@ -35,13 +35,6 @@ static int icache_flush(address addr, int lines, int magic) {
   return magic;
 }
 
-void test_assembler() {
-  BufferBlob* b = BufferBlob::create("riscv64Test", 500000);
-  assert(b != NULL, "create buffer blob fail!");
-  CodeBuffer code(b);
-  test_assembler_entry(&code);
-}
-
 void ICacheStubGenerator::generate_icache_flush(ICache::flush_icache_stub_t* flush_icache_stub) {
 #ifdef ASSERT
   test_assembler();
