@@ -35,8 +35,6 @@
 #include "runtime/interfaceSupport.inline.hpp"
 #include "runtime/sharedRuntime.hpp"
 
-extern "C" void test_assembler_entry(CodeBuffer *cb);
-
 #define __ _masm.
 
 int AbstractAssembler::code_fill_byte() {
