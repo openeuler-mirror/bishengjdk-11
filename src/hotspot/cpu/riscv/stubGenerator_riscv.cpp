@@ -388,7 +388,7 @@ class StubGenerator: public StubCodeGenerator {
   // Note: Usually the parameters are removed by the callee. In case
   // of an exception crossing an activation frame boundary, that is
   // not the case if the callee is compiled code => need to setup the
-  // rsp.
+  // sp.
   //
   // x10: exception oop
 
