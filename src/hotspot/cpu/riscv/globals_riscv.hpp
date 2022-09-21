@@ -83,38 +83,39 @@ define_pd_global(bool, ThreadLocalHandshakes, true);
 
 define_pd_global(intx, InlineSmallCode,          1000);
 
-#define ARCH_FLAGS(develop,                                             \
-                   product,                                             \
-                   diagnostic,                                          \
-                   experimental,                                        \
-                   notproduct,                                          \
-                   range,                                               \
-                   constraint,                                          \
-                   writeable)                                           \
-                                                                        \
-  product(bool, NearCpool, true,                                        \
-         "constant pool is close to instructions")                      \
-  product(bool, UseBarriersForVolatile, false,                          \
-          "Use memory barriers to implement volatile accesses")         \
-  product(bool, UseCRC32, false,                                        \
-          "Use CRC32 instructions for CRC32 computation")               \
-  product(bool, UseBlockZeroing, true,                                  \
-          "Use DC ZVA for block zeroing")                               \
-  product(intx, BlockZeroingLowLimit, 256,                              \
-          "Minimum size in bytes when block zeroing will be used")      \
-          range(1, max_jint)                                            \
-  product(bool, TraceTraps, false, "Trace all traps the signal handler")\
-  product(bool, UseConservativeFence, true,                             \
-          "Extend i for r and o for w in the pred/succ flags of fence;" \
-          "Extend fence.i to fence.i + fence.")                         \
-  product(bool, AvoidUnalignedAccesses, true,                           \
-          "Avoid generating unaligned memory accesses")                 \
-  product(intx, EagerArrayCopyThreshold, 128,                           \
-          "Threshod of array length by bytes to "                       \
-          "trigger the eager array copy")                               \
-          range(0, 65535)                                               \
-  experimental(bool, UseRVV, false, "Use RVV instructions")             \
-  experimental(bool, UseZba, false, "Use Zba instructions")             \
+#define ARCH_FLAGS(develop,                                                      \
+                   product,                                                      \
+                   diagnostic,                                                   \
+                   experimental,                                                 \
+                   notproduct,                                                   \
+                   range,                                                        \
+                   constraint,                                                   \
+                   writeable)                                                    \
+                                                                                 \
+  product(bool, NearCpool, true,                                                 \
+         "constant pool is close to instructions")                               \
+  product(bool, UseBarriersForVolatile, false,                                   \
+          "Use memory barriers to implement volatile accesses")                  \
+  product(bool, UseCRC32, false,                                                 \
+          "Use CRC32 instructions for CRC32 computation")                        \
+  product(bool, UseBlockZeroing, true,                                           \
+          "Use DC ZVA for block zeroing")                                        \
+  product(intx, BlockZeroingLowLimit, 256,                                       \
+          "Minimum size in bytes when block zeroing will be used")               \
+          range(1, max_jint)                                                     \
+  product(bool, TraceTraps, false, "Trace all traps the signal handler")         \
+  /* For now we're going to be safe and add the I/O bits to userspace fences. */ \
+  product(bool, UseConservativeFence, true,                                      \
+          "Extend i for r and o for w in the pred/succ flags of fence;"          \
+          "Extend fence.i to fence.i + fence.")                                  \
+  product(bool, AvoidUnalignedAccesses, true,                                    \
+          "Avoid generating unaligned memory accesses")                          \
+  product(intx, EagerArrayCopyThreshold, 128,                                    \
+          "Threshod of array length by bytes to "                                \
+          "trigger the eager array copy")                                        \
+          range(0, 65535)                                                        \
+  experimental(bool, UseRVV, false, "Use RVV instructions")                      \
+  experimental(bool, UseZba, false, "Use Zba instructions")                      \
   experimental(bool, UseZbb, false, "Use Zbb instructions")
 
 #endif // CPU_RISCV_GLOBALS_RISCV_HPP

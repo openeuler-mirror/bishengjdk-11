@@ -2129,7 +2129,7 @@ void SharedRuntime::generate_deopt_blob() {
   // In the case of an exception pending when deoptimizing, we enter
   // with a return address on the stack that points after the call we patched
   // into the exception handler. We have the following register state from,
-  // e.g., the forward exception stub (see stubGenerator_riscv64.cpp).
+  // e.g., the forward exception stub (see stubGenerator_riscv.cpp).
   //    x10: exception oop
   //    x9: exception handler
   //    x13: throwing pc
@@ -2475,7 +2475,7 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   OopMap* map = new OopMap(SimpleRuntimeFrame::framesize, 0);
   assert_cond(oop_maps != NULL && map != NULL);
 
-  // location of rfp is known implicitly by the frame sender code
+  // location of fp is known implicitly by the frame sender code
 
   oop_maps->add_gc_map(__ pc() - start, map);
 
@@ -2829,12 +2829,10 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
 }
 
 #ifdef COMPILER2
-// This is here instead of runtime_riscv64.cpp because it uses SimpleRuntimeFrame
-//
 //------------------------------generate_exception_blob---------------------------
 // creates exception blob at the end
 // Using exception blob, this code is jumped from a compiled method.
-// (see emit_exception_handler in riscv64.ad file)
+// (see emit_exception_handler in riscv.ad file)
 //
 // Given an exception pc at a call we call into the runtime for the
 // handler in this method. This handler might merely restore state

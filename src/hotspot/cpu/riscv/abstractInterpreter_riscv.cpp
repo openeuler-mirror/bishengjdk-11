@@ -134,10 +134,9 @@ void AbstractInterpreter::layout_activation(Method* method,
 #endif
 
   interpreter_frame->interpreter_frame_set_method(method);
-  // NOTE the difference in using sender_sp and
-  // interpreter_frame_sender_sp interpreter_frame_sender_sp is
-  // the original sp of the caller (the unextended_sp) and
-  // sender_sp is fp+8/16 (32bit/64bit)
+  // NOTE the difference in using sender_sp and interpreter_frame_sender_sp
+  // interpreter_frame_sender_sp is the original sp of the caller (the unextended_sp)
+  // and sender_sp is fp
   //
   // The interpreted method entry on riscv aligns SP to 16 bytes
   // before generating the fixed part of the activation frame. So there
