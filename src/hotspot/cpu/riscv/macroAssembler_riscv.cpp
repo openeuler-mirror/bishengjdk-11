@@ -2932,17 +2932,14 @@ void MacroAssembler::eden_allocate(Register obj,
 
 // get_thread() can be called anywhere inside generated code so we
 // need to save whatever non-callee save context might get clobbered
-// by the call to JavaThread::riscv64_get_thread_helper() or, indeed,
-// the call setup code.
-//
-// riscv64_get_thread_helper() clobbers only x10.
+// by the call to Thread::current() or, indeed, the call setup code
 void MacroAssembler::get_thread(Register thread) {
   // save all call-clobbered regs except thread
   RegSet saved_regs = RegSet::of(x10) + ra - thread;
   push_reg(saved_regs, sp);
 
   int32_t offset = 0;
-  movptr_with_offset(ra, CAST_FROM_FN_PTR(address, JavaThread::riscv64_get_thread_helper), offset);
+  movptr_with_offset(ra, CAST_FROM_FN_PTR(address, Thread::current), offset);
   jalr(ra, ra, offset);
   if (thread != x10) {
     mv(thread, x10);

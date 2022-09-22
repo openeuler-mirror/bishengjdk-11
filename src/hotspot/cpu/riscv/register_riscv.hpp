@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -82,7 +82,7 @@ class RegisterImpl: public AbstractRegisterImpl {
   unsigned long bit(bool should_set = true) const { return should_set ? 1 << encoding() : 0; }
 };
 
-// The integer registers of the riscv64 architecture
+// The integer registers of the riscv architecture
 
 CONSTANT_REGISTER_DECLARATION(Register, noreg, (-1));
 
@@ -151,7 +151,7 @@ class FloatRegisterImpl: public AbstractRegisterImpl {
 
 };
 
-// The float registers of the RISCV64 architecture
+// The float registers of the RISCV architecture
 
 CONSTANT_REGISTER_DECLARATION(FloatRegister, fnoreg , (-1));
 

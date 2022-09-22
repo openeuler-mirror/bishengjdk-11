@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_RISCV64_GC_SHARED_CARDTABLEBARRIERSETASSEMBLER_RISCV_HPP
-#define CPU_RISCV64_GC_SHARED_CARDTABLEBARRIERSETASSEMBLER_RISCV_HPP
+#ifndef CPU_RISCV_GC_SHARED_CARDTABLEBARRIERSETASSEMBLER_RISCV_HPP
+#define CPU_RISCV_GC_SHARED_CARDTABLEBARRIERSETASSEMBLER_RISCV_HPP
 
 #include "asm/macroAssembler.hpp"
 #include "gc/shared/modRefBarrierSetAssembler.hpp"
@@ -40,4 +40,4 @@ protected:
 
 };
 
-#endif // #ifndef CPU_RISCV64_GC_SHARED_CARDTABLEBARRIERSETASSEMBLER_RISCV_HPP
+#endif // #ifndef CPU_RISCV_GC_SHARED_CARDTABLEBARRIERSETASSEMBLER_RISCV_HPP

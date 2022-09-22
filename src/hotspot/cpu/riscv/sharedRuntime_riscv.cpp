@@ -62,7 +62,7 @@ public:
     // The frame sender code expects that fp will be in the "natural" place and
     // will override any oopMap setting for it. We must therefore force the layout
     // so that it agrees with the frame sender code.
-    // we don't expect any arg reg save area so riscv64 asserts that
+    // we don't expect any arg reg save area so riscv asserts that
     // frame::arg_reg_save_area_bytes == 0
     fp_off = 0, fp_off2,
     return_off, return_off2,
@@ -227,7 +227,7 @@ void RegisterSaver::restore_result_registers(MacroAssembler* masm) {
 }
 
 // Is vector's size (in bytes) bigger than a size saved by default?
-// 8 bytes vector registers are saved by default on riscv64.
+// 8 bytes vector registers are saved by default on riscv.
 bool SharedRuntime::is_wide_vector(int size) {
   return size > 8;
 }
@@ -680,7 +680,7 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
                                          VMRegPair *regs,
                                          VMRegPair *regs2,
                                          int total_args_passed) {
-  assert(regs2 == NULL, "not needed on riscv64");
+  assert(regs2 == NULL, "not needed on riscv");
   assert_cond(sig_bt != NULL && regs != NULL);
 
   // We return the amount of VMRegImpl stack slots we need to reserve for all

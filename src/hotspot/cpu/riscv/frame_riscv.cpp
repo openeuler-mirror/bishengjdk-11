@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -383,7 +383,7 @@ void frame::verify_deopt_original_pc(CompiledMethod* nm, intptr_t* unextended_sp
 //------------------------------------------------------------------------------
 // frame::adjust_unextended_sp
 void frame::adjust_unextended_sp() {
-  // On riscv64, sites calling method handle intrinsics and lambda forms are treated
+  // On riscv, sites calling method handle intrinsics and lambda forms are treated
   // as any other call site. Therefore, no special action is needed when we are
   // returning to any of these call sites.
 
@@ -636,7 +636,7 @@ void frame::describe_pd(FrameValues& values, int frame_no) {
 #endif
 
 intptr_t *frame::initial_deoptimization_info() {
-  // Not used on riscv64, but we must return something.
+  // Not used on riscv, but we must return something.
   return NULL;
 }
 

@@ -24,7 +24,7 @@
 //
 //
 
-// RISCV64 VEC Architecture Description File
+// RISCV VEC Architecture Description File
 
 opclass vmemA(indirect);
 
