@@ -1117,8 +1117,8 @@ void MacroAssembler::pop_call_clobbered_registers() {
 }
 
 void MacroAssembler::push_CPU_state(bool save_vectors, int vector_size_in_bytes) {
-  // integer registers, except zr(x0) & ra(x1) & sp(x2)
-  push_reg(RegSet::range(x3, x31), sp);
+  // integer registers, except zr(x0) & ra(x1) & sp(x2) & gp(x3) & tp(x4)
+  push_reg(RegSet::range(x5, x31), sp);
 
   // float registers
   addi(sp, sp, - 32 * wordSize);
@@ -1153,8 +1153,8 @@ void MacroAssembler::pop_CPU_state(bool restore_vectors, int vector_size_in_byte
   }
   addi(sp, sp, 32 * wordSize);
 
-  // integer registers, except zr(x0) & ra(x1) & sp(x2)
-  pop_reg(RegSet::range(x3, x31), sp);
+  // integer registers, except zr(x0) & ra(x1) & sp(x2) & gp(x3) & tp(x4)
+  pop_reg(RegSet::range(x5, x31), sp);
 }
 
 static int patch_offset_in_jal(address branch, int64_t offset) {
