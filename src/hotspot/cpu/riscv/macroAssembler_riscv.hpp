@@ -895,8 +895,7 @@ private:
 #define reset_labels5(L1, L2, L3, L4, L5) reset_labels2(L1, L2); reset_labels3(L3, L4, L5)
 #endif
 
-  // Return true if an addres is within the 48-bit Riscv64 address
-  // space.
+  // Return true if an address is within the 48-bit RISCV64 address space.
   bool is_valid_riscv64_address(address addr) {
     return ((uintptr_t)addr >> 48) == 0;
   }
