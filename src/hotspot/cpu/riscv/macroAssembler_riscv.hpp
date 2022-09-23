@@ -386,7 +386,7 @@ class MacroAssembler: public Assembler {
   void store_sized_value(Address dst, Register src, size_t size_in_bytes, Register src2 = noreg);
 
  public:
-  // enum used for riscv64--x86 linkage to define return type of x86 function
+  // enum used for riscv--x86 linkage to define return type of x86 function
   enum ret_type { ret_type_void, ret_type_integral, ret_type_float, ret_type_double};
 
   // Standard pseudoinstruction
@@ -895,8 +895,7 @@ private:
 #define reset_labels5(L1, L2, L3, L4, L5) reset_labels2(L1, L2); reset_labels3(L3, L4, L5)
 #endif
 
-  // Return true if an addres is within the 48-bit Riscv64 address
-  // space.
+  // Return true if an address is within the 48-bit RISCV64 address space.
   bool is_valid_riscv64_address(address addr) {
     return ((uintptr_t)addr >> 48) == 0;
   }

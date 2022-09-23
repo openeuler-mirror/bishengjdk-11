@@ -116,7 +116,7 @@ void VM_Version::get_processor_features() {
 
 #ifdef COMPILER2
 void VM_Version::get_c2_processor_features() {
-  // lack of cmove in riscv64
+  // lack of cmove in riscv
   if (UseCMoveUnconditionally) {
     FLAG_SET_DEFAULT(UseCMoveUnconditionally, false);
   }

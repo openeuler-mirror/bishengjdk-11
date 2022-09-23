@@ -247,7 +247,7 @@ class StubGenerator: public StubCodeGenerator {
 
     // stub code
 
-    address riscv64_entry = __ pc();
+    address riscv_entry = __ pc();
 
     // set up frame and move sp to end of save area
     __ enter();
@@ -2105,7 +2105,7 @@ class StubGenerator: public StubCodeGenerator {
     address entry_jlong_arraycopy     = NULL;
     address entry_checkcast_arraycopy = NULL;
 
-    StubRoutines::riscv64::_zero_blocks = generate_zero_blocks();
+    StubRoutines::riscv::_zero_blocks = generate_zero_blocks();
 
     //*** jbyte
     // Always need aligned and unaligned versions
@@ -2510,10 +2510,10 @@ class StubGenerator: public StubCodeGenerator {
   }
 
   void generate_compare_long_strings() {
-    StubRoutines::riscv64::_compare_long_string_LL = generate_compare_long_string_same_encoding(true);
-    StubRoutines::riscv64::_compare_long_string_UU = generate_compare_long_string_same_encoding(false);
-    StubRoutines::riscv64::_compare_long_string_LU = generate_compare_long_string_different_encoding(true);
-    StubRoutines::riscv64::_compare_long_string_UL = generate_compare_long_string_different_encoding(false);
+    StubRoutines::riscv::_compare_long_string_LL = generate_compare_long_string_same_encoding(true);
+    StubRoutines::riscv::_compare_long_string_UU = generate_compare_long_string_same_encoding(false);
+    StubRoutines::riscv::_compare_long_string_LU = generate_compare_long_string_different_encoding(true);
+    StubRoutines::riscv::_compare_long_string_UL = generate_compare_long_string_different_encoding(false);
   }
 
   // x10 result
@@ -2745,9 +2745,9 @@ class StubGenerator: public StubCodeGenerator {
 
   void generate_string_indexof_stubs()
   {
-    StubRoutines::riscv64::_string_indexof_linear_ll = generate_string_indexof_linear(true, true);
-    StubRoutines::riscv64::_string_indexof_linear_uu = generate_string_indexof_linear(false, false);
-    StubRoutines::riscv64::_string_indexof_linear_ul = generate_string_indexof_linear(true, false);
+    StubRoutines::riscv::_string_indexof_linear_ll = generate_string_indexof_linear(true, true);
+    StubRoutines::riscv::_string_indexof_linear_uu = generate_string_indexof_linear(false, false);
+    StubRoutines::riscv::_string_indexof_linear_ul = generate_string_indexof_linear(true, false);
   }
 
   address generate_mulAdd()
@@ -2884,7 +2884,7 @@ class StubGenerator: public StubCodeGenerator {
     // Note that we only have to preserve callee-saved registers since
     // the compilers are responsible for supplying a continuation point
     // if they expect all registers to be preserved.
-    // n.b. riscv64 asserts that frame::arg_reg_save_area_bytes == 0
+    // n.b. riscv asserts that frame::arg_reg_save_area_bytes == 0
     assert_cond(runtime_entry != NULL);
     enum layout {
       fp_off = 0,
@@ -3726,7 +3726,7 @@ class StubGenerator: public StubCodeGenerator {
                                                        &StubRoutines::_safefetchN_fault_pc,
                                                        &StubRoutines::_safefetchN_continuation_pc);
 
-    StubRoutines::riscv64::set_completed();
+    StubRoutines::riscv::set_completed();
   }
 
  public:

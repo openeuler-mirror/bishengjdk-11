@@ -1031,14 +1031,7 @@ void MacroAssembler::pop_reg(Register Rd)
 }
 
 int MacroAssembler::bitset_to_regs(unsigned int bitset, unsigned char* regs) {
-  DEBUG_ONLY(int words_pushed = 0;)
-
   int count = 0;
-  // Sp is x2, and zr is x0, which should not be pushed.
-  // If the number of registers is odd, zr is used for stack alignment.Otherwise, it will be ignored.
-  bitset &= ~ (1U << 2);
-  bitset |= 0x1;
-
   // Scan bitset to accumulate register pairs
   for (int reg = 31; reg >= 0; reg --) {
     if ((1U << 31) & bitset) {
@@ -1046,7 +1039,6 @@ int MacroAssembler::bitset_to_regs(unsigned int bitset, unsigned char* regs) {
     }
     bitset <<= 1;
   }
-  count &= ~1;  // Only push an even number of regs
   return count;
 }
 
@@ -1057,12 +1049,14 @@ int MacroAssembler::push_reg(unsigned int bitset, Register stack) {
 
   unsigned char regs[32];
   int count = bitset_to_regs(bitset, regs);
+  // reserve one slot to align for odd count
+  int offset = is_even(count) ? 0 : wordSize;
 
   if (count) {
-    addi(stack, stack, - count * wordSize);
+    addi(stack, stack, - count * wordSize - offset);
   }
   for (int i = count - 1; i >= 0; i--) {
-    sd(as_Register(regs[i]), Address(stack, (count -1 - i) * wordSize));
+    sd(as_Register(regs[i]), Address(stack, (count - 1 - i) * wordSize + offset));
     DEBUG_ONLY(words_pushed ++;)
   }
 
@@ -1076,14 +1070,16 @@ int MacroAssembler::pop_reg(unsigned int bitset, Register stack) {
 
   unsigned char regs[32];
   int count = bitset_to_regs(bitset, regs);
+  // reserve one slot to align for odd count
+  int offset = is_even(count) ? 0 : wordSize;
 
   for (int i = count - 1; i >= 0; i--) {
-    ld(as_Register(regs[i]), Address(stack, (count -1 - i) * wordSize));
+    ld(as_Register(regs[i]), Address(stack, (count - 1 - i) * wordSize + offset));
     DEBUG_ONLY(words_popped ++;)
   }
 
   if (count) {
-    addi(stack, stack, count * wordSize);
+    addi(stack, stack, count * wordSize + offset);
   }
   assert(words_popped == count, "oops, popped != count");
 
@@ -1121,8 +1117,8 @@ void MacroAssembler::pop_call_clobbered_registers() {
 }
 
 void MacroAssembler::push_CPU_state(bool save_vectors, int vector_size_in_bytes) {
-  // integer registers, except zr(x0) & ra(x1) & sp(x2)
-  push_reg(RegSet::range(x3, x31), sp);
+  // integer registers, except zr(x0) & ra(x1) & sp(x2) & gp(x3) & tp(x4)
+  push_reg(RegSet::range(x5, x31), sp);
 
   // float registers
   addi(sp, sp, - 32 * wordSize);
@@ -1157,8 +1153,8 @@ void MacroAssembler::pop_CPU_state(bool restore_vectors, int vector_size_in_byte
   }
   addi(sp, sp, 32 * wordSize);
 
-  // integer registers, except zr(x0) & ra(x1) & sp(x2)
-  pop_reg(RegSet::range(x3, x31), sp);
+  // integer registers, except zr(x0) & ra(x1) & sp(x2) & gp(x3) & tp(x4)
+  pop_reg(RegSet::range(x5, x31), sp);
 }
 
 static int patch_offset_in_jal(address branch, int64_t offset) {
@@ -2936,17 +2932,14 @@ void MacroAssembler::eden_allocate(Register obj,
 
 // get_thread() can be called anywhere inside generated code so we
 // need to save whatever non-callee save context might get clobbered
-// by the call to JavaThread::riscv64_get_thread_helper() or, indeed,
-// the call setup code.
-//
-// riscv64_get_thread_helper() clobbers only x10.
+// by the call to Thread::current() or, indeed, the call setup code
 void MacroAssembler::get_thread(Register thread) {
   // save all call-clobbered regs except thread
   RegSet saved_regs = RegSet::of(x10) + ra - thread;
   push_reg(saved_regs, sp);
 
   int32_t offset = 0;
-  movptr_with_offset(ra, CAST_FROM_FN_PTR(address, JavaThread::riscv64_get_thread_helper), offset);
+  movptr_with_offset(ra, CAST_FROM_FN_PTR(address, Thread::current), offset);
   jalr(ra, ra, offset);
   if (thread != x10) {
     mv(thread, x10);
@@ -3628,16 +3621,16 @@ void MacroAssembler::string_compare(Register str1, Register str2,
   RuntimeAddress stub = NULL;
   switch (ae) {
     case StrIntrinsicNode::LL:
-      stub = RuntimeAddress(StubRoutines::riscv64::compare_long_string_LL());
+      stub = RuntimeAddress(StubRoutines::riscv::compare_long_string_LL());
       break;
     case StrIntrinsicNode::UU:
-      stub = RuntimeAddress(StubRoutines::riscv64::compare_long_string_UU());
+      stub = RuntimeAddress(StubRoutines::riscv::compare_long_string_UU());
       break;
     case StrIntrinsicNode::LU:
-      stub = RuntimeAddress(StubRoutines::riscv64::compare_long_string_LU());
+      stub = RuntimeAddress(StubRoutines::riscv::compare_long_string_LU());
       break;
     case StrIntrinsicNode::UL:
-      stub = RuntimeAddress(StubRoutines::riscv64::compare_long_string_UL());
+      stub = RuntimeAddress(StubRoutines::riscv::compare_long_string_UL());
       break;
     default:
       ShouldNotReachHere();
@@ -4200,13 +4193,13 @@ void MacroAssembler::string_indexof(Register haystack, Register needle,
   mv(result, zr);
   RuntimeAddress stub = NULL;
   if (isLL) {
-    stub = RuntimeAddress(StubRoutines::riscv64::string_indexof_linear_ll());
+    stub = RuntimeAddress(StubRoutines::riscv::string_indexof_linear_ll());
     assert(stub.target() != NULL, "string_indexof_linear_ll stub has not been generated");
   } else if (needle_isL) {
-    stub = RuntimeAddress(StubRoutines::riscv64::string_indexof_linear_ul());
+    stub = RuntimeAddress(StubRoutines::riscv::string_indexof_linear_ul());
     assert(stub.target() != NULL, "string_indexof_linear_ul stub has not been generated");
   } else {
-    stub = RuntimeAddress(StubRoutines::riscv64::string_indexof_linear_uu());
+    stub = RuntimeAddress(StubRoutines::riscv::string_indexof_linear_uu());
     assert(stub.target() != NULL, "string_indexof_linear_uu stub has not been generated");
   }
   trampoline_call(stub);
@@ -5308,9 +5301,9 @@ address MacroAssembler::zero_words(Register ptr, Register cnt)
   Label around, done, done16;
   bltu(cnt, t0, around);
   {
-    RuntimeAddress zero_blocks = RuntimeAddress(StubRoutines::riscv64::zero_blocks());
+    RuntimeAddress zero_blocks = RuntimeAddress(StubRoutines::riscv::zero_blocks());
     assert(zero_blocks.target() != NULL, "zero_blocks stub has not been generated");
-    if (StubRoutines::riscv64::complete()) {
+    if (StubRoutines::riscv::complete()) {
       address tpc = trampoline_call(zero_blocks);
       if (tpc == NULL) {
         DEBUG_ONLY(reset_labels1(around));

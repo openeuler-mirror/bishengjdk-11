@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2018, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -215,7 +215,7 @@ inline NativeInstruction* nativeInstruction_at(address addr) {
   return (NativeInstruction*)addr;
 }
 
-// The natural type of an RISCV64 instruction is uint32_t
+// The natural type of an RISCV instruction is uint32_t
 inline NativeInstruction* nativeInstruction_at(uint32_t *addr) {
   return (NativeInstruction*)addr;
 }
@@ -227,7 +227,7 @@ inline NativeCall* nativeCall_at(address addr);
 
 class NativeCall: public NativeInstruction {
  public:
-  enum RISCV64_specific_constants {
+  enum RISCV_specific_constants {
     instruction_size            =    4,
     instruction_offset          =    0,
     displacement_offset         =    0,
@@ -314,7 +314,7 @@ inline NativeCall* nativeCall_before(address return_address) {
 // (used to manipulate inlined 64-bit data calls, etc.)
 class NativeMovConstReg: public NativeInstruction {
  public:
-  enum RISCV64_specific_constants {
+  enum RISCV_specific_constants {
     movptr_instruction_size             =    6 * NativeInstruction::instruction_size, // lui, addi, slli, addi, slli, addi.  See movptr().
     movptr_with_offset_instruction_size =    5 * NativeInstruction::instruction_size, // lui, addi, slli, addi, slli. See movptr_with_offset().
     load_pc_relative_instruction_size   =    2 * NativeInstruction::instruction_size, // auipc, ld
@@ -380,7 +380,7 @@ inline NativeMovConstReg* nativeMovConstReg_before(address addr) {
   return test;
 }
 
-// RISCV64 should not use C1 runtime patching, so just leave NativeMovRegMem Unimplemented.
+// RISCV should not use C1 runtime patching, so just leave NativeMovRegMem Unimplemented.
 class NativeMovRegMem: public NativeInstruction {
  public:
   int instruction_start() const {
@@ -418,11 +418,11 @@ inline NativeMovRegMem* nativeMovRegMem_at (address addr) {
 
 class NativeJump: public NativeInstruction {
  public:
-  enum RISCV64_specific_constants {
-    instruction_size            =    4,
+  enum RISCV_specific_constants {
+    instruction_size            =    NativeInstruction::instruction_size,
     instruction_offset          =    0,
     data_offset                 =    0,
-    next_instruction_offset     =    4
+    next_instruction_offset     =    NativeInstruction::instruction_size
   };
 
   address instruction_address() const       { return addr_at(instruction_offset); }
@@ -454,7 +454,7 @@ inline NativeJump* nativeJump_at(address addr) {
 
 class NativeGeneralJump: public NativeJump {
 public:
-  enum RISCV64_specific_constants {
+  enum RISCV_specific_constants {
     instruction_size            =    6 * NativeInstruction::instruction_size, // lui, addi, slli, addi, slli, jalr
     instruction_offset          =    0,
     data_offset                 =    0,
@@ -493,7 +493,7 @@ inline bool NativeInstruction::is_jump_or_nop() {
 class NativeCallTrampolineStub : public NativeInstruction {
  public:
 
-  enum RISCV64_specific_constants {
+  enum RISCV_specific_constants {
     // Refer to function emit_trampoline_stub.
     instruction_size = 3 * NativeInstruction::instruction_size + wordSize, // auipc + ld + jr + target address
     data_offset      = 3 * NativeInstruction::instruction_size,            // auipc + ld + jr

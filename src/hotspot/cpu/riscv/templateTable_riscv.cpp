@@ -47,7 +47,7 @@
 // Platform-dependent initialization
 
 void TemplateTable::pd_initialize() {
-  // No riscv64 specific initialization
+  // No riscv specific initialization
 }
 
 // Address computation: local variables
