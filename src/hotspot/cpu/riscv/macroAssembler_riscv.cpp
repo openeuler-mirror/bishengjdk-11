@@ -2832,7 +2832,7 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
 
   assert(label_nulls <= 1, "at most one NULL in the batch");
 
-  // A couple of usefule fields in sub_klass:
+  // A couple of useful fields in sub_klass:
   int ss_offset = in_bytes(Klass::secondary_supers_offset());
   int sc_offset = in_bytes(Klass::secondary_super_cache_offset());
   Address secondary_supers_addr(sub_klass, ss_offset);
