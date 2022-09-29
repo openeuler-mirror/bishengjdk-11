@@ -135,9 +135,9 @@ class MacroAssembler: public Assembler {
   void super_call_VM_leaf(address entry_point, Register arg_0, Register arg_1, Register arg_2, Register arg_3);
 
   // last Java Frame (fills frame anchor)
-  void set_last_Java_frame(Register last_java_sp, Register last_java_fp, address last_java_pc, Register temp);
-  void set_last_Java_frame(Register last_java_sp, Register last_java_fp, Label &last_java_pc, Register temp);
-  void set_last_Java_frame(Register last_java_sp, Register last_java_fp, Register last_java_pc,Register temp);
+  void set_last_Java_frame(Register last_java_sp, Register last_java_fp, address last_java_pc, Register tmp);
+  void set_last_Java_frame(Register last_java_sp, Register last_java_fp, Label &last_java_pc, Register tmp);
+  void set_last_Java_frame(Register last_java_sp, Register last_java_fp, Register last_java_pc, Register tmp);
 
   // thread in the default location (xthread)
   void reset_last_Java_frame(bool clear_fp);
@@ -238,7 +238,7 @@ class MacroAssembler: public Assembler {
                                Register intf_klass,
                                RegisterOrConstant itable_index,
                                Register method_result,
-                               Register scan_temp,
+                               Register scan_tmp,
                                Label& no_such_interface,
                                bool return_method = true);
 
@@ -272,10 +272,10 @@ class MacroAssembler: public Assembler {
   // The fast path produces a tri-state answer: yes / no / maybe-slow.
   // One of the three labels can be NULL, meaning take the fall-through.
   // If super_check_offset is -1, the value is loaded up from super_klass.
-  // No registers are killed, except temp_reg
+  // No registers are killed, except tmp_reg
   void check_klass_subtype_fast_path(Register sub_klass,
                                      Register super_klass,
-                                     Register temp_reg,
+                                     Register tmp_reg,
                                      Label* L_success,
                                      Label* L_failure,
                                      Label* L_slow_path,
@@ -283,18 +283,18 @@ class MacroAssembler: public Assembler {
 
   // The reset of the type cehck; must be wired to a corresponding fast path.
   // It does not repeat the fast path logic, so don't use it standalone.
-  // The temp_reg and temp2_reg can be noreg, if no temps are avaliable.
+  // The tmp_reg and tmp2_reg can be noreg, if no tmps are avaliable.
   // Updates the sub's secondary super cache as necessary.
   void check_klass_subtype_slow_path(Register sub_klass,
                                      Register super_klass,
-                                     Register temp_reg,
-                                     Register temp2_reg,
+                                     Register tmp_reg,
+                                     Register tmp2_reg,
                                      Label* L_success,
                                      Label* L_failure);
 
   void check_klass_subtype(Register sub_klass,
                            Register super_klass,
-                           Register temp_reg,
+                           Register tmp_reg,
                            Label& L_success);
 
   Address argument_address(RegisterOrConstant arg_slot, int extra_slot_offset = 0);
@@ -521,7 +521,7 @@ class MacroAssembler: public Assembler {
   void revb_w(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2= t1);         // reverse bytes in each word
   void revb(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2 = t1);          // reverse bytes in doubleword
 
-  void andi(Register Rd, Register Rn, int64_t increment, Register temp = t0);
+  void andi(Register Rd, Register Rn, int64_t increment, Register tmp = t0);
   void orptr(Address adr, RegisterOrConstant src, Register tmp1 = t0, Register tmp2 = t1);
 
   // Support for serializing memory accesses between threads
@@ -584,7 +584,7 @@ class MacroAssembler: public Assembler {
                            Label& done, Label* slow_case = NULL,
                            BiasedLockingCounters* counters = NULL,
                            Register flag = noreg);
-  void biased_locking_exit(Register obj_reg, Register temp_reg, Label& done, Register flag = noreg);
+  void biased_locking_exit(Register obj_reg, Register tmp_reg, Label& done, Register flag = noreg);
 
   static bool far_branches() {
     return ReservedCodeCacheSize > branch_range;
@@ -794,10 +794,10 @@ class MacroAssembler: public Assembler {
   // e.g. convert from NaN, +Inf, -Inf to int, float, double
   // will trigger exception, we need to deal with these situations
   // to get correct results.
-  void fcvt_w_s_safe(Register dst, FloatRegister src, Register temp = t0);
-  void fcvt_l_s_safe(Register dst, FloatRegister src, Register temp = t0);
-  void fcvt_w_d_safe(Register dst, FloatRegister src, Register temp = t0);
-  void fcvt_l_d_safe(Register dst, FloatRegister src, Register temp = t0);
+  void fcvt_w_s_safe(Register dst, FloatRegister src, Register tmp = t0);
+  void fcvt_l_s_safe(Register dst, FloatRegister src, Register tmp = t0);
+  void fcvt_w_d_safe(Register dst, FloatRegister src, Register tmp = t0);
+  void fcvt_l_d_safe(Register dst, FloatRegister src, Register tmp = t0);
 
   // vector load/store unit-stride instructions
   void vlex_v(VectorRegister vd, Register base, Assembler::SEW sew, VectorMask vm = unmasked) {
@@ -883,7 +883,7 @@ class MacroAssembler: public Assembler {
 
 private:
   void load_prototype_header(Register dst, Register src);
-  void repne_scan(Register addr, Register value, Register count, Register temp);
+  void repne_scan(Register addr, Register value, Register count, Register tmp);
 
 #ifdef ASSERT
   // Macro short-hand support to clean-up after a failed call to trampoline

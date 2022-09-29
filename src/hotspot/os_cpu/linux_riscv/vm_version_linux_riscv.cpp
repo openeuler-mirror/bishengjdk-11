@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -75,7 +75,7 @@ uint32_t VM_Version::get_current_vector_length() {
   return (uint32_t)read_csr(CSR_VLENB);
 }
 
-void VM_Version::get_cpu_info() {
+void VM_Version::get_os_cpu_info() {
 
   uint64_t auxv = getauxval(AT_HWCAP);
 
@@ -86,6 +86,21 @@ void VM_Version::get_cpu_info() {
   STATIC_ASSERT(CPU_D == HWCAP_ISA_D);
   STATIC_ASSERT(CPU_C == HWCAP_ISA_C);
   STATIC_ASSERT(CPU_V == HWCAP_ISA_V);
+
+  if (FILE *f = fopen("/proc/cpuinfo", "r")) {
+    char buf[512], *p;
+    while (fgets(buf, sizeof (buf), f) != NULL) {
+      if ((p = strchr(buf, ':')) != NULL) {
+        if (strncmp(buf, "uarch", sizeof "uarch" - 1) == 0) {
+          char* uarch = os::strdup(p + 2);
+          uarch[strcspn(uarch, "\n")] = '\0';
+          _uarch = uarch;
+          break;
+        }
+      }
+    }
+    fclose(f);
+  }
 
   // RISC-V has four bit-manipulation ISA-extensions: Zba/Zbb/Zbc/Zbs.
   // Availability for those extensions could not be queried from HWCAP.
