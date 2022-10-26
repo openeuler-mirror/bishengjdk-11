@@ -214,6 +214,8 @@ inline oop PSPromotionManager::copy_to_survivor_space(oop o) {
 
     assert(new_obj != NULL, "allocation should have succeeded");
 
+    Prefetch::write(new_obj, PrefetchCopyIntervalInBytes);
+
     // Copy obj
     Copy::aligned_disjoint_words((HeapWord*)o, (HeapWord*)new_obj, new_obj_size);
 
@@ -283,7 +285,7 @@ inline oop PSPromotionManager::copy_to_survivor_space(oop o) {
   // This code must come after the CAS test, or it will print incorrect
   // information.
   // When UsePSRelaxedForwardee is true or object o is gc leaf, CAS failed threads can't access forwardee's content,
-  // as relaxed CAS cann't gurantee new obj's content visible for these CAS failed threads.The below log output is 
+  // as relaxed CAS cann't gurantee new obj's content visible for these CAS failed threads.The below log output is
   // dangerous.So we just support UsePSRelaxedForwardee and gc leaf in product.
   // Everywhere access forwardee's content must be careful.
   log_develop_trace(gc, scavenge)("{%s %s " PTR_FORMAT " -> " PTR_FORMAT " (%d)}",
