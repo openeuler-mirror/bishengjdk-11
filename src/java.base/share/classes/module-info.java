@@ -293,7 +293,8 @@ module java.base {
         jdk.crypto.kaeprovider,
         jdk.security.auth;
     exports sun.security.provider.certpath to
-        java.naming;
+        java.naming,
+        jdk.jartool;
     exports sun.security.rsa to
         jdk.crypto.cryptoki,
         jdk.crypto.kaeprovider;
