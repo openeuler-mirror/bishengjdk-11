@@ -343,7 +343,7 @@ void ArrayCopyStub::emit_code(LIR_Assembler* ce)
 
 #ifndef PRODUCT
   __ la(t1, ExternalAddress((address)&Runtime1::_arraycopy_slowcase_cnt));
-  __ add_memory_int32(Address(t1), 1);
+  __ incrementw(Address(t1));
 #endif
 
   __ j(_continuation);

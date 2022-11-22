@@ -104,7 +104,7 @@ int C1_MacroAssembler::lock_object(Register hdr, Register obj, Register disp_hdr
   bind(done);
   if (PrintBiasedLockingStatistics) {
     la(t1, ExternalAddress((address)BiasedLocking::fast_path_entry_count_addr()));
-    add_memory_int32(Address(t1, 0), 1);
+    incrementw(Address(t1, 0));
   }
   return null_check_offset;
 }
