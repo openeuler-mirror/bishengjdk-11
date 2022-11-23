@@ -56,7 +56,6 @@
 
 // put OS-includes here
 # include <dlfcn.h>
-# include <fpu_control.h>
 # include <errno.h>
 # include <pthread.h>
 # include <signal.h>
