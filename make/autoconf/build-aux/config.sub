@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2014, 2022, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -42,6 +42,13 @@ if ! echo $* | grep '^aarch64-' >/dev/null ; then
     exit
 fi
 
+# Canonicalize for riscv which autoconf-config.sub doesn't handle
+if echo $* | grep '^riscv\(32\|64\)-linux' >/dev/null ; then
+    result=`echo $@ | sed 's/linux/unknown-linux/'`
+    echo $result
+    exit
+fi
+
 while test $# -gt 0 ; do
     case $1 in 
         -- )   # Stop option processing
@@ -66,4 +73,3 @@ result=`echo $result | sed "s/^arm-/aarch64-/"`
 
 echo $result
 exit $exitcode
-
