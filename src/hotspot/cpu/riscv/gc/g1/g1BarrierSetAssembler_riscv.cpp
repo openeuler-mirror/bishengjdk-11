@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -282,17 +282,17 @@ void G1BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorator
 }
 
 void G1BarrierSetAssembler::oop_store_at(MacroAssembler* masm, DecoratorSet decorators, BasicType type,
-                                         Address dst, Register val, Register tmp1, Register tmp2) {
+                                         Address dst, Register val, Register tmp1, Register tmp2, Register tmp3) {
   assert_cond(masm != NULL);
   // flatten object address if needed
   if (dst.offset() == 0) {
-    __ mv(x13, dst.base());
+    __ mv(tmp3, dst.base());
   } else {
-    __ la(x13, dst);
+    __ la(tmp3, dst);
   }
 
   g1_write_barrier_pre(masm,
-                       x13 /* obj */,
+                       tmp3 /* obj */,
                        tmp2 /* pre_val */,
                        xthread /* thread */,
                        tmp1  /* tmp */,
@@ -300,7 +300,7 @@ void G1BarrierSetAssembler::oop_store_at(MacroAssembler* masm, DecoratorSet deco
                        false /* expand_call */);
 
   if (val == noreg) {
-    BarrierSetAssembler::store_at(masm, decorators, type, Address(x13, 0), noreg, noreg, noreg);
+    BarrierSetAssembler::store_at(masm, decorators, type, Address(tmp3, 0), noreg, noreg, noreg, noreg);
   } else {
     // G1 barrier needs uncompressed oop for region cross check.
     Register new_val = val;
@@ -308,9 +308,9 @@ void G1BarrierSetAssembler::oop_store_at(MacroAssembler* masm, DecoratorSet deco
       new_val = t1;
       __ mv(new_val, val);
     }
-    BarrierSetAssembler::store_at(masm, decorators, type, Address(x13, 0), val, noreg, noreg);
+    BarrierSetAssembler::store_at(masm, decorators, type, Address(tmp3, 0), val, noreg, noreg, noreg);
     g1_write_barrier_post(masm,
-                          x13 /* store_adr */,
+                          tmp3 /* store_adr */,
                           new_val /* new_val */,
                           xthread /* thread */,
                           tmp1 /* tmp */,
