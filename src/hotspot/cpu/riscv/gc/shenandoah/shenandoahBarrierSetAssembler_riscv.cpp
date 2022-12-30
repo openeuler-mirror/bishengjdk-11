@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, 2020, Red Hat, Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -357,24 +357,24 @@ void ShenandoahBarrierSetAssembler::load_at(MacroAssembler* masm,
 }
 
 void ShenandoahBarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet decorators, BasicType type,
-                                             Address dst, Register val, Register tmp1, Register tmp2) {
+                                             Address dst, Register val, Register tmp1, Register tmp2, Register tmp3) {
   bool on_oop = is_reference_type(type);
   if (!on_oop) {
-    BarrierSetAssembler::store_at(masm, decorators, type, dst, val, tmp1, tmp2);
+    BarrierSetAssembler::store_at(masm, decorators, type, dst, val, tmp1, tmp2, tmp3);
     return;
   }
 
   // flatten object address if needed
   if (dst.offset() == 0) {
-    if (dst.base() != x13) {
-      __ mv(x13, dst.base());
+    if (dst.base() != tmp3) {
+      __ mv(tmp3, dst.base());
     }
   } else {
-    __ la(x13, dst);
+    __ la(tmp3, dst);
   }
 
   shenandoah_write_barrier_pre(masm,
-                               x13 /* obj */,
+                               tmp3 /* obj */,
                                tmp2 /* pre_val */,
                                xthread /* thread */,
                                tmp1  /* tmp */,
@@ -382,7 +382,7 @@ void ShenandoahBarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet 
                                false /* expand_call */);
 
   if (val == noreg) {
-    BarrierSetAssembler::store_at(masm, decorators, type, Address(x13, 0), noreg, noreg, noreg);
+    BarrierSetAssembler::store_at(masm, decorators, type, Address(tmp3, 0), noreg, noreg, noreg);
   } else {
     iu_barrier(masm, val, tmp1);
     // G1 barrier needs uncompressed oop for region cross check.
@@ -391,7 +391,7 @@ void ShenandoahBarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet 
       new_val = t1;
       __ mv(new_val, val);
     }
-    BarrierSetAssembler::store_at(masm, decorators, type, Address(x13, 0), val, noreg, noreg);
+    BarrierSetAssembler::store_at(masm, decorators, type, Address(tmp3, 0), val, noreg, noreg, noreg);
   }
 }
 

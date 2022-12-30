@@ -28,7 +28,7 @@
 #define CPU_RISCV_MACROASSEMBLER_RISCV_HPP
 
 #include "asm/assembler.inline.hpp"
-
+#include "code/vmreg.hpp"
 // MacroAssembler extends Assembler by frequently used macros.
 //
 // Instructions for which a 'better' code sequence exists depending
@@ -182,7 +182,7 @@ class MacroAssembler: public Assembler {
   void access_load_at(BasicType type, DecoratorSet decorators, Register dst,
                       Address src, Register tmp1, Register thread_tmp);
   void access_store_at(BasicType type, DecoratorSet decorators, Address dst,
-                       Register src, Register tmp1, Register thread_tmp);
+                       Register src, Register tmp1, Register tmp2, Register tmp3);
   void load_klass(Register dst, Register src);
   void store_klass(Register dst, Register src);
   void cmp_klass(Register oop, Register trial_klass, Register tmp, Label &L);
@@ -202,7 +202,7 @@ class MacroAssembler: public Assembler {
   void load_heap_oop_not_null(Register dst, Address src, Register tmp1 = noreg,
                               Register thread_tmp = noreg, DecoratorSet decorators = 0);
   void store_heap_oop(Address dst, Register src, Register tmp1 = noreg,
-                      Register thread_tmp = noreg, DecoratorSet decorators = 0);
+                      Register tmp2 = noreg, Register tmp3 = noreg, DecoratorSet decorators = 0);
 
   void store_klass_gap(Register dst, Register src);
 
@@ -511,6 +511,21 @@ class MacroAssembler: public Assembler {
   void vncvt_x_x_w(VectorRegister vd, VectorRegister vs, VectorMask vm = unmasked);
   void vfneg_v(VectorRegister vd, VectorRegister vs);
 
+  // support for argument shuffling
+  void move32_64(VMRegPair src, VMRegPair dst, Register tmp = t0);
+  void float_move(VMRegPair src, VMRegPair dst, Register tmp = t0);
+  void long_move(VMRegPair src, VMRegPair dst, Register tmp = t0);
+  void double_move(VMRegPair src, VMRegPair dst, Register tmp = t0);
+  void object_move(OopMap* map,
+                   int oop_handle_offset,
+                   int framesize_in_slots,
+                   VMRegPair src,
+                   VMRegPair dst,
+                   bool is_receiver,
+                   int* receiver_offset);
+
+  void rt_call(address dest, Register tmp = t0);
+
   // revb
   void revb_h_h(Register Rd, Register Rs, Register tmp = t0);                           // reverse bytes in halfword in lower 16 bits, sign-extend
   void revb_w_w(Register Rd, Register Rs, Register tmp1 = t0, Register tmp2 = t1);      // reverse bytes in lower word, sign-extend
@@ -599,8 +614,8 @@ class MacroAssembler: public Assembler {
 
   // Jumps that can reach anywhere in the code cache.
   // Trashes tmp.
-  void far_call(Address entry, CodeBuffer *cbuf = NULL, Register tmp = t0);
-  void far_jump(Address entry, CodeBuffer *cbuf = NULL, Register tmp = t0);
+  void far_call(Address entry, Register tmp = t0);
+  void far_jump(Address entry, Register tmp = t0);
 
   static int far_branch_size() {
     if (far_branches()) {
@@ -677,9 +692,10 @@ class MacroAssembler: public Assembler {
 
   void reserved_stack_check();
   void get_polling_page(Register dest, address page, int32_t &offset, relocInfo::relocType rtype);
-  address read_polling_page(Register r, address page, relocInfo::relocType rtype);
-  address read_polling_page(Register r, int32_t offset, relocInfo::relocType rtype);
-  address trampoline_call(Address entry, CodeBuffer *cbuf = NULL);
+  void read_polling_page(Register r, address page, relocInfo::relocType rtype);
+  void read_polling_page(Register r, int32_t offset, relocInfo::relocType rtype);
+  // Return: the call PC
+  address trampoline_call(Address entry);
   address ic_call(address entry, jint method_index = 0);
   // Support for memory inc/dec
   // n.b. increment/decrement calls with an Address destination will
