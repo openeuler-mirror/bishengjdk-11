@@ -28,7 +28,7 @@
 #define CPU_RISCV_MACROASSEMBLER_RISCV_HPP
 
 #include "asm/assembler.inline.hpp"
-
+#include "code/vmreg.hpp"
 // MacroAssembler extends Assembler by frequently used macros.
 //
 // Instructions for which a 'better' code sequence exists depending
@@ -510,6 +510,21 @@ class MacroAssembler: public Assembler {
   void vmnot_m(VectorRegister vd, VectorRegister vs);
   void vncvt_x_x_w(VectorRegister vd, VectorRegister vs, VectorMask vm = unmasked);
   void vfneg_v(VectorRegister vd, VectorRegister vs);
+
+  // support for argument shuffling
+  void move32_64(VMRegPair src, VMRegPair dst, Register tmp = t0);
+  void float_move(VMRegPair src, VMRegPair dst, Register tmp = t0);
+  void long_move(VMRegPair src, VMRegPair dst, Register tmp = t0);
+  void double_move(VMRegPair src, VMRegPair dst, Register tmp = t0);
+  void object_move(OopMap* map,
+                   int oop_handle_offset,
+                   int framesize_in_slots,
+                   VMRegPair src,
+                   VMRegPair dst,
+                   bool is_receiver,
+                   int* receiver_offset);
+
+  void rt_call(address dest, Register tmp = t0);
 
   // revb
   void revb_h_h(Register Rd, Register Rs, Register tmp = t0);                           // reverse bytes in halfword in lower 16 bits, sign-extend
