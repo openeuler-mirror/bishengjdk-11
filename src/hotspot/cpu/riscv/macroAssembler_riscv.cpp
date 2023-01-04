@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -539,8 +539,6 @@ void MacroAssembler::emit_static_call_stub() {
   // CompiledDirectStaticCall::set_to_interpreted knows the
   // exact layout of this stub.
 
-  ifence();
-
   mov_metadata(xmethod, (Metadata*)NULL);
 
   // Jump to the entry point of the i2c stub.
@@ -560,7 +558,6 @@ void MacroAssembler::call_VM_leaf_base(address entry_point,
     bind(*retaddr);
   }
   pop_reg(RegSet::of(t0, xmethod), sp);   // pop << t0 & xmethod >> from sp
-  ifence();
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, int number_of_arguments) {

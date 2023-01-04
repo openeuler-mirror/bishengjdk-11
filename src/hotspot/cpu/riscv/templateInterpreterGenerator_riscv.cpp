@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1163,7 +1163,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Call the native method.
   __ jalr(x28);
   __ bind(native_return);
-  __ ifence();
   __ get_method(xmethod);
   // result potentially in x10 or f10
 
@@ -1214,7 +1213,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     __ mv(c_rarg0, xthread);
     __ mv(t1, CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans));
     __ jalr(t1);
-    __ ifence();
     __ get_method(xmethod);
     __ reinit_heapbase();
     __ bind(Continue);

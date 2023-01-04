@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2015, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -106,8 +106,7 @@ define_pd_global(intx, InlineSmallCode,          1000);
   product(bool, TraceTraps, false, "Trace all traps the signal handler")         \
   /* For now we're going to be safe and add the I/O bits to userspace fences. */ \
   product(bool, UseConservativeFence, true,                                      \
-          "Extend i for r and o for w in the pred/succ flags of fence;"          \
-          "Extend fence.i to fence.i + fence.")                                  \
+          "Extend i for r and o for w in the pred/succ flags of fence")          \
   product(bool, AvoidUnalignedAccesses, true,                                    \
           "Avoid generating unaligned memory accesses")                          \
   product(intx, EagerArrayCopyThreshold, 128,                                    \

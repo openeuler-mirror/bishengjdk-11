@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -364,7 +364,6 @@ static void patch_callers_callsite(MacroAssembler *masm) {
   int32_t offset = 0;
   __ la_patchable(t0, RuntimeAddress(CAST_FROM_FN_PTR(address, SharedRuntime::fixup_callers_callsite)), offset);
   __ jalr(x1, t0, offset);
-  __ ifence();
   __ pop_CPU_state();
   // restore sp
   __ leave();
@@ -1819,7 +1818,6 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
       __ la_patchable(t0, RuntimeAddress(CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans_and_transition)), offset);
     }
     __ jalr(x1, t0, offset);
-    __ ifence();
     // Restore any method result value
     restore_native_result(masm, ret_type, stack_slots);
 
@@ -2577,8 +2575,6 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
 
   oop_maps->add_gc_map( __ offset() - start, map);
 
-  __ ifence();
-
   // x10 contains the address we are going to jump to assuming no exception got installed
 
   // clear last_Java_sp
@@ -2701,8 +2697,6 @@ void OptoRuntime::generate_exception_blob() {
   int32_t offset = 0;
   __ la_patchable(t0, RuntimeAddress(CAST_FROM_FN_PTR(address, OptoRuntime::handle_exception_C)), offset);
   __ jalr(x1, t0, offset);
-
-  __ ifence();
 
   // Set an oopmap for the call site.  This oopmap will only be used if we
   // are unwinding the stack.  Hence, all locations will be dead.

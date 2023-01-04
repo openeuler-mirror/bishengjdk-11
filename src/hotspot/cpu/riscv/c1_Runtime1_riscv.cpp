@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1999, 2020, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -80,7 +80,6 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result, addre
   pop_reg(x10, sp);
 #endif
   reset_last_Java_frame(true);
-  ifence();
 
   // check for pending exceptions
   { Label L;
@@ -576,7 +575,6 @@ OopMapSet* Runtime1::generate_patching(StubAssembler* sasm, address target) {
   }
 #endif
   __ reset_last_Java_frame(true);
-  __ ifence();
 
   // check for pending exceptions
   {

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2018, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -41,7 +41,6 @@
 // - - NativeIllegalInstruction
 // - - NativeCallTrampolineStub
 // - - NativeMembar
-// - - NativeFenceI
 
 // The base class for different kinds of native instruction abstractions.
 // Provides the primitive operations to manipulate code relative to this.
@@ -558,13 +557,5 @@ inline NativeMembar *NativeMembar_at(address addr) {
   assert(nativeInstruction_at(addr)->is_membar(), "no membar found");
   return (NativeMembar*)addr;
 }
-
-class NativeFenceI : public NativeInstruction {
-public:
-  static inline int instruction_size() {
-    // 2 for fence.i + fence
-    return (UseConservativeFence ? 2 : 1) * NativeInstruction::instruction_size;
-  }
-};
 
 #endif // CPU_RISCV_NATIVEINST_RISCV_HPP

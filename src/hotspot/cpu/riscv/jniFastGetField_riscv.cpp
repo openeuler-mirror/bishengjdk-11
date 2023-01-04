@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2004, 2017, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -151,7 +151,6 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
     int32_t tmp_offset = 0;
     __ la_patchable(t0, ExternalAddress(slow_case_addr), tmp_offset);
     __ jalr(x1, t0, tmp_offset);
-    __ ifence();
     __ leave();
     __ ret();
   }
