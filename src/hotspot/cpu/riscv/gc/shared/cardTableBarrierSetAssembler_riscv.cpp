@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -35,7 +35,6 @@
 
 
 void CardTableBarrierSetAssembler::store_check(MacroAssembler* masm, Register obj, Register tmp) {
-  assert_cond(masm != NULL);
   assert_different_registers(obj, tmp);
   BarrierSet* bs = BarrierSet::barrier_set();
   assert(bs->kind() == BarrierSet::CardTableBarrierSet, "Wrong barrier set kind");
@@ -68,7 +67,6 @@ void CardTableBarrierSetAssembler::store_check(MacroAssembler* masm, Register ob
 
 void CardTableBarrierSetAssembler::gen_write_ref_array_post_barrier(MacroAssembler* masm, DecoratorSet decorators,
                                                                     Register start, Register count, Register tmp, RegSet saved_regs) {
-  assert_cond(masm != NULL);
   assert_different_registers(start, tmp);
   assert_different_registers(count, tmp);
   BarrierSet* bs = BarrierSet::barrier_set();
@@ -115,7 +113,6 @@ void CardTableBarrierSetAssembler::oop_store_at(MacroAssembler* masm, DecoratorS
     if (!precise || dst.offset() == 0) {
       store_check(masm, dst.base(), tmp3);
     } else {
-      assert_cond(masm != NULL);
       __ la(tmp3, dst);
       store_check(masm, tmp3, t0);
     }

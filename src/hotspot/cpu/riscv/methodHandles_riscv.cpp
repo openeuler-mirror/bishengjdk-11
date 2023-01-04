@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -45,7 +45,6 @@
 #define BIND(label) bind(label); BLOCK_COMMENT(#label ":")
 
 void MethodHandles::load_klass_from_Class(MacroAssembler* _masm, Register klass_reg) {
-  assert_cond(_masm != NULL);
   if (VerifyMethodHandles) {
     verify_klass(_masm, klass_reg, SystemDictionary::WK_KLASS_ENUM_NAME(java_lang_Class),
                  "MH argument is a Class");
@@ -67,7 +66,6 @@ static int check_nonzero(const char* xname, int x) {
 void MethodHandles::verify_klass(MacroAssembler* _masm,
                                  Register obj, SystemDictionary::WKID klass_id,
                                  const char* error_message) {
-  assert_cond(_masm != NULL);
   InstanceKlass** klass_addr = SystemDictionary::well_known_klass_addr(klass_id);
   Klass* klass = SystemDictionary::well_known_klass(klass_id);
   Register temp = t1;
@@ -96,7 +94,6 @@ void MethodHandles::verify_ref_kind(MacroAssembler* _masm, int ref_kind, Registe
 
 void MethodHandles::jump_from_method_handle(MacroAssembler* _masm, Register method, Register temp,
                                             bool for_compiler_entry) {
-  assert_cond(_masm != NULL);
   assert(method == xmethod, "interpreter calling convention");
   Label L_no_such_method;
   __ beqz(xmethod, L_no_such_method);
@@ -127,7 +124,6 @@ void MethodHandles::jump_to_lambda_form(MacroAssembler* _masm,
                                         Register recv, Register method_temp,
                                         Register temp2,
                                         bool for_compiler_entry) {
-  assert_cond(_masm != NULL);
   BLOCK_COMMENT("jump_to_lambda_form {");
   // This is the initial entry point of a lazy method handle.
   // After type checking, it picks up the invoker from the LambdaForm.
@@ -166,7 +162,6 @@ void MethodHandles::jump_to_lambda_form(MacroAssembler* _masm,
 // Code generation
 address MethodHandles::generate_method_handle_interpreter_entry(MacroAssembler* _masm,
                                                                 vmIntrinsics::ID iid) {
-  assert_cond(_masm != NULL);
   const bool not_for_compiler_entry = false;  // this is the interpreter entry
   assert(is_signature_polymorphic(iid), "expected invoke iid");
   if (iid == vmIntrinsics::_invokeGeneric ||
@@ -254,7 +249,6 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
                                                     Register receiver_reg,
                                                     Register member_reg,
                                                     bool for_compiler_entry) {
-  assert_cond(_masm != NULL);
   assert(is_signature_polymorphic(iid), "expected invoke iid");
   // temps used in this code are not used in *either* compiled or interpreted calling sequences
   Register temp1 = x7;

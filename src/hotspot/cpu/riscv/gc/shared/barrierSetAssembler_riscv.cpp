@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,8 +33,6 @@
 
 void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators, BasicType type,
                                   Register dst, Address src, Register tmp1, Register tmp_thread) {
-  assert_cond(masm != NULL);
-
   // RA is live. It must be saved around calls.
 
   bool in_heap = (decorators & IN_HEAP) != 0;
@@ -75,7 +73,6 @@ void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators,
 
 void BarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet decorators, BasicType type,
                                    Address dst, Register val, Register tmp1, Register tmp2, Register tmp3) {
-  assert_cond(masm != NULL);
   bool in_heap = (decorators & IN_HEAP) != 0;
   bool in_native = (decorators & IN_NATIVE) != 0;
   switch (type) {
@@ -116,18 +113,15 @@ void BarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet decorators
 }
 
 void BarrierSetAssembler::obj_equals(MacroAssembler* masm, Register obj1, Register obj2, Label& equal, bool is_far) {
-  assert_cond(masm != NULL);
   __ beq(obj1, obj2, equal, is_far);
 }
 
 void BarrierSetAssembler::obj_nequals(MacroAssembler* masm, Register obj1, Register obj2, Label& nequal, bool is_far) {
-  assert_cond(masm != NULL);
   __ bne(obj1, obj2, nequal, is_far);
 }
 
 void BarrierSetAssembler::try_resolve_jobject_in_native(MacroAssembler* masm, Register jni_env,
                                                         Register obj, Register tmp, Label& slowpath) {
-  assert_cond(masm != NULL);
   // If mask changes we need to ensure that the inverse is still encodable as an immediate
   STATIC_ASSERT(JNIHandles::weak_tag_mask == 1);
   __ andi(obj, obj, ~JNIHandles::weak_tag_mask);
@@ -142,7 +136,6 @@ void BarrierSetAssembler::tlab_allocate(MacroAssembler* masm, Register obj,
                                         Register tmp2,
                                         Label& slow_case,
                                         bool is_far) {
-  assert_cond(masm != NULL);
   assert_different_registers(obj, tmp2);
   assert_different_registers(obj, var_size_in_bytes);
   Register end = tmp2;
@@ -172,7 +165,6 @@ void BarrierSetAssembler::eden_allocate(MacroAssembler* masm, Register obj,
                                         Register tmp1,
                                         Label& slow_case,
                                         bool is_far) {
-  assert_cond(masm != NULL);
   assert_different_registers(obj, var_size_in_bytes, tmp1);
   if (!Universe::heap()->supports_inline_contig_alloc()) {
     __ j(slow_case);
@@ -222,7 +214,6 @@ void BarrierSetAssembler::incr_allocated_bytes(MacroAssembler* masm,
                                                Register var_size_in_bytes,
                                                int con_size_in_bytes,
                                                Register tmp1) {
-  assert_cond(masm != NULL);
   assert(tmp1->is_valid(), "need temp reg");
 
   __ ld(tmp1, Address(xthread, in_bytes(JavaThread::allocated_bytes_offset())));
