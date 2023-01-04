@@ -350,13 +350,13 @@ class StubGenerator: public StubCodeGenerator {
     __ ld(j_rarg2, result);
     Label is_long, is_float, is_double, exit;
     __ ld(j_rarg1, result_type);
-    __ li(t0, (u1)T_OBJECT);
+    __ mv(t0, (u1)T_OBJECT);
     __ beq(j_rarg1, t0, is_long);
-    __ li(t0, (u1)T_LONG);
+    __ mv(t0, (u1)T_LONG);
     __ beq(j_rarg1, t0, is_long);
-    __ li(t0, (u1)T_FLOAT);
+    __ mv(t0, (u1)T_FLOAT);
     __ beq(j_rarg1, t0, is_float);
-    __ li(t0, (u1)T_DOUBLE);
+    __ mv(t0, (u1)T_DOUBLE);
     __ beq(j_rarg1, t0, is_double);
 
     // handle T_INT case
@@ -760,7 +760,7 @@ class StubGenerator: public StubCodeGenerator {
     Label loop, copy2, copy1, finish;
     if (loopsize == noreg) {
       loopsize = t1;
-      __ li(loopsize, 8 * granularity);
+      __ mv(loopsize, 8 * granularity);
     }
 
     // Cyclic copy with 8*step.
@@ -799,7 +799,7 @@ class StubGenerator: public StubCodeGenerator {
     Label loop1;
     if (loopsize == noreg) {
       loopsize = t0;
-      __ li(loopsize, granularity);
+      __ mv(loopsize, granularity);
     }
 
     __ bind(loop1);
@@ -833,7 +833,7 @@ class StubGenerator: public StubCodeGenerator {
     __ add(dst, d, is_backwards ? count_in_bytes : zr);
 
     // if count_in_elements < 8, copy_small
-    __ li(t0, 8);
+    __ mv(t0, 8);
     if (is_align && granularity < BytesPerLong) {
       __ blt(count_in_bytes, t0, Lcopy_small);
     } else {
@@ -845,7 +845,7 @@ class StubGenerator: public StubCodeGenerator {
       Label Lalign8;
       if (!is_align) {
         Label Lalign_and_copy;
-        __ li(t0, EagerArrayCopyThreshold);
+        __ mv(t0, EagerArrayCopyThreshold);
         __ blt(count_in_bytes, t0, Lalign_and_copy);
         // Align dst to 8.
         for (unsigned unit = granularity; unit <= 4; unit <<= 1) {
@@ -877,7 +877,7 @@ class StubGenerator: public StubCodeGenerator {
           // prepare for copy_dstaligned_loop
           __ ld(tmp1, alsrc, 0);
           dst_aligned_copy_32bytes_loop(alsrc, dst, shr, shl, count_in_bytes, is_backwards);
-          __ li(x17, 8);
+          __ mv(x17, 8);
           __ blt(count_in_bytes, x17, Lcopy_small);
           dst_aligned_copy_8bytes_loop(alsrc, dst, shr, shl, count_in_bytes, x17, is_backwards);
           __ j(Lcopy_small);
@@ -907,11 +907,11 @@ class StubGenerator: public StubCodeGenerator {
         int step = is_backwards ? (-step_size) : step_size;
         if (!(step_size == 8 && is_align)) { // which has load 8 to t0 before
           // Check whether the memory size is smaller than step_size.
-          __ li(t0, step_size);
+          __ mv(t0, step_size);
           __ blt(count_in_bytes, t0, Ltail);
         }
         const Register eight_step = t1;
-        __ li(eight_step, step_size * 8);
+        __ mv(eight_step, step_size * 8);
         __ bge(count_in_bytes, eight_step, loop8);
         // If memory is less than 8*step_size bytes, loop by step.
         copy_loop1(src, dst, count_in_bytes, step, t0);
@@ -953,7 +953,7 @@ class StubGenerator: public StubCodeGenerator {
     int offset = is_backwards ? -wordSize : 0;
     Label loop, done;
 
-    __ li(thirty_two, 32);
+    __ mv(thirty_two, 32);
     __ blt(count_in_bytes, thirty_two, done);
 
     __ bind(loop);
@@ -1914,7 +1914,7 @@ class StubGenerator: public StubCodeGenerator {
     }
 
   __ BIND(L_failed);
-    __ li(x10, -1);
+    __ mv(x10, -1);
     __ leave();   // required for proper stackwalking of RuntimeStub frame
     __ ret();
 
@@ -3242,7 +3242,7 @@ class StubGenerator: public StubCodeGenerator {
           ld(Rm, Address(Rm));
           add(Rn, Pn_base, Rn);
           ld(Rn, Address(Rn));
-          li(t0, 1); // set carry flag, i.e. no borrow
+          mv(t0, 1); // set carry flag, i.e. no borrow
           align(16);
           bind(loop); {
             notr(Rn, Rn);
@@ -3406,7 +3406,7 @@ class StubGenerator: public StubCodeGenerator {
       enter();
 
       // Make room.
-      li(Ra, 512);
+      mv(Ra, 512);
       bgt(Rlen, Ra, argh);
       slli(Ra, Rlen, exact_log2(4 * sizeof(jint)));
       sub(Ra, sp, Ra);
@@ -3432,7 +3432,7 @@ class StubGenerator: public StubCodeGenerator {
       {
         ld(Rn, Address(Pn_base));
         mul(Rlo_mn, Rn, inv);
-        li(t0, -1);
+        mv(t0, -1);
         Label ok;
         beq(Rlo_mn, t0, ok);
         stop("broken inverse in Montgomery multiply");
@@ -3529,7 +3529,7 @@ class StubGenerator: public StubCodeGenerator {
       enter();
 
       // Make room.
-      li(Ra, 512);
+      mv(Ra, 512);
       bgt(Rlen, Ra, argh);
       slli(Ra, Rlen, exact_log2(4 * sizeof(jint)));
       sub(Ra, sp, Ra);

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2021, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -95,14 +95,14 @@ void LIR_Assembler::arraycopy_simple_check(Register src, Register src_pos, Regis
     if (!(flags & LIR_OpArrayCopy::LIR_OpArrayCopy::dst_objarray)) {
       __ load_klass(tmp, dst);
       __ lw(t0, Address(tmp, in_bytes(Klass::layout_helper_offset())));
-      __ li(t1, Klass::_lh_neutral_value);
+      __ mv(t1, Klass::_lh_neutral_value);
       __ bge(t0, t1, *stub->entry(), /* is_far */ true);
     }
 
     if (!(flags & LIR_OpArrayCopy::LIR_OpArrayCopy::src_objarray)) {
       __ load_klass(tmp, src);
       __ lw(t0, Address(tmp, in_bytes(Klass::layout_helper_offset())));
-      __ li(t1, Klass::_lh_neutral_value);
+      __ mv(t1, Klass::_lh_neutral_value);
       __ bge(t0, t1, *stub->entry(), /* is_far */ true);
     }
   }

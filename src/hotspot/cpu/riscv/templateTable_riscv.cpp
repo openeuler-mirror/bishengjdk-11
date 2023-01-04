@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -234,13 +234,13 @@ void TemplateTable::aconst_null()
 void TemplateTable::iconst(int value)
 {
   transition(vtos, itos);
-  __ li(x10, value);
+  __ mv(x10, value);
 }
 
 void TemplateTable::lconst(int value)
 {
   transition(vtos, ltos);
-  __ li(x10, value);
+  __ mv(x10, value);
 }
 
 void TemplateTable::fconst(int value)
@@ -3796,7 +3796,7 @@ void TemplateTable::instanceof() {
   __ j(done);
   // Come here on success
   __ bind(ok_is_subtype);
-  __ li(x10, 1);
+  __ mv(x10, 1);
 
   // Collect counts on whether this test sees NULLs a lot or not.
   if (ProfileInterpreter) {
