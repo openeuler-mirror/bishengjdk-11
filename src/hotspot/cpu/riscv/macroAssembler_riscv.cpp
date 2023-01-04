@@ -2333,7 +2333,7 @@ void MacroAssembler::weak_cmpxchg_narrow_value(Register addr, Register expected,
   assert_different_registers(addr, old, mask, not_mask, new_val, expected, shift, tmp);
   cmpxchg_narrow_value_helper(addr, expected, new_val, size, tmp1, tmp2, tmp3);
 
-  Label succ, fail, done;
+  Label fail, done;
 
   lr_w(old, aligned_addr, acquire);
   andr(tmp, old, mask);
@@ -2342,13 +2342,14 @@ void MacroAssembler::weak_cmpxchg_narrow_value(Register addr, Register expected,
   andr(tmp, old, not_mask);
   orr(tmp, tmp, new_val);
   sc_w(tmp, tmp, aligned_addr, release);
-  beqz(tmp, succ);
+  bnez(tmp, fail);
 
-  bind(fail);
-  addi(result, zr, 1);
+  // Success
+  mv(result, 1);
   j(done);
 
-  bind(succ);
+  // Fail
+  bind(fail);
   mv(result, zr);
 
   bind(done);
@@ -2394,20 +2395,20 @@ void MacroAssembler::cmpxchg_weak(Register addr, Register expected,
                                   Register result) {
   assert(size != int8 && size != int16, "unsupported operand size");
 
-  Label fail, done, sc_done;
+  Label fail, done;
   load_reserved(addr, size, acquire);
   bne(t0, expected, fail);
   store_conditional(addr, new_val, size, release);
-  beqz(t0, sc_done);
+  bnez(t0, fail);
 
-  // fail
-  bind(fail);
+  // Success
   mv(result, 1);
   j(done);
 
-  // sc_done
-  bind(sc_done);
-  mv(result, 0);
+  // Fail
+  bind(fail);
+  mv(result, zr);
+
   bind(done);
 }
 
