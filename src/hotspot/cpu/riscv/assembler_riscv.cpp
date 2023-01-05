@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -309,13 +309,6 @@ void Assembler::movptr(Register Rd, address addr) {
   int offset = 0;
   movptr_with_offset(Rd, addr, offset);
   addi(Rd, Rd, offset);
-}
-
-void Assembler::ifence() {
-  fence_i();
-  if (UseConservativeFence) {
-    fence(ir, ir);
-  }
 }
 
 #define INSN(NAME, NEG_INSN)                                                         \

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -291,7 +291,6 @@ public:
   void movptr(Register Rd, address addr);
   void movptr_with_offset(Register Rd, address addr, int32_t &offset);
   void movptr(Register Rd, uintptr_t imm64);
-  void ifence();
   void j(const address &dest, Register temp = t0);
   void j(const Address &adr, Register temp = t0) ;
   void j(Label &l, Register temp = t0);
@@ -812,7 +811,6 @@ public:
     emit(insn);                                             \
   }
 
-  INSN(fence_i, 0b0001111, 0b001, 0b000000000000);
   INSN(ecall,   0b1110011, 0b000, 0b000000000000);
   INSN(ebreak,  0b1110011, 0b000, 0b000000000001);
 #undef INSN

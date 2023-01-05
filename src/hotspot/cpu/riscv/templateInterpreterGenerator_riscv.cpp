@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2019, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -541,7 +541,7 @@ address TemplateInterpreterGenerator::generate_safept_entry_for(TosState state,
   address entry = __ pc();
   __ push(state);
   __ call_VM(noreg, runtime_entry);
-  __ fence(0xf, 0xf);
+  __ membar(MacroAssembler::AnyAny);
   __ dispatch_via(vtos, Interpreter::_normal_table.table_for(vtos));
   return entry;
 }
@@ -1163,7 +1163,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Call the native method.
   __ jalr(x28);
   __ bind(native_return);
-  __ ifence();
   __ get_method(xmethod);
   // result potentially in x10 or f10
 
@@ -1214,7 +1213,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     __ mv(c_rarg0, xthread);
     __ mv(t1, CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans));
     __ jalr(t1);
-    __ ifence();
     __ get_method(xmethod);
     __ reinit_heapbase();
     __ bind(Continue);
@@ -1665,7 +1663,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     Label L_done;
 
     __ lbu(t0, Address(xbcp, 0));
-    __ li(t1, Bytecodes::_invokestatic);
+    __ mv(t1, Bytecodes::_invokestatic);
     __ bne(t1, t0, L_done);
 
     // The member name argument must be restored if _invokestatic is re-executed after a PopFrame call.
@@ -1808,7 +1806,7 @@ void TemplateInterpreterGenerator::count_bytecode() {
   __ push_reg(t0);
   __ push_reg(x10);
   __ mv(x10, (address) &BytecodeCounter::_counter_value);
-  __ li(t0, 1);
+  __ mv(t0, 1);
   __ amoadd_d(zr, x10, t0, Assembler::aqrl);
   __ pop_reg(x10);
   __ pop_reg(t0);

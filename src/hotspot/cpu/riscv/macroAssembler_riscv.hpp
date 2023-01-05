@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, 2015, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -488,6 +488,8 @@ class MacroAssembler: public Assembler {
   }
 
   // mv
+  void mv(Register Rd, address addr)                    { li(Rd, (int64_t)addr);  }
+
   inline void mv(Register Rd, int imm64)                { li(Rd, (int64_t)imm64); }
   inline void mv(Register Rd, long imm64)               { li(Rd, (int64_t)imm64); }
   inline void mv(Register Rd, long long imm64)          { li(Rd, (int64_t)imm64); }
@@ -498,7 +500,6 @@ class MacroAssembler: public Assembler {
   inline void mvw(Register Rd, int32_t imm32) { mv(Rd, imm32); }
 
   void mv(Register Rd, Address dest);
-  void mv(Register Rd, address addr);
   void mv(Register Rd, RegisterOrConstant src);
 
   // logic

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 1999, 2020, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -80,7 +80,6 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result, addre
   pop_reg(x10, sp);
 #endif
   reset_last_Java_frame(true);
-  ifence();
 
   // check for pending exceptions
   { Label L;
@@ -576,7 +575,6 @@ OopMapSet* Runtime1::generate_patching(StubAssembler* sasm, address target) {
   }
 #endif
   __ reset_last_Java_frame(true);
-  __ ifence();
 
   // check for pending exceptions
   {
@@ -1003,7 +1001,7 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         __ check_klass_subtype_slow_path(x14, x10, x12, x15, NULL, &miss);
 
         // fallthrough on success:
-        __ li(t0, 1);
+        __ mv(t0, 1);
         __ sd(t0, Address(sp, (result_off) * VMRegImpl::stack_slot_size)); // result
         __ pop_reg(RegSet::of(x10, x12, x14, x15), sp);
         __ ret();
@@ -1193,7 +1191,7 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
     default:
       {
         StubFrame f(sasm, "unimplemented entry", dont_gc_arguments);
-        __ li(x10, (int) id);
+        __ mv(x10, (int)id);
         __ call_RT(noreg, noreg, CAST_FROM_FN_PTR(address, unimplemented_entry), x10);
         __ should_not_reach_here();
       }

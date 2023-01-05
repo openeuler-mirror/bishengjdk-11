@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2014, Red Hat Inc. All rights reserved.
- * Copyright (c) 2020, 2022, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020, 2023, Huawei Technologies Co., Ltd. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -72,15 +72,12 @@ static inline Address aaddress(int n) {
   return iaddress(n);
 }
 
-static inline Address iaddress(Register r,  Register temp, InterpreterMacroAssembler* _masm) {
-  assert_cond(_masm != NULL);
+static inline Address iaddress(Register r, Register temp, InterpreterMacroAssembler* _masm) {
   _masm->shadd(temp, r, xlocals, temp, 3);
   return Address(temp, 0);
 }
 
-static inline Address laddress(Register r, Register temp,
-                               InterpreterMacroAssembler* _masm) {
-  assert_cond(_masm != NULL);
+static inline Address laddress(Register r, Register temp, InterpreterMacroAssembler* _masm) {
   _masm->shadd(temp, r, xlocals, temp, 3);
   return Address(temp, Interpreter::local_offset_in_bytes(1));;
 }
@@ -89,8 +86,7 @@ static inline Address faddress(Register r, Register temp, InterpreterMacroAssemb
   return iaddress(r, temp, _masm);
 }
 
-static inline Address daddress(Register r, Register temp,
-                               InterpreterMacroAssembler* _masm) {
+static inline Address daddress(Register r, Register temp, InterpreterMacroAssembler* _masm) {
   return laddress(r, temp, _masm);
 }
 
@@ -132,7 +128,6 @@ static void do_oop_store(InterpreterMacroAssembler* _masm,
                          Register val,
                          DecoratorSet decorators) {
   assert(val == noreg || val == x10, "parameter is just for looks");
-  assert_cond(_masm != NULL);
   __ store_heap_oop(dst, val, x29, x11, x13, decorators);
 }
 
@@ -140,7 +135,6 @@ static void do_oop_load(InterpreterMacroAssembler* _masm,
                         Address src,
                         Register dst,
                         DecoratorSet decorators) {
-  assert_cond(_masm != NULL);
   __ load_heap_oop(dst, src, x7, x11, decorators);
 }
 
@@ -234,13 +228,13 @@ void TemplateTable::aconst_null()
 void TemplateTable::iconst(int value)
 {
   transition(vtos, itos);
-  __ li(x10, value);
+  __ mv(x10, value);
 }
 
 void TemplateTable::lconst(int value)
 {
   transition(vtos, ltos);
-  __ li(x10, value);
+  __ mv(x10, value);
 }
 
 void TemplateTable::fconst(int value)
@@ -3796,7 +3790,7 @@ void TemplateTable::instanceof() {
   __ j(done);
   // Come here on success
   __ bind(ok_is_subtype);
-  __ li(x10, 1);
+  __ mv(x10, 1);
 
   // Collect counts on whether this test sees NULLs a lot or not.
   if (ProfileInterpreter) {
