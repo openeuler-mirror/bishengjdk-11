@@ -42,6 +42,7 @@ import com.sun.tools.javac.code.Symbol.CompletionFailure;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symbol.ModuleSymbol;
 import com.sun.tools.javac.code.Symbol.PackageSymbol;
+import com.sun.tools.javac.code.Symbol.RootPackageSymbol;
 import com.sun.tools.javac.code.Symbol.TypeSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type.BottomType;
@@ -381,7 +382,9 @@ public class Symtab {
 
         messages = JavacMessages.instance(context);
 
-        rootPackage = new PackageSymbol(names.empty, null);
+        MissingInfoHandler missingInfoHandler = MissingInfoHandler.instance(context);
+
+        rootPackage = new RootPackageSymbol(names.empty, null, missingInfoHandler);
 
         // create the basic builtin symbols
         unnamedModule = new ModuleSymbol(names.empty, null) {
