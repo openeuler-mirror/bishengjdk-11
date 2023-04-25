@@ -434,6 +434,7 @@ void LateInlineCallGenerator::do_late_inline() {
   // needs jvms for inlined state.
   if (!do_late_inline_check(jvms)) {
     map->disconnect_inputs(NULL, C);
+    C->print_inlining_update_delayed(this);
     return;
   }
 
@@ -510,8 +511,6 @@ class LateInlineMHCallGenerator : public LateInlineCallGenerator {
 bool LateInlineMHCallGenerator::do_late_inline_check(JVMState* jvms) {
 
   CallGenerator* cg = for_method_handle_inline(jvms, _caller, method(), _input_not_const);
-
-  Compile::current()->print_inlining_update_delayed(this);
 
   if (!_input_not_const) {
     _attempt++;
