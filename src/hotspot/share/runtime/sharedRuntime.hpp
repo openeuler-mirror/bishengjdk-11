@@ -596,6 +596,11 @@ class SharedRuntime: AllStatic {
   static void print_ic_miss_histogram();
 
 #endif // PRODUCT
+
+  static int      _monotonical_incr;
+  static bool     _opt_for_aarch64;
+
+  static address  monotonical_incr_addr()                     { return (address)&_monotonical_incr; }
 };
 
 

@@ -1003,6 +1003,10 @@
    do_name(     montgomerySquare_name,                             "implMontgomerySquare")                              \
    do_signature(montgomerySquare_signature,                        "([I[IIJ[I)[I")                                      \
                                                                                                                         \
+  do_class(java_util_Random,              "java/util/Random")                                                           \
+  do_intrinsic(_nextInt,                  java_util_Random,       next_int_name, void_int_signature,             F_R)   \
+   do_name(next_int_name,"nextInt")                                                                                     \
+                                                                                                                        \
   do_class(jdk_internal_util_ArraysSupport, "jdk/internal/util/ArraysSupport")                                                          \
   do_intrinsic(_vectorizedMismatch, jdk_internal_util_ArraysSupport, vectorizedMismatch_name, vectorizedMismatch_signature, F_S)\
    do_name(vectorizedMismatch_name, "vectorizedMismatch")                                                               \

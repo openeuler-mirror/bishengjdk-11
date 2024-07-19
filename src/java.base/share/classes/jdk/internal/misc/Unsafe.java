@@ -3702,6 +3702,7 @@ public final class Unsafe {
     private static int convEndian(boolean big, int n)     { return big == BE ? n : Integer.reverseBytes(n)  ; }
     private static long convEndian(boolean big, long n)   { return big == BE ? n : Long.reverseBytes(n)     ; }
 
+    public native boolean getUseCharCache();
     public native boolean getUseHashMapIntegerCache();
     public native boolean getUseFastSerializer();
     private native long allocateMemory0(long bytes);
