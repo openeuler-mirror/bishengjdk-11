@@ -83,6 +83,7 @@ public:
     CPU_BROADCOM  = 'B',
     CPU_CAVIUM    = 'C',
     CPU_DEC       = 'D',
+    CPU_HISILICON = 'H',
     CPU_INFINEON  = 'I',
     CPU_MOTOROLA  = 'M',
     CPU_NVIDIA    = 'N',
@@ -117,6 +118,13 @@ public:
   static int cpu_variant()                    { return _variant; }
   static int cpu_revision()                   { return _revision; }
   static int get_initial_sve_vector_length()  { return _initial_sve_vector_length; };
+
+  static bool is_hisi_enabled() {
+    if (_cpu == CPU_HISILICON && (_model == 0xd01 || _model == 0xd02 || _model == 0xd03)) {
+      return true;
+    }
+    return false;
+  }
 
   static bool is_zva_enabled() { return 0 <= _zva_length; }
   static int zva_length() {

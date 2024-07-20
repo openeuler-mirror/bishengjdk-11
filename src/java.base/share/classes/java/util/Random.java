@@ -35,6 +35,7 @@ import java.util.stream.LongStream;
 import java.util.stream.StreamSupport;
 
 import jdk.internal.misc.Unsafe;
+import jdk.internal.HotSpotIntrinsicCandidate;
 
 /**
  * An instance of this class is used to generate a stream of
@@ -325,6 +326,7 @@ class Random implements java.io.Serializable {
      * @return the next pseudorandom, uniformly distributed {@code int}
      *         value from this random number generator's sequence
      */
+    @HotSpotIntrinsicCandidate
     public int nextInt() {
         return next(32);
     }

@@ -28,11 +28,13 @@ package java.lang;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Spliterator;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import jdk.internal.HotSpotIntrinsicCandidate;
+import jdk.internal.misc.Unsafe;
 import jdk.internal.vm.annotation.ForceInline;
 import jdk.internal.vm.annotation.DontInline;
 
@@ -40,6 +42,14 @@ import static java.lang.String.UTF16;
 import static java.lang.String.LATIN1;
 
 final class StringUTF16 {
+
+    private static final Unsafe UNSAFE = Unsafe.getUnsafe();
+
+    private static boolean enableCharCache = UNSAFE.getUseCharCache();
+
+    private static final int MAX_CHAR_CACHE = 1200000;
+
+    private static transient ConcurrentHashMap<char[], byte[]> charCache = new ConcurrentHashMap<>();
 
     public static byte[] newBytesFor(int len) {
         if (len < 0) {
@@ -157,8 +167,17 @@ final class StringUTF16 {
     }
 
     public static byte[] compress(char[] val, int off, int len) {
+        boolean flag = (off == 0 && len == val.length);
+        if(enableCharCache && flag) {
+            if(charCache.containsKey(val)) {
+                return charCache.get(val);
+            }
+        }
         byte[] ret = new byte[len];
         if (compress(val, off, ret, 0, len) == len) {
+            if(enableCharCache && flag && charCache.size() < MAX_CHAR_CACHE) {
+                charCache.put(val, ret);
+            }
             return ret;
         }
         return null;

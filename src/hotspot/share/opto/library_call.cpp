@@ -337,6 +337,7 @@ class LibraryCallKit : public GraphKit {
 
   bool inline_profileBoolean();
   bool inline_isCompileConstant();
+  bool inline_nextIntRuntime();
   void clear_upper_avx() {
 #ifdef X86
     if (UseAVX >= 2) {
@@ -886,6 +887,9 @@ bool LibraryCallKit::try_to_inline(int predicate) {
     return inline_profileBoolean();
   case vmIntrinsics::_isCompileConstant:
     return inline_isCompileConstant();
+
+  case vmIntrinsics::_nextInt:
+    return SharedRuntime::_opt_for_aarch64 ? inline_nextIntRuntime() : false;
 
   case vmIntrinsics::_hasNegatives:
     return inline_hasNegatives();
@@ -6987,5 +6991,18 @@ bool LibraryCallKit::inline_profileBoolean() {
 bool LibraryCallKit::inline_isCompileConstant() {
   Node* n = argument(0);
   set_result(n->is_Con() ? intcon(1) : intcon(0));
+  return true;
+}
+
+bool LibraryCallKit::inline_nextIntRuntime() {
+  Node* ctrl = control();
+  Node* monotonical_incr_adr = makecon(TypeRawPtr::make(SharedRuntime::monotonical_incr_addr()));
+  int adr_type = Compile::AliasIdxRaw;
+
+  Node* monotonical_incr = make_load(ctrl, monotonical_incr_adr, TypeInt::INT, T_INT, adr_type, MemNode::unordered);
+  Node* incr = _gvn.transform(new AddINode(monotonical_incr, _gvn.intcon(13)));
+  store_to_memory(ctrl, monotonical_incr_adr, incr, T_INT, adr_type, MemNode::unordered);
+
+  set_result(incr);
   return true;
 }

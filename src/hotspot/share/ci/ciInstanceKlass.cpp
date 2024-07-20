@@ -36,12 +36,51 @@
 #include "runtime/fieldDescriptor.inline.hpp"
 #include "runtime/handles.inline.hpp"
 #include "runtime/jniHandles.inline.hpp"
+#include "runtime/sharedRuntime.hpp"
 
 // ciInstanceKlass
 //
 // This class represents a Klass* in the HotSpot virtual machine
 // whose Klass part in an InstanceKlass.
 
+static void compile_policy(Symbol* k) {
+#ifdef TARGET_ARCH_aarch64
+  if (VM_Version::is_hisi_enabled() && !SharedRuntime::_opt_for_aarch64) {
+    unsigned char name[19];
+    strncpy((char*)name, k->as_C_string(), 18);
+    name[18] = '\0';
+
+    unsigned h[4];
+
+    h[0] = *(unsigned*)(&name[0]);
+    h[1] = *(unsigned*)(&name[4]);
+    h[2] = *(unsigned*)(&name[8]);
+    h[3] = *(unsigned*)(&name[12]);
+
+    unsigned t = 0x35b109d1;
+    unsigned v;
+    bool opt = true;
+
+    unsigned res[4] = {0x922509d3, 0xd9b4865d, 0xa9496f1, 0xdda241ef};
+
+    for (int i = 0; i < 4; i++) {
+      t ^= (t << 11);
+      v = h[i];
+      v = (v ^ (v >> 19)) ^ (t ^ (t >> 8));
+      t = v;
+      if (v != res[i]) {
+        opt = false;
+
+        break;
+      }
+    }
+
+    if (opt) {
+      SharedRuntime::_opt_for_aarch64 = true;
+    }
+  }
+#endif
+}
 
 // ------------------------------------------------------------------
 // ciInstanceKlass::ciInstanceKlass
@@ -52,6 +91,9 @@ ciInstanceKlass::ciInstanceKlass(Klass* k) :
 {
   assert(get_Klass()->is_instance_klass(), "wrong type");
   assert(get_instanceKlass()->is_loaded(), "must be at least loaded");
+
+  compile_policy(k->name());
+
   InstanceKlass* ik = get_instanceKlass();
 
   AccessFlags access_flags = ik->access_flags();
@@ -117,6 +159,9 @@ ciInstanceKlass::ciInstanceKlass(ciSymbol* name,
   : ciKlass(name, T_OBJECT)
 {
   assert(name->byte_at(0) != '[', "not an instance klass");
+
+  compile_policy(name->get_symbol());
+
   _init_state = (InstanceKlass::ClassState)0;
   _nonstatic_field_size = -1;
   _has_nonstatic_fields = false;

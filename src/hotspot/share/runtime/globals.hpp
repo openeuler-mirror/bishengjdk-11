@@ -413,6 +413,9 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   product(bool, UseInlineCaches, true,                                      \
           "Use Inline Caches for virtual calls ")                           \
                                                                             \
+  experimental(size_t, InlineCacheBufferSize, 10*K,                         \
+          "InlineCacheBuffer size")                                         \
+                                                                            \
   diagnostic(bool, InlineArrayCopy, true,                                   \
           "Inline arraycopy native that is known to be part of "            \
           "base library DLL")                                               \
@@ -2690,6 +2693,11 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
           "The integer cache is an array of references to objects of"       \
           "the HashMap Value type, indexed by the unboxed int key value."   \
           "faster in execution, higher in memory consumption.")             \
+                                                                            \
+  experimental(bool, UseCharCache, false,                                   \
+          "When char[] is frequently used to build strings, "               \
+          "and char[] has a lot of duplicate data, using char cache can"    \
+          "greatly improve performance and take up little extra space")     \
                                                                             \
   experimental(bool, UseFastSerializer, false,                              \
           "Cache-based serialization.It is extremely fast, but it can only" \

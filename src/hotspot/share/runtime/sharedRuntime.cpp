@@ -205,6 +205,8 @@ void SharedRuntime::print_ic_miss_histogram() {
 }
 #endif // PRODUCT
 
+int  SharedRuntime::_monotonical_incr = 0;
+bool SharedRuntime::_opt_for_aarch64 = false;
 
 JRT_LEAF(jlong, SharedRuntime::lmul(jlong y, jlong x))
   return x * y;

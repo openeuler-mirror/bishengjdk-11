@@ -1007,6 +1007,11 @@ UNSAFE_ENTRY(jint, Unsafe_GetLoadAverage0(JNIEnv *env, jobject unsafe, jdoubleAr
   return ret;
 } UNSAFE_END
 
+UNSAFE_ENTRY(jboolean, Unsafe_GetUseCharCache(JNIEnv *env, jobject unsafe)) {
+  return UseCharCache;
+}
+UNSAFE_END
+
 UNSAFE_ENTRY(jboolean, Unsafe_GetUseHashMapIntegerCache(JNIEnv *env, jobject unsafe)) {
   return UseHashMapIntegerCache;
 }
@@ -1102,6 +1107,7 @@ static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
     {CC "isBigEndian0",       CC "()Z",                  FN_PTR(Unsafe_isBigEndian0)},
     {CC "unalignedAccess0",   CC "()Z",                  FN_PTR(Unsafe_unalignedAccess0)},
 
+    {CC "getUseCharCache", CC "()Z",                     FN_PTR(Unsafe_GetUseCharCache)},
     {CC "getUseHashMapIntegerCache", CC "()Z",           FN_PTR(Unsafe_GetUseHashMapIntegerCache)},
     {CC "getUseFastSerializer",   CC "()Z",              FN_PTR(Unsafe_GetUseFastSerializer)},
 
