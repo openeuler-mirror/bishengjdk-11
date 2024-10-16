@@ -413,3 +413,28 @@ void VM_Version::initialize() {
 
   UNSUPPORTED_OPTION(CriticalJNINatives);
 }
+
+int VM_Version::get_cpu_model() {
+  int cpu_lines = 0;
+  if (FILE *f = fopen("/proc/cpuinfo", "r")) {
+    char buf[128], *p;
+    while (fgets(buf, sizeof (buf), f) != NULL) {
+      if ((p = strchr(buf, ':')) != NULL) {
+        long v = strtol(p+1, NULL, 0);
+        if (strncmp(buf, "CPU implementer", sizeof "CPU implementer" - 1) == 0) {
+          _cpu = v;
+          cpu_lines++;
+        } else if (strncmp(buf, "CPU variant", sizeof "CPU variant" - 1) == 0) {
+          _variant = v;
+        } else if (strncmp(buf, "CPU part", sizeof "CPU part" - 1) == 0) {
+          if (_model != v)  _model2 = _model;
+          _model = v;
+        } else if (strncmp(buf, "CPU revision", sizeof "CPU revision" - 1) == 0) {
+          _revision = v;
+        }
+      }
+    }
+    fclose(f);
+  }
+  return cpu_lines;
+}

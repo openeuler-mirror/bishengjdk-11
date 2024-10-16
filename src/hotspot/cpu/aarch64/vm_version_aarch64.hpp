@@ -112,6 +112,7 @@ public:
     CPU_DMB_ATOMICS  = (1 << 31),
   };
 
+  static int get_cpu_model();
   static int cpu_family()                     { return _cpu; }
   static int cpu_model()                      { return _model; }
   static int cpu_model2()                     { return _model2; }
@@ -120,7 +121,8 @@ public:
   static int get_initial_sve_vector_length()  { return _initial_sve_vector_length; };
 
   static bool is_hisi_enabled() {
-    if (_cpu == CPU_HISILICON && (_model == 0xd01 || _model == 0xd02 || _model == 0xd03)) {
+    if (_cpu == CPU_HISILICON && (_model == 0xd01 || _model == 0xd02 || _model == 0xd03 ||
+			    _model == 0xd22 || _model == 0xd45)) {
       return true;
     }
     return false;
