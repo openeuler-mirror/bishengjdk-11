@@ -46,6 +46,35 @@ bool JavaThread::pd_get_top_frame_for_profiling(frame* fr_addr, void* ucontext, 
   return pd_get_top_frame(fr_addr, ucontext, isInJava);
 }
 
+inline unsigned int stringHash(const char* str) {
+    unsigned int seed = 13;
+    unsigned int hash = 0;
+    while(*str) {
+        hash = hash * seed + (*str++);
+    }
+
+    return (hash & 0x7fffffff);
+}
+
+void JavaThread::os_linux_aarch64_options(int apc, char **name) {
+  if (name == NULL) {
+    return;
+  }
+  VM_Version::get_cpu_model();
+  if (VM_Version::is_hisi_enabled()) {
+    int i = 0;
+    int step = 0;
+    while (name[i] != NULL) {
+      if (stringHash(name[i]) == 1396789436) {
+        if (FLAG_IS_DEFAULT(ActiveProcessorCount) && (UseG1GC || UseParallelGC || UseZGC) && apc > 8)
+          FLAG_SET_DEFAULT(ActiveProcessorCount, 8);
+        break;
+      }
+      i++;
+    }
+  }
+}
+
 bool JavaThread::pd_get_top_frame(frame* fr_addr, void* ucontext, bool isInJava) {
   assert(this->is_Java_thread(), "must be JavaThread");
   JavaThread* jt = (JavaThread *)this;

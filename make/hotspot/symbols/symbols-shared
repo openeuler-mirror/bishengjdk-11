@@ -28,6 +28,7 @@ jio_snprintf
 jio_vfprintf
 jio_vsnprintf
 JNI_CreateJavaVM
+JNI_SetCParam
 JNI_GetCreatedJavaVMs
 JNI_GetDefaultJavaVMInitArgs
 JVM_FindClassFromBootLoader
