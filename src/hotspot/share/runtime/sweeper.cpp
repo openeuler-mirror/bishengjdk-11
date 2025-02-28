@@ -46,6 +46,9 @@
 #include "runtime/vmThread.hpp"
 #include "utilities/events.hpp"
 #include "utilities/xmlstream.hpp"
+#if INCLUDE_JBOLT
+#include "jbolt/jBoltManager.hpp"
+#endif
 
 #ifdef ASSERT
 
@@ -375,7 +378,7 @@ void NMethodSweeper::possibly_sweep() {
   // allocations go to the non-profiled heap and we must be make sure that there is
   // enough space.
   double free_percent = 1 / CodeCache::reverse_free_ratio(CodeBlobType::MethodNonProfiled) * 100;
-  if (free_percent <= StartAggressiveSweepingAt) {
+  if (free_percent <= StartAggressiveSweepingAt || (UseJBolt && JBoltManager::force_sweep())) {
     do_stack_scanning();
   }
 

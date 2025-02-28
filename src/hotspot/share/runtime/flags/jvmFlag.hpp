@@ -62,9 +62,10 @@ struct JVMFlag {
     KIND_ARCH               = 1 << 14,
     KIND_LP64_PRODUCT       = 1 << 15,
     KIND_JVMCI              = 1 << 16,
+    KIND_JBOLT              = 1 << 17,
 
     // set this bit if the flag was set on the command line
-    ORIG_COMMAND_LINE       = 1 << 17,
+    ORIG_COMMAND_LINE       = 1 << 18,
 
     KIND_MASK = ~(VALUE_ORIGIN_MASK | ORIG_COMMAND_LINE)
   };

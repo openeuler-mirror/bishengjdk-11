@@ -60,6 +60,12 @@ ifeq ($(call isTargetOs, solaris), true)
   endif
 endif
 
+JVM_ACC_PLUGIN_DIR := $(TOPDIR)/src/java.base/share/native/libjplugin
+JVM_ACC_PLUGIN_SYMBOLS_SRC := $(JVM_ACC_PLUGIN_DIR)/make/hotspot-symbols
+ifeq ($(wildcard $(JVM_ACC_PLUGIN_SYMBOLS_SRC)), $(JVM_ACC_PLUGIN_SYMBOLS_SRC))
+  SYMBOLS_SRC += $(JVM_ACC_PLUGIN_SYMBOLS_SRC)/symbols-plugin
+endif
+ 
 ################################################################################
 # Create a dynamic list of symbols from the built object files. This is highly
 # platform dependent.

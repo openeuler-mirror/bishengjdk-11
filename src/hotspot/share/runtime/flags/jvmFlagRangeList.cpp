@@ -365,6 +365,19 @@ void JVMFlagRangeList::init(void) {
                                  IGNORE_WRITEABLE));
 #endif // INCLUDE_JVMCI
 
+#if INCLUDE_JBOLT
+  emit_range_no(NULL JBOLT_FLAGS(EMIT_RANGE_DEVELOPER_FLAG, \
+                                 EMIT_RANGE_PD_DEVELOPER_FLAG, \
+                                 EMIT_RANGE_PRODUCT_FLAG, \
+                                 EMIT_RANGE_PD_PRODUCT_FLAG, \
+                                 EMIT_RANGE_DIAGNOSTIC_FLAG, \
+                                 EMIT_RANGE_PD_DIAGNOSTIC_FLAG, \
+                                 EMIT_RANGE_EXPERIMENTAL_FLAG, \
+                                 EMIT_RANGE_NOTPRODUCT_FLAG,
+                                 EMIT_RANGE_CHECK, \
+                                 IGNORE_CONSTRAINT));
+#endif // INCLUDE_JBOLT
+
 #ifdef COMPILER1
   emit_range_no(NULL C1_FLAGS(EMIT_RANGE_DEVELOPER_FLAG,
                               EMIT_RANGE_PD_DEVELOPER_FLAG,

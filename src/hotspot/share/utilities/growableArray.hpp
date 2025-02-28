@@ -30,6 +30,9 @@
 #include "utilities/debug.hpp"
 #include "utilities/globalDefinitions.hpp"
 #include "utilities/ostream.hpp"
+#if INCLUDE_JBOLT
+#include "utilities/sizes.hpp"
+#endif // INCLUDE_JBOLT
 
 // A growable array.
 
@@ -210,6 +213,10 @@ template<class E> class GrowableArray : public GenericGrowableArray {
 
                                 // Does nothing for resource and arena objects
   ~GrowableArray()              { if (on_C_heap()) clear_and_deallocate(); }
+
+#if INCLUDE_JBOLT
+  static ByteSize data_offset() { return byte_offset_of(GrowableArray, _data); }
+#endif
 
   void  clear()                 { _len = 0; }
   int   length() const          { return _len; }

@@ -138,6 +138,10 @@
 #if INCLUDE_JFR
 #include "jfr/jfr.hpp"
 #endif
+#if INCLUDE_JBOLT
+#include "jbolt/jBoltDcmds.hpp"
+#include "jbolt/jBoltManager.hpp"
+#endif // INCLUDE_JBOLT
 
 // Initialization after module runtime initialization
 void universe_post_module_init();  // must happen after call_initPhase2
@@ -3844,6 +3848,14 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
   // Initialize Java-Level synchronization subsystem
   ObjectMonitor::Initialize();
 
+#if INCLUDE_JBOLT
+  if (UseJBolt) {
+    JBoltManager::init_phase1();
+  } else {
+    JBoltManager::check_arguments_not_set();
+  }
+#endif // INCLUDE_JBOLT
+
   // Initialize global modules
   jint status = init_globals();
   if (status != JNI_OK) {
@@ -4088,6 +4100,13 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
     MetaspaceShared::preload_and_dump(CHECK_JNI_ERR);
     ShouldNotReachHere();
   }
+
+#if INCLUDE_JBOLT
+  register_jbolt_dcmds();
+  if (UseJBolt) {
+    JBoltManager::init_phase2(CATCH);
+  }
+#endif // INCLUDE_JBOLT
 
   return JNI_OK;
 }

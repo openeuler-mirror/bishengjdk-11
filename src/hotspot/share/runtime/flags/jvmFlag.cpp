@@ -33,6 +33,9 @@
 #include "runtime/globals_extension.hpp"
 #include "utilities/defaultStream.hpp"
 #include "utilities/stringUtils.hpp"
+#if INCLUDE_JBOLT
+#include "jbolt/jbolt_globals.hpp"
+#endif
 
 #define DEFAULT_RANGE_STR_CHUNK_SIZE 64
 static char* create_range_str(const char *fmt, ...) {
@@ -786,6 +789,15 @@ const char* JVMFlag::flag_error_str(JVMFlag::Error error) {
 #define JVMCI_PD_DEVELOP_FLAG_STRUCT(    type, name,        doc) { #type, XSTR(name), (void*) &name, NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JVMCI | JVMFlag::KIND_DEVELOP | JVMFlag::KIND_PLATFORM_DEPENDENT) },
 #define JVMCI_NOTPRODUCT_FLAG_STRUCT(    type, name, value, doc) { #type, XSTR(name), (void*) &name, NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JVMCI | JVMFlag::KIND_NOT_PRODUCT) },
 
+#define JBOLT_PRODUCT_FLAG_STRUCT(       type, name, value, doc) { #type, XSTR(name), &name,         NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JBOLT | JVMFlag::KIND_PRODUCT) },
+#define JBOLT_PD_PRODUCT_FLAG_STRUCT(    type, name,        doc) { #type, XSTR(name), &name,         NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JBOLT | JVMFlag::KIND_PRODUCT | JVMFlag::KIND_PLATFORM_DEPENDENT) },
+#define JBOLT_DIAGNOSTIC_FLAG_STRUCT(    type, name, value, doc) { #type, XSTR(name), &name,         NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JBOLT | JVMFlag::KIND_DIAGNOSTIC) },
+#define JBOLT_PD_DIAGNOSTIC_FLAG_STRUCT( type, name,        doc) { #type, XSTR(name), &name,         NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JBOLT | JVMFlag::KIND_DIAGNOSTIC | JVMFlag::KIND_PLATFORM_DEPENDENT) },
+#define JBOLT_EXPERIMENTAL_FLAG_STRUCT(  type, name, value, doc) { #type, XSTR(name), &name,         NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JBOLT | JVMFlag::KIND_EXPERIMENTAL) },
+#define JBOLT_DEVELOP_FLAG_STRUCT(       type, name, value, doc) { #type, XSTR(name), (void*) &name, NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JBOLT | JVMFlag::KIND_DEVELOP) },
+#define JBOLT_PD_DEVELOP_FLAG_STRUCT(    type, name,        doc) { #type, XSTR(name), (void*) &name, NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JBOLT | JVMFlag::KIND_DEVELOP | JVMFlag::KIND_PLATFORM_DEPENDENT) },
+#define JBOLT_NOTPRODUCT_FLAG_STRUCT(    type, name, value, doc) { #type, XSTR(name), (void*) &name, NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_JBOLT | JVMFlag::KIND_NOT_PRODUCT) },
+
 #ifdef _LP64
 #define RUNTIME_LP64_PRODUCT_FLAG_STRUCT(type, name, value, doc) { #type, XSTR(name), &name,         NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_LP64_PRODUCT) },
 #else
@@ -854,6 +866,18 @@ static JVMFlag flagTable[] = {
               IGNORE_CONSTRAINT, \
               IGNORE_WRITEABLE)
 #endif // INCLUDE_JVMCI
+#if INCLUDE_JBOLT
+  JBOLT_FLAGS(JBOLT_DEVELOP_FLAG_STRUCT, \
+              JBOLT_PD_DEVELOP_FLAG_STRUCT, \
+              JBOLT_PRODUCT_FLAG_STRUCT, \
+              JBOLT_PD_PRODUCT_FLAG_STRUCT, \
+              JBOLT_DIAGNOSTIC_FLAG_STRUCT, \
+              JBOLT_PD_DIAGNOSTIC_FLAG_STRUCT, \
+              JBOLT_EXPERIMENTAL_FLAG_STRUCT, \
+              JBOLT_NOTPRODUCT_FLAG_STRUCT, \
+              IGNORE_RANGE, \
+              IGNORE_CONSTRAINT)
+#endif // INCLUDE_JBOLT
 #ifdef COMPILER1
   C1_FLAGS(C1_DEVELOP_FLAG_STRUCT, \
            C1_PD_DEVELOP_FLAG_STRUCT, \

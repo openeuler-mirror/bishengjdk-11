@@ -82,6 +82,16 @@ class ReservedSpace {
                                   bool split = false, bool realloc = true);
   inline ReservedSpace last_part (size_t partition_size);
 
+#if INCLUDE_JBOLT
+  static ReservedSpace static_first_part(ReservedSpace rs, size_t partition_size) {
+    return rs.first_part(partition_size);
+  }
+
+  static ReservedSpace static_last_part(ReservedSpace rs, size_t partition_size) {
+    return rs.last_part(partition_size);
+  }
+#endif
+
   // Alignment
   static size_t page_align_size_up(size_t size);
   static size_t page_align_size_down(size_t size);

@@ -36,6 +36,9 @@
 #ifdef COMPILER2
 #include "opto/c2_globals.hpp"
 #endif
+#if INCLUDE_JBOLT
+#include "jbolt/jbolt_globals.hpp"
+#endif
 
 // Construct enum of Flag_<cmdline-arg> constants.
 
@@ -61,6 +64,15 @@
 #define JVMCI_PD_DIAGNOSTIC_FLAG_MEMBER(type, name, doc)         FLAG_MEMBER(name),
 #define JVMCI_EXPERIMENTAL_FLAG_MEMBER(type, name, value, doc)   FLAG_MEMBER(name),
 #define JVMCI_NOTPRODUCT_FLAG_MEMBER(type, name, value, doc)     FLAG_MEMBER(name),
+
+#define JBOLT_PRODUCT_FLAG_MEMBER(type, name, value, doc)        FLAG_MEMBER(name),
+#define JBOLT_PD_PRODUCT_FLAG_MEMBER(type, name, doc)            FLAG_MEMBER(name),
+#define JBOLT_DEVELOP_FLAG_MEMBER(type, name, value, doc)        FLAG_MEMBER(name),
+#define JBOLT_PD_DEVELOP_FLAG_MEMBER(type, name, doc)            FLAG_MEMBER(name),
+#define JBOLT_DIAGNOSTIC_FLAG_MEMBER(type, name, value, doc)     FLAG_MEMBER(name),
+#define JBOLT_PD_DIAGNOSTIC_FLAG_MEMBER(type, name, doc)         FLAG_MEMBER(name),
+#define JBOLT_EXPERIMENTAL_FLAG_MEMBER(type, name, value, doc)   FLAG_MEMBER(name),
+#define JBOLT_NOTPRODUCT_FLAG_MEMBER(type, name, value, doc)     FLAG_MEMBER(name),
 
 #ifdef _LP64
 #define RUNTIME_LP64_PRODUCT_FLAG_MEMBER(type, name, value, doc) FLAG_MEMBER(name),
@@ -130,6 +142,18 @@ typedef enum {
              IGNORE_CONSTRAINT, \
              IGNORE_WRITEABLE)
 #endif // INCLUDE_JVMCI
+#if INCLUDE_JBOLT
+ JBOLT_FLAGS(JBOLT_DEVELOP_FLAG_MEMBER, \
+             JBOLT_PD_DEVELOP_FLAG_MEMBER, \
+             JBOLT_PRODUCT_FLAG_MEMBER, \
+             JBOLT_PD_PRODUCT_FLAG_MEMBER, \
+             JBOLT_DIAGNOSTIC_FLAG_MEMBER, \
+             JBOLT_PD_DIAGNOSTIC_FLAG_MEMBER, \
+             JBOLT_EXPERIMENTAL_FLAG_MEMBER, \
+             JBOLT_NOTPRODUCT_FLAG_MEMBER, \
+             IGNORE_RANGE, \
+             IGNORE_CONSTRAINT)
+#endif
 #ifdef COMPILER1
  C1_FLAGS(C1_DEVELOP_FLAG_MEMBER, \
           C1_PD_DEVELOP_FLAG_MEMBER, \
@@ -190,6 +214,15 @@ typedef enum {
 #define JVMCI_PD_DIAGNOSTIC_FLAG_MEMBER_WITH_TYPE(type, name, doc)         FLAG_MEMBER_WITH_TYPE(name,type),
 #define JVMCI_EXPERIMENTAL_FLAG_MEMBER_WITH_TYPE(type, name, value, doc)   FLAG_MEMBER_WITH_TYPE(name,type),
 #define JVMCI_NOTPRODUCT_FLAG_MEMBER_WITH_TYPE(type, name, value, doc)     FLAG_MEMBER_WITH_TYPE(name,type),
+
+#define JBOLT_PRODUCT_FLAG_MEMBER_WITH_TYPE(type, name, value, doc)        FLAG_MEMBER_WITH_TYPE(name,type),
+#define JBOLT_PD_PRODUCT_FLAG_MEMBER_WITH_TYPE(type, name, doc)            FLAG_MEMBER_WITH_TYPE(name,type),
+#define JBOLT_DEVELOP_FLAG_MEMBER_WITH_TYPE(type, name, value, doc)        FLAG_MEMBER_WITH_TYPE(name,type),
+#define JBOLT_PD_DEVELOP_FLAG_MEMBER_WITH_TYPE(type, name, doc)            FLAG_MEMBER_WITH_TYPE(name,type),
+#define JBOLT_DIAGNOSTIC_FLAG_MEMBER_WITH_TYPE(type, name, value, doc)     FLAG_MEMBER_WITH_TYPE(name,type),
+#define JBOLT_PD_DIAGNOSTIC_FLAG_MEMBER_WITH_TYPE(type, name, doc)         FLAG_MEMBER_WITH_TYPE(name,type),
+#define JBOLT_EXPERIMENTAL_FLAG_MEMBER_WITH_TYPE(type, name, value, doc)   FLAG_MEMBER_WITH_TYPE(name,type),
+#define JBOLT_NOTPRODUCT_FLAG_MEMBER_WITH_TYPE(type, name, value, doc)     FLAG_MEMBER_WITH_TYPE(name,type),
 
 #define C1_PRODUCT_FLAG_MEMBER_WITH_TYPE(type, name, value, doc)           FLAG_MEMBER_WITH_TYPE(name,type),
 #define C1_PD_PRODUCT_FLAG_MEMBER_WITH_TYPE(type, name, doc)               FLAG_MEMBER_WITH_TYPE(name,type),
@@ -259,6 +292,18 @@ typedef enum {
              IGNORE_CONSTRAINT,
              IGNORE_WRITEABLE)
 #endif // INCLUDE_JVMCI
+#if INCLUDE_JBOLT
+ JBOLT_FLAGS(JBOLT_DEVELOP_FLAG_MEMBER_WITH_TYPE,
+             JBOLT_PD_DEVELOP_FLAG_MEMBER_WITH_TYPE,
+             JBOLT_PRODUCT_FLAG_MEMBER_WITH_TYPE,
+             JBOLT_PD_PRODUCT_FLAG_MEMBER_WITH_TYPE,
+             JBOLT_DIAGNOSTIC_FLAG_MEMBER_WITH_TYPE,
+             JBOLT_PD_DIAGNOSTIC_FLAG_MEMBER_WITH_TYPE,
+             JBOLT_EXPERIMENTAL_FLAG_MEMBER_WITH_TYPE,
+             JBOLT_NOTPRODUCT_FLAG_MEMBER_WITH_TYPE,
+             IGNORE_RANGE,
+             IGNORE_CONSTRAINT)
+#endif // INCLUDE_JBOLT
 #ifdef COMPILER1
  C1_FLAGS(C1_DEVELOP_FLAG_MEMBER_WITH_TYPE,
           C1_PD_DEVELOP_FLAG_MEMBER_WITH_TYPE,

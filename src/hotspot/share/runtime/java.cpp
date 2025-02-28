@@ -88,6 +88,9 @@
 #if INCLUDE_JFR
 #include "jfr/jfr.hpp"
 #endif
+#if INCLUDE_JBOLT
+#include "jbolt/jBoltManager.hpp"
+#endif
 
 GrowableArray<Method*>* collected_profiled_methods;
 
@@ -539,6 +542,12 @@ void before_exit(JavaThread* thread) {
   // Terminate the signal thread
   // Note: we don't wait until it actually dies.
   os::terminate_signal_thread();
+
+#if INCLUDE_JBOLT
+  if (UseJBolt && JBoltDumpMode) {
+    JBoltManager::dump_order_in_manual();
+  }
+#endif
 
   print_statistics();
   Universe::heap()->print_tracing_info();
