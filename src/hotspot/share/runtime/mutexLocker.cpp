@@ -295,8 +295,8 @@ void mutex_init() {
   // lower the JNI oopstorage lock ranks to make them super-special.
   def(JNIGlobalAlloc_lock          , PaddedMutex  , nonleaf,     true,  Monitor::_safepoint_check_never);
   def(JNIGlobalActive_lock         , PaddedMutex  , nonleaf-1,   true,  Monitor::_safepoint_check_never);
-  def(JNIWeakAlloc_lock            , PaddedMutex  , nonleaf,     true,  Monitor::_safepoint_check_never);
-  def(JNIWeakActive_lock           , PaddedMutex  , nonleaf-1,   true,  Monitor::_safepoint_check_never);
+  def(JNIWeakAlloc_lock            , PaddedMutex  , vmweak,      true,  Monitor::_safepoint_check_never);
+  def(JNIWeakActive_lock           , PaddedMutex  , vmweak-1,    true,  Monitor::_safepoint_check_never);
   def(JNICritical_lock             , PaddedMonitor, nonleaf,     true,  Monitor::_safepoint_check_always);     // used for JNI critical regions
   def(AdapterHandlerLibrary_lock   , PaddedMutex  , nonleaf,     true,  Monitor::_safepoint_check_always);
 

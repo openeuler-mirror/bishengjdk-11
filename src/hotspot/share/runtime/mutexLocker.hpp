@@ -181,7 +181,7 @@ void print_owned_locks_on_error(outputStream* st);
 char *lock_name(Mutex *mutex);
 
 class MutexLocker: StackObj {
- private:
+ protected:
   Monitor * _mutex;
  public:
   MutexLocker(Monitor * mutex) {
@@ -203,6 +203,38 @@ class MutexLocker: StackObj {
     _mutex->unlock();
   }
 
+};
+
+class MonitorLocker: public MutexLocker {
+ protected:
+  Monitor* as_monitor() const {
+    return static_cast<Monitor*>(_mutex);
+  }
+ 
+ public:
+  MonitorLocker(Monitor* monitor) :
+    MutexLocker(monitor) {
+    // Superclass constructor did locking
+    assert(monitor != NULL, "NULL monitor not allowed");
+  }
+ 
+  MonitorLocker(Monitor* monitor, Thread* thread) :
+    MutexLocker(monitor, thread) {
+    // Superclass constructor did locking
+    assert(monitor != NULL, "NULL monitor not allowed");
+  }
+ 
+  bool wait(long timeout = 0) {
+    return as_monitor()->wait(!Monitor::_no_safepoint_check_flag, timeout, !Monitor::_as_suspend_equivalent_flag);
+  }
+ 
+  void notify_all() {
+    as_monitor()->notify_all();
+  }
+ 
+  void notify() {
+    as_monitor()->notify();
+  }
 };
 
 // for debugging: check that we're already owning this lock (or are at a safepoint)

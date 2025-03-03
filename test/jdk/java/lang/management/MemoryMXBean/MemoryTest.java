@@ -94,7 +94,7 @@ public class MemoryTest {
         expectedMaxNumPools[HEAP] = expectedNumPools;
 
         expectedMinNumPools[NONHEAP] = 2;
-        expectedMaxNumPools[NONHEAP] = 5;
+        expectedMaxNumPools[NONHEAP] = 7;
 
         checkMemoryPools();
         checkMemoryManagers();

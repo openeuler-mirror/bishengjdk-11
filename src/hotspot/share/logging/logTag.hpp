@@ -84,6 +84,7 @@
   LOG_TAG(inlining) \
   LOG_TAG(interpreter) \
   LOG_TAG(itables) \
+  JBOLT_ONLY(LOG_TAG(jbolt)) \
   LOG_TAG(jfr) \
   LOG_TAG(jit) \
   LOG_TAG(jni) \

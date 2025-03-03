@@ -5665,6 +5665,46 @@ void os::Linux::numa_init() {
   }
 }
 
+#if INCLUDE_JBOLT
+os::Linux::jboltHeap_init_t os::Linux::_jboltHeap_init;
+os::Linux::jboltLog_precalc_t os::Linux::_jboltLog_precalc;
+os::Linux::jboltLog_do_t os::Linux::_jboltLog_do;
+os::Linux::jboltMerge_judge_t os::Linux::_jboltMerge_judge;
+#endif // INCLUDE_JBOLT
+ 
+void os::Linux::load_plugin_library() {
+#if INCLUDE_JBOLT
+    _jboltHeap_init = CAST_TO_FN_PTR(jboltHeap_init_t, dlsym(RTLD_DEFAULT, "JBoltHeap_Init"));
+    _jboltLog_precalc = CAST_TO_FN_PTR(jboltLog_precalc_t, dlsym(RTLD_DEFAULT, "JBoltLog_PreCalc"));
+    _jboltLog_do = CAST_TO_FN_PTR(jboltLog_do_t, dlsym(RTLD_DEFAULT, "JBoltLog_DO"));
+    _jboltMerge_judge = CAST_TO_FN_PTR(jboltMerge_judge_t, dlsym(RTLD_DEFAULT, "JBoltMerge_Judge"));
+#endif // INCLUDE_JBOLT
+  
+  char path[JVM_MAXPATHLEN];
+  char ebuf[1024];
+  void* handle = NULL;
+  if (os::dll_locate_lib(path, sizeof(path), Arguments::get_dll_dir(), "jvm11_Acc") ||
+          os::dll_locate_lib(path, sizeof(path), "/usr/lib64", "jvm11_Acc")) {
+    handle = dlopen(path, RTLD_LAZY);
+  }
+  if (handle != NULL) {
+#if INCLUDE_JBOLT
+    if (_jboltHeap_init == NULL) {
+      _jboltHeap_init = CAST_TO_FN_PTR(jboltHeap_init_t, dlsym(handle, "JBoltHeap_Init"));
+    }
+    if (_jboltLog_precalc == NULL) {
+      _jboltLog_precalc = CAST_TO_FN_PTR(jboltLog_precalc_t, dlsym(handle, "JBoltLog_PreCalc"));
+    }
+    if (_jboltLog_do == NULL) {
+      _jboltLog_do = CAST_TO_FN_PTR(jboltLog_do_t, dlsym(handle, "JBoltLog_DO"));
+    }
+    if (_jboltMerge_judge == NULL) {
+      _jboltMerge_judge = CAST_TO_FN_PTR(jboltMerge_judge_t, dlsym(handle, "JBoltMerge_Judge"));   
+    }
+#endif // INCLUDE_JBOLT   
+  }
+}
+ 
 // this is called _after_ the global arguments have been parsed
 jint os::init_2(void) {
 
@@ -5711,6 +5751,8 @@ jint os::init_2(void) {
   // Check if we need to adjust the stack size for glibc guard pages.
   init_adjust_stacksize_for_guard_pages();
 #endif
+
+  Linux::load_plugin_library();
 
   if (UseNUMA) {
     Linux::numa_init();

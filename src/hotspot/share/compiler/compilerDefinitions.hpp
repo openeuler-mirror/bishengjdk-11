@@ -26,6 +26,11 @@
 #define SHARE_VM_COMPILER_COMPILERDEFINITIONS_HPP
 
 #include "memory/allocation.hpp"
+#include "runtime/arguments.hpp"
+
+#if INCLUDE_JVMCI
+#include "jvmci/jvmci_globals.hpp"
+#endif
 
 // The (closed set) of concrete compiler classes.
 enum CompilerType {
@@ -127,6 +132,27 @@ public:
   static bool check_args_consistency(bool status);
 
   static void ergo_initialize();
+
+  static bool has_c1()     { return COMPILER1_PRESENT(true) NOT_COMPILER1(false); }
+  static bool has_c2()     { return COMPILER2_PRESENT(true) NOT_COMPILER2(false); }
+  static bool has_jvmci()  { return JVMCI_ONLY(true) NOT_JVMCI(false);            }
+
+  static bool is_jvmci_compiler()    { return JVMCI_ONLY(has_jvmci() && UseJVMCICompiler) NOT_JVMCI(false);            }
+  static bool is_interpreter_only()  { return Arguments::is_interpreter_only() || TieredStopAtLevel == CompLevel_none; }
+
+  // Is the JVM in a configuration that permits only c1-compiled methods (level 1,2,3)?
+  static bool is_c1_only() {
+    if (!is_interpreter_only() && has_c1()) {
+      const bool c1_only = !has_c2() && !is_jvmci_compiler();
+      const bool tiered_degraded_to_c1_only = TieredCompilation && TieredStopAtLevel >= CompLevel_simple && TieredStopAtLevel < CompLevel_full_optimization;
+      return c1_only || tiered_degraded_to_c1_only;
+    }
+    return false;
+  }
+
+  static bool is_c2_enabled() {
+    return has_c2() && !is_interpreter_only() && !is_c1_only() && !is_jvmci_compiler();
+  }
 
 private:
   static void set_tiered_flags();

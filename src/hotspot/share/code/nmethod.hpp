@@ -214,6 +214,11 @@ class nmethod : public CompiledMethod {
   // helper methods
   void* operator new(size_t size, int nmethod_size, int comp_level) throw();
 
+#if INCLUDE_JBOLT
+  // For JBolt. So the code can be allocated in code segments defined by JBolt.
+  void* operator new(size_t size, int nmethod_size, int comp_level, int code_blob_type) throw ();
+#endif // INCLUDE_JBOLT
+
   const char* reloc_string_for(u_char* begin, u_char* end);
   // Returns true if this thread changed the state of the nmethod or
   // false if another thread performed the transition.
@@ -253,6 +258,9 @@ class nmethod : public CompiledMethod {
                               , jweak installed_code = NULL,
                               jweak speculation_log = NULL
 #endif
+#if INCLUDE_JBOLT
+                              , int code_blob_type = CodeBlobType::All  // for jbolt
+#endif // INCLUDE_JBOLT
   );
 
   static nmethod* new_native_nmethod(const methodHandle& method,

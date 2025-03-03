@@ -99,6 +99,7 @@ class Method : public Metadata {
 #ifndef PRODUCT
   int64_t _compiled_invocation_count;
 #endif
+
   // Entry point for calling both from and to the interpreter.
   address _i2i_entry;           // All-args-on-stack calling convention
   // Entry point for calling from compiled code, to compiled code if it exists
