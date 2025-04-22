@@ -378,7 +378,7 @@ void NMethodSweeper::possibly_sweep() {
   // allocations go to the non-profiled heap and we must be make sure that there is
   // enough space.
   double free_percent = 1 / CodeCache::reverse_free_ratio(CodeBlobType::MethodNonProfiled) * 100;
-  if (free_percent <= StartAggressiveSweepingAt || (UseJBolt && JBoltManager::force_sweep())) {
+  if (free_percent <= StartAggressiveSweepingAt JBOLT_ONLY( || (UseJBolt && JBoltManager::force_sweep()) )) {
     do_stack_scanning();
   }
 

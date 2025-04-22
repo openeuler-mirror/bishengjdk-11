@@ -1048,7 +1048,9 @@ void ciEnv::register_method(ciMethod* target,
                                 frame_words, oop_map_set,
                                 handler_table, inc_table,
                                 compiler, task()->comp_level(),
+#if INCLUDE_JVMCI
                                 NULL, NULL,
+#endif
                                 code_blob_type);
     } else
 #endif // INCLUDE_JBOLT

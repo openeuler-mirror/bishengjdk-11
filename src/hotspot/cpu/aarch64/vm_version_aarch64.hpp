@@ -122,7 +122,7 @@ public:
 
   static bool is_hisi_enabled() {
     if (_cpu == CPU_HISILICON && (_model == 0xd01 || _model == 0xd02 || _model == 0xd03 ||
-			    _model == 0xd22 || _model == 0xd45)) {
+                           _model == 0xd22 || _model == 0xd45)) {
       return true;
     }
     return false;
