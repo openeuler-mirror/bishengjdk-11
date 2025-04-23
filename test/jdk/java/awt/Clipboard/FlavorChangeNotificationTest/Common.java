@@ -288,3 +288,4 @@ class ImageSelection implements Transferable {
     }
 
 } // class ImageSelection
+
