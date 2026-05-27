@@ -193,7 +193,6 @@ JBoltCallGraph& JBoltCallGraph::callgraph_instance() {
 void JBoltCallGraph::add_func(JBoltFunc* func) {
   JBoltCluster* cluster = find_cluster(func);
   assert(cluster != NULL, "invariant");
-  delete func;
 }
 
 void JBoltCallGraph::add_call(JBoltCall* call) {
@@ -476,6 +475,8 @@ void JBoltCall::set_call_count(u4 call_count) { _call_count = call_count;       
 
 JBoltCall* JBoltCall::constructor(const JBoltFunc* caller_func, const JBoltFunc* callee_func, u4 call_count, traceid stacktrace_id) {
   JBoltCall *ret = new JBoltCall(*caller_func, *callee_func, call_count, stacktrace_id);
+  delete caller_func;
+  delete callee_func;
   return ret;
 }
 
