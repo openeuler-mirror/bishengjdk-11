@@ -397,7 +397,8 @@ void JBoltManager::construct_stacktrace(const JfrStackTrace& stacktrace) {
  */
 void JBoltManager::construct_cg_once() {
   guarantee((UseJBolt && JBoltManager::reorder_phase_is_profiling_or_waiting()), "sanity");
- 
+  ResourceMark rm;
+
   GrowableArray<JfrStackTrace*>* traces = create_growable_array<JfrStackTrace*>();
  
   {
