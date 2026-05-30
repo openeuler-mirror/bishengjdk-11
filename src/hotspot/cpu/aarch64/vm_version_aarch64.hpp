@@ -122,8 +122,7 @@ public:
   static int get_initial_sve_vector_length()  { return _initial_sve_vector_length; };
 
   static bool is_hisi_enabled() {
-    if (_cpu == CPU_HISILICON && (_model == 0xd01 || _model == 0xd02 || _model == 0xd03 ||
-                           _model == 0xd22 || _model == 0xd45)) {
+    if (_cpu == CPU_HISILICON) {
       return true;
     }
     return false;
