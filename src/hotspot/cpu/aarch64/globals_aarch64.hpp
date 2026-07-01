@@ -113,6 +113,14 @@ define_pd_global(intx, InlineSmallCode,          1000);
   product(uint, UseSVE, 0,                                              \
           "Highest supported SVE instruction set version")              \
           range(0, 2)                                                   \
+  product(bool, UsePolymorphicInlining, false,                          \
+          "Profiling based inlining for two or more receivers")         \
+  product(bool, UseOnlyInlinedPolymorphic, true,                         \
+          "Don't use PolymorphicInlining if can't inline a secondary "   \
+          "method")                                                     \
+  product(intx, TypeProfileMinimumReceiverPercent, 20,                   \
+          "minimum % of receiver type to all profiled receivers")        \
+          range(0, 100)                                                  \
   product(bool, UseSVEHashCodeIntrinsic, false,                         \
           "Use SVE2 instructions in the vectorized hashcode intrinsic") \
   diagnostic(uint, SVEHashCodeStubMinVectorChunks, 1,                  \
