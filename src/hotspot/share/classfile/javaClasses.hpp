@@ -123,6 +123,9 @@ class java_lang_String : AllStatic {
   static Handle char_converter(Handle java_string, jchar from_char, jchar to_char, TRAPS);
 
   static void set_compact_strings(bool value);
+#ifdef AARCH64
+  static void set_utf_conversion_intrinsics(bool value);
+#endif // AARCH64
 
   static int value_offset_in_bytes()  {
     assert(initialized && (value_offset > 0), "Must be initialized");

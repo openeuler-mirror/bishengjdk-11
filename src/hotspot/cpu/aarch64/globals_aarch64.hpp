@@ -115,33 +115,35 @@ define_pd_global(intx, InlineSmallCode,          1000);
           range(0, 2)                                                   \
   product(bool, UsePolymorphicInlining, false,                          \
           "Profiling based inlining for two or more receivers")         \
-  product(bool, UseOnlyInlinedPolymorphic, true,                         \
-          "Don't use PolymorphicInlining if can't inline a secondary "   \
+  product(bool, UseOnlyInlinedPolymorphic, true,                        \
+          "Don't use PolymorphicInlining if can't inline a secondary "  \
           "method")                                                     \
-  product(intx, TypeProfileMinimumReceiverPercent, 20,                   \
-          "minimum % of receiver type to all profiled receivers")        \
-          range(0, 100)                                                  \
-  product(bool, UseSVEHashCodeIntrinsic, false,                         \
-          "Use SVE2 instructions in the vectorized hashcode intrinsic") \
-  diagnostic(uint, SVEHashCodeStubMinVectorChunks, 1,                  \
-          "Minimum number of full SVE vector chunks before using SVE2 "  \
-          "hashcode stubs")                                             \
+  product(intx, TypeProfileMinimumReceiverPercent, 20,                  \
+          "minimum % of receiver type to all profiled receivers")       \
+          range(0, 100)                                                 \
+    product(bool, UseSVEHashCodeIntrinsic, false,                       \
+            "Use SVE2 instructions in vectorized hashcode intrinsic")   \
+    product(bool, UseUTFConversionIntrinsics, false,                    \
+            "Use intrinsics for conversion between UTF8 and UTF16")     \
+    diagnostic(uint, SVEHashCodeStubMinVectorChunks, 1,                 \
+            "Minimum number of full SVE vector chunks before using "    \
+            "SVE2 hashcode stubs")                                      \
           range(1, 64)                                                  \
-  diagnostic(uint, SVEHashCodeLatin1MinElements, 64,                   \
+  diagnostic(uint, SVEHashCodeLatin1MinElements, 64,                    \
           "Minimum Latin1 element count before using SVE2 hashcode "    \
           "stubs")                                                      \
           range(1, max_jint)                                            \
-  diagnostic(uint, SVEHashCodeByteMinElements, 64,                     \
-          "Minimum byte array element count before using SVE2 hashcode " \
-          "stubs")                                                      \
+  diagnostic(uint, SVEHashCodeByteMinElements, 64,                      \
+          "Minimum byte array element count before using SVE2 "         \
+          "hashcode stubs")                                             \
           range(1, max_jint)                                            \
-  diagnostic(uint, SVEHashCodeUTF16MinElements, 256,                   \
+  diagnostic(uint, SVEHashCodeUTF16MinElements, 256,                    \
           "Minimum UTF16 element count before using SVE2 hashcode "     \
           "stubs")                                                      \
           range(1, max_jint)                                            \
-  diagnostic(uint, SVEHashCodeShortMinElements, 256,                   \
-          "Minimum short array element count before using SVE2 hashcode "\
-          "stubs")                                                      \
+  diagnostic(uint, SVEHashCodeShortMinElements, 256,                    \
+          "Minimum short array element count before using SVE2 "        \
+          "hashcode stubs")                                             \
           range(1, max_jint)                                            \
   product(bool, UseBlockZeroing, true,                                  \
           "Use DC ZVA for block zeroing")                               \

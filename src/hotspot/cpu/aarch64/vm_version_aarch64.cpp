@@ -346,7 +346,7 @@ void VM_Version::initialize() {
   do {                                                                      \
     if (flag) {                                                             \
       if (!FLAG_IS_DEFAULT(flag)) {                                         \
-        warning("%s specified, but is not supported on this hardware. "      \
+        warning("%s specified, but is not supported on this hardware. "     \
                 "Disabling.", #flag);                                       \
       }                                                                     \
       FLAG_SET_DEFAULT(flag, false);                                        \
@@ -359,8 +359,10 @@ void VM_Version::initialize() {
     } else {
       DISABLE_HISI_FLAG(UseSVEHashCodeIntrinsic);
     }
+    ENABLE_HISI_FLAG_BY_DEFAULT(UseUTFConversionIntrinsics);
   } else {
     DISABLE_HISI_FLAG(UseSVEHashCodeIntrinsic);
+    DISABLE_HISI_FLAG(UseUTFConversionIntrinsics);
   }
 
 #undef ENABLE_HISI_FLAG_BY_DEFAULT

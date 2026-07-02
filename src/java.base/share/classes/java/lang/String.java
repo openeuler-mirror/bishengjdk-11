@@ -197,8 +197,14 @@ public final class String
      */
     static final boolean COMPACT_STRINGS;
 
+    /**
+     * True if UTF Conversion intrinsics are enabled in the VM by -XX:+UseUTFConversionIntrinsics.
+     */
+    static final boolean UTF_CONVERSION_INTRINSICS;
+
     static {
         COMPACT_STRINGS = true;
+        UTF_CONVERSION_INTRINSICS = false;
     }
 
     /**

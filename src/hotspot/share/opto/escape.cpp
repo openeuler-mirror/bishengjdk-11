@@ -620,7 +620,9 @@ void ConnectionGraph::add_node_to_connection_graph(Node *n, Unique_Node_List *de
     case Op_StrIndexOfChar:
     case Op_StrInflatedCopy:
     case Op_StrCompressedCopy:
-    case Op_EncodeISOArray: {
+    case Op_EncodeISOArray:
+    case Op_DecodeUtf8ToUtf16:
+    case Op_EncodeUtf8FromUtf16: {
       add_local_var(n, PointsToNode::ArgEscape);
       delayed_worklist->push(n); // Process it later.
       break;
@@ -831,7 +833,9 @@ void ConnectionGraph::add_final_edges(Node *n) {
     case Op_StrIndexOfChar:
     case Op_StrInflatedCopy:
     case Op_StrCompressedCopy:
-    case Op_EncodeISOArray: {
+    case Op_EncodeISOArray:
+    case Op_DecodeUtf8ToUtf16:
+    case Op_EncodeUtf8FromUtf16: {
       // char[]/byte[] arrays passed to string intrinsic do not escape but
       // they are not scalar replaceable. Adjust escape state for them.
       // Start from in(2) edge since in(1) is memory edge.
@@ -2900,8 +2904,8 @@ Node* ConnectionGraph::find_inst_mem(Node *orig_mem, int alias_idx, GrowableArra
       if (mem->is_LoadStore()) {
         adr = mem->in(MemNode::Address);
       } else {
-        assert(mem->Opcode() == Op_EncodeISOArray ||
-               mem->Opcode() == Op_StrCompressedCopy, "sanity");
+        assert(mem->Opcode() == Op_EncodeISOArray || mem->Opcode() == Op_EncodeUtf8FromUtf16 ||
+               mem->Opcode() == Op_DecodeUtf8ToUtf16 || mem->Opcode() == Op_StrCompressedCopy, "sanity");
         adr = mem->in(3); // Memory edge corresponds to destination array
       }
       const Type *at = igvn->type(adr);
@@ -3294,6 +3298,16 @@ void ConnectionGraph::split_unique_types(GrowableArray<Node *>  &alloc_worklist,
           // EncodeISOArray overwrites destination array
           memnode_worklist.append_if_missing(use);
         }
+      } else if (use->Opcode() == Op_DecodeUtf8ToUtf16) {
+        if (use->in(MemNode::Memory) == n || use->in(3) == n) {
+          // DecodeUtf8ToUtf16 overwrites destination array
+          memnode_worklist.append_if_missing(use);
+        }
+      } else if (use->Opcode() == Op_EncodeUtf8FromUtf16) {
+        if (use->in(MemNode::Memory) == n || use->in(3) == n) {
+          // EncodeUtf8FromUtf16 overwrites destination array
+          memnode_worklist.append_if_missing(use);
+        }
       } else {
         uint op = use->Opcode();
         if ((op == Op_StrCompressedCopy || op == Op_StrInflatedCopy) &&
@@ -3369,7 +3383,9 @@ void ConnectionGraph::split_unique_types(GrowableArray<Node *>  &alloc_worklist,
       if (n == NULL)
         continue;
     } else if (n->Opcode() == Op_StrCompressedCopy ||
-               n->Opcode() == Op_EncodeISOArray) {
+               n->Opcode() == Op_EncodeISOArray ||
+               n->Opcode() == Op_EncodeUtf8FromUtf16 ||
+               n->Opcode() == Op_DecodeUtf8ToUtf16) {
       // get the memory projection
       n = n->find_out_with(Op_SCMemProj);
       assert(n != NULL && n->Opcode() == Op_SCMemProj, "memory projection required");
@@ -3420,6 +3436,16 @@ void ConnectionGraph::split_unique_types(GrowableArray<Node *>  &alloc_worklist,
       } else if (use->Opcode() == Op_EncodeISOArray) {
         if (use->in(MemNode::Memory) == n || use->in(3) == n) {
           // EncodeISOArray overwrites destination array
+          memnode_worklist.append_if_missing(use);
+        }
+      } else if (use->Opcode() == Op_DecodeUtf8ToUtf16) {
+        if (use->in(MemNode::Memory) == n || use->in(3) == n) {
+          // DecodeUtf8ToUtf16 overwrites destination array
+          memnode_worklist.append_if_missing(use);
+        }
+      } else if (use->Opcode() == Op_EncodeUtf8FromUtf16) {
+        if (use->in(MemNode::Memory) == n || use->in(3) == n) {
+          // EncodeUtf8FromUtf16 overwrites destination array
           memnode_worklist.append_if_missing(use);
         }
       } else {

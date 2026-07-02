@@ -99,7 +99,7 @@ public class TestVectorizedHashCodeSVE2 {
     private static final Pattern HISILICON_FEATURES_PATTERN = Pattern.compile("(?m)^0x48:");
     private static final Pattern SVE2_STUB_PATTERN = Pattern.compile(
             "(StubRoutines::_large_arrays_hashcode_sve2_(boolean|byte|char|short)) " +
-            "\\[(0x[0-9a-fA-F]+), (0x[0-9a-fA-F]+)\\]");
+            "\\[(0x[0-9a-fA-F]+), (0x[0-9a-fA-F]+)\\[");
     private static final Pattern CODE_LINE_PATTERN = Pattern.compile(
             "^\\s*(0x[0-9a-fA-F]+):\\s*(.*)$");
     private static final Pattern HEX_HALFWORD_PATTERN = Pattern.compile("\\b[0-9a-fA-F]{4}\\b");

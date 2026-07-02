@@ -2326,6 +2326,7 @@ public:
   INSN(mlsv,   1, 0b100101, false); // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S
   INSN(sshl,   0, 0b010001, true);  // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S, T2D
   INSN(ushl,   1, 0b010001, true);  // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S, T2D
+  INSN(addpv,  0, 0b101111, true);  // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S, T2D
   INSN(umullv, 1, 0b110000, false); // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S
   INSN(umlalv, 1, 0b100000, false); // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S
 
@@ -2349,6 +2350,7 @@ public:
   INSN(negr,   1, 0b100000101110, 3); // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S, T2D
   INSN(notr,   1, 0b100000010110, 0); // accepted arrangements: T8B, T16B
   INSN(addv,   0, 0b110001101110, 1); // accepted arrangements: T8B, T16B, T4H, T8H,      T4S
+  INSN(umaxv,  1, 0b110000101010, 1); // accepted arrangements: T8B, T16B, T4H, T8H,      T4S
   INSN(cls,    0, 0b100000010010, 2); // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S
   INSN(clz,    1, 0b100000010010, 2); // accepted arrangements: T8B, T16B, T4H, T8H, T2S, T4S
   INSN(cnt,    0, 0b100000010110, 0); // accepted arrangements: T8B, T16B
@@ -2369,6 +2371,48 @@ public:
   INSN(fminv, 1);
 
 #undef INSN
+
+  // AdvSIMD vector compare
+  void cm(Condition cond, FloatRegister Vd, SIMD_Arrangement T, FloatRegister Vn, FloatRegister Vm) {
+    starti;
+    assert(T != T1Q && T != T1D, "incorrect arrangement");
+    int cond_op;
+    switch (cond) {
+      case EQ: cond_op = 0b110001; break;
+      case GT: cond_op = 0b000110; break;
+      case GE: cond_op = 0b000111; break;
+      case HI: cond_op = 0b100110; break;
+      case HS: cond_op = 0b100111; break;
+      default:
+        ShouldNotReachHere();
+        break;
+    }
+
+    f(0, 31), f((int)T & 1, 30), f((cond_op >> 5) & 1, 29);
+    f(0b01110, 28, 24), f((int)T >> 1, 23, 22), f(1, 21), rf(Vm, 16);
+    f(cond_op & 0b11111, 15, 11), f(1, 10), rf(Vn, 5), rf(Vd, 0);
+  }
+
+  // AdvSIMD compare with zero (vector)
+  void cm(Condition cond, FloatRegister Vd, SIMD_Arrangement T, FloatRegister Vn) {
+    starti;
+    assert(T != T1Q && T != T1D, "invalid arrangement");
+    int cond_op;
+    switch (cond) {
+      case EQ: cond_op = 0b001; break;
+      case GE: cond_op = 0b100; break;
+      case GT: cond_op = 0b000; break;
+      case LE: cond_op = 0b101; break;
+      case LT: cond_op = 0b010; break;
+      default:
+        ShouldNotReachHere();
+        break;
+    }
+
+    f(0, 31), f((int)T & 1, 30), f((cond_op >> 2) & 1, 29);
+    f(0b01110, 28, 24), f((int)T >> 1, 23, 22), f(0b10000010, 21, 14);
+    f(cond_op & 0b11, 13, 12), f(0b10, 11, 10), rf(Vn, 5), rf(Vd, 0);
+  }
 
 #define INSN(NAME, op0, cmode0) \
   void NAME(FloatRegister Vd, SIMD_Arrangement T, unsigned imm8, unsigned lsl = 0) {   \
@@ -2601,6 +2645,8 @@ public:
   INSN(shl,  0, 0b010101, /* isSHR = */ false);
   INSN(sshr, 0, 0b000001, /* isSHR = */ true);
   INSN(ushr, 1, 0b000001, /* isSHR = */ true);
+  INSN(usra, 1, 0b000101, /* isSHR = */ true);
+  INSN(sli,  1, 0b010101, /* isSHR = */ false);
 
 #undef INSN
 
@@ -2722,6 +2768,15 @@ public:
     assert(size_b < 3 && size_b == size_a - 1, "Invalid size specifier");
     f(0, 31), f(Tb & 1, 30), f(0b101110, 29, 24), f(size_b, 23, 22);
     f(0b100001010010, 21, 10), rf(Vn, 5), rf(Vd, 0);
+  }
+
+  void xtn(FloatRegister Vd, SIMD_Arrangement Tb, FloatRegister Vn, SIMD_Arrangement Ta) {
+    starti;
+    int size_b = (int)Tb >> 1;
+    int size_a = (int)Ta >> 1;
+    assert(size_b < 3 && size_b == size_a - 1, "Invalid size specifier");
+    f(0, 31), f(Tb & 1, 30), f(0b001110, 29, 24), f(size_b, 23, 22);
+    f(0b100001001010, 21, 10), rf(Vn, 5), rf(Vd, 0);
   }
 
   void dup(FloatRegister Vd, SIMD_Arrangement T, Register Xs)
@@ -3136,8 +3191,8 @@ public:
 
   // SVE2 widening multiply (long), vectors. Only expose the forms used by the
   // SVE2 hashcode stub; add other encodings together with their first user.
-#define INSN(NAME, is_unsigned, top)                                                    \
-  void NAME(FloatRegister Zd, SIMD_RegVariant T, FloatRegister Zn, FloatRegister Zm) {  \
+#define INSN(NAME, is_unsigned, top)                                                     \
+  void NAME(FloatRegister Zd, SIMD_RegVariant T, FloatRegister Zn, FloatRegister Zm) {   \
     starti;                                                                              \
     assert(T == H || T == S || T == D, "invalid size for SVE2 widening multiply");       \
     f(0b01000101, 31, 24), f(T, 23, 22), f(0b0, 21), rf(Zm, 16);                         \
@@ -3154,7 +3209,7 @@ public:
     starti;                                                                              \
     assert(T == H || T == S || T == D, "invalid size for SVE2 widening multiply-add");   \
     f(0b01000100, 31, 24), f(T, 23, 22), f(0b0, 21), rf(Zm, 16);                         \
-    f(is_unsigned ? 0b01001 : 0b01000, 15, 11), f(top, 10), rf(Zn, 5), rf(Zda, 0);        \
+    f(is_unsigned ? 0b01001 : 0b01000, 15, 11), f(top, 10), rf(Zn, 5), rf(Zda, 0);       \
   }
 
   INSN(sve_smlalt, false, 0b1);

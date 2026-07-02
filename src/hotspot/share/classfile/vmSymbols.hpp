@@ -395,6 +395,7 @@
   template(cache_field_name,                          "cache")                                    \
   template(value_name,                                "value")                                    \
   template(compact_strings_name,                      "COMPACT_STRINGS")                          \
+  template(utf_conversion_intrinsics_name,            "UTF_CONVERSION_INTRINSICS")                \
   template(numberOfLeadingZeros_name,                 "numberOfLeadingZeros")                     \
   template(numberOfTrailingZeros_name,                "numberOfTrailingZeros")                    \
   template(bitCount_name,                             "bitCount")                                 \
@@ -981,6 +982,12 @@
    do_signature(encodeISOArray_signature,                        "([CI[BII)I")                                          \
                                                                                                                         \
   do_intrinsic(_encodeByteISOArray,     java_lang_StringCoding, encodeISOArray_name, indexOfI_signature,         F_S)   \
+                                                                                                                        \
+  do_intrinsic(_encodeUtf8FromUtf16,    java_lang_StringCoding, encodeUtf8FromUtf16_name, indexOfI_signature,    F_S)   \
+   do_name(     encodeUtf8FromUtf16_name,                      "implEncodeUtf8fromUtf16")                               \
+                                                                                                                        \
+  do_intrinsic(_decodeUtf8ToUtf16,      java_lang_StringCoding, decodeUtf8ToUtf16_name, indexOfI_signature,      F_S)   \
+   do_name(     decodeUtf8ToUtf16_name,                        "implDecodeUtf8ToUtf16")                                 \
                                                                                                                         \
   do_class(java_math_BigInteger,                      "java/math/BigInteger")                                           \
   do_intrinsic(_multiplyToLen,      java_math_BigInteger, multiplyToLen_name, multiplyToLen_signature, F_S)             \
