@@ -219,6 +219,7 @@ class LibraryCallKit : public GraphKit {
                           RegionNode* region, Node* phi, StrIntrinsicNode::ArgEnc ae);
   bool inline_string_indexOfChar();
   bool inline_string_equals(StrIntrinsicNode::ArgEnc ae);
+  bool inline_vectorizedHashCode();
   bool inline_string_toBytesU();
   bool inline_string_getCharsU();
   bool inline_string_copy(bool compress);
@@ -600,6 +601,7 @@ bool LibraryCallKit::try_to_inline(int predicate) {
 
   case vmIntrinsics::_equalsL:                  return inline_string_equals(StrIntrinsicNode::LL);
   case vmIntrinsics::_equalsU:                  return inline_string_equals(StrIntrinsicNode::UU);
+  case vmIntrinsics::_vectorizedHashCode:       return inline_vectorizedHashCode();
 
   case vmIntrinsics::_toBytesStringU:           return inline_string_toBytesU();
   case vmIntrinsics::_getCharsStringU:          return inline_string_getCharsU();
@@ -5496,6 +5498,37 @@ bool LibraryCallKit::inline_vectorizedMismatch() {
 
   Node* result = _gvn.transform(new ProjNode(call, TypeFunc::Parms));
   set_result(result);
+  return true;
+}
+
+//------------------------------inline_vectorizedHashCode----------------------------
+bool LibraryCallKit::inline_vectorizedHashCode() {
+  assert(UseVectorizedHashCodeIntrinsic, "not implemented on this platform");
+
+  assert(callee()->signature()->size() == 5, "vectorizedHashCode has 5 parameters");
+  Node* array = argument(0);
+  Node* offset = argument(1);
+  Node* length = argument(2);
+  Node* initialValue = argument(3);
+  Node* basic_type = argument(4);
+
+  array = must_be_not_null(array, true);
+  if (basic_type == top()) {
+    return false;
+  }
+
+  const TypeInt* basic_type_t = _gvn.type(basic_type)->is_int();
+  if (!basic_type_t->is_con()) {
+    return false;
+  }
+  BasicType bt = (BasicType) basic_type_t->get_con();
+
+  Node* array_start = array_element_address(array, offset, bt);
+
+  set_result(_gvn.transform(new VectorizedHashCodeNode(control(), memory(TypeAryPtr::get_array_body_type(bt)),
+                                                       array_start, length, initialValue, basic_type)));
+  clear_upper_avx();
+
   return true;
 }
 

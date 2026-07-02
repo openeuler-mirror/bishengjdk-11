@@ -545,6 +545,7 @@ bool vmIntrinsics::is_disabled_by_flags(vmIntrinsics::ID id) {
     case vmIntrinsics::_storeFence:
     case vmIntrinsics::_fullFence:
     case vmIntrinsics::_hasNegatives:
+    case vmIntrinsics::_vectorizedHashCode:
     case vmIntrinsics::_Reference_get:
       break;
     default:
@@ -771,6 +772,9 @@ bool vmIntrinsics::is_disabled_by_flags(vmIntrinsics::ID id) {
     break;
   case vmIntrinsics::_vectorizedMismatch:
     if (!UseVectorizedMismatchIntrinsic) return true;
+    break;
+  case vmIntrinsics::_vectorizedHashCode:
+    if (!UseVectorizedHashCodeIntrinsic) return true;
     break;
   case vmIntrinsics::_updateBytesAdler32:
   case vmIntrinsics::_updateByteBufferAdler32:

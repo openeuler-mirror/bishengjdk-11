@@ -120,6 +120,7 @@ public:
   static int cpu_variant()                    { return _variant; }
   static int cpu_revision()                   { return _revision; }
   static int get_initial_sve_vector_length()  { return _initial_sve_vector_length; };
+  static bool supports_sve2()                 { return (_features & CPU_SVE2) != 0; }
 
   static bool is_hisi_enabled() {
     if (_cpu == CPU_HISILICON) {

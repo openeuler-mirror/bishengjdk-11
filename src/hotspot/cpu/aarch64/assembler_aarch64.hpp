@@ -289,6 +289,11 @@ public:
     f(r->encoding_nocheck(), lsb + 4, lsb);
   }
 
+  // <0-15>reg: As `rf(FloatRegister)`, but only the lower 16 FloatRegisters are allowed.
+  void lrf(FloatRegister r, int lsb) {
+    f(r->encoding_nocheck(), lsb + 3, lsb);
+  }
+
   void prf(PRegister r, int lsb) {
     f(r->encoding_nocheck(), lsb + 3, lsb);
   }
@@ -712,6 +717,9 @@ public:
   }
   void rf(FloatRegister reg, int lsb) {
     current->rf(reg, lsb);
+  }
+  void lrf(FloatRegister reg, int lsb) {
+    current->lrf(reg, lsb);
   }
   void prf(PRegister reg, int lsb) {
     current->prf(reg, lsb);
@@ -1577,6 +1585,12 @@ void mvnw(Register Rd, Register Rm,
             enum shift_kind kind = LSL, unsigned shift = 0) {
   ornw(Rd, zr, Rm, kind, shift);
 }
+
+  // Load a register using a BasicType. Signed subword loads are sign-extended to 64 bits.
+  void load(Register Rt, const Address &adr, BasicType bt) {
+    int op = (is_signed_subword_type(bt) || bt == T_INT) ? 0b10 : 0b01;
+    ld_st2(Rt, adr, exact_log2(type2aelembytes(bt)), op);
+  }
 
   // Add/subtract (shifted register)
 #define INSN(NAME, size, op)                            \
@@ -2464,6 +2478,28 @@ public:
 
 #undef INSN
 
+#define INSN(NAME, op1, op2)                                                                       \
+  void NAME(FloatRegister Vd, SIMD_Arrangement T, FloatRegister Vn, FloatRegister Vm, int index) { \
+    starti;                                                                                        \
+    assert(T == T4H || T == T8H || T == T2S || T == T4S, "invalid arrangement");                   \
+    assert(index >= 0 &&                                                                           \
+               ((T == T2S && index <= 1) || (T != T2S && index <= 3) || (T == T8H && index <= 7)), \
+           "invalid index");                                                                       \
+    assert((T != T4H && T != T8H) || Vm->encoding_nocheck() < 16, "invalid source SIMD&FP register");\
+    f(0, 31), f((int)T & 1, 30), f(op1, 29), f(0b01111, 28, 24);                                   \
+    if (T == T4H || T == T8H) {                                                                    \
+      f(0b01, 23, 22), f(index & 0b11, 21, 20), lrf(Vm, 16), f(index >> 2 & 1, 11);                \
+    } else {                                                                                       \
+      f(0b10, 23, 22), f(index & 1, 21), rf(Vm, 16), f(index >> 1, 11);                            \
+    }                                                                                              \
+    f(op2, 15, 12), f(0, 10), rf(Vn, 5), rf(Vd, 0);                                                \
+  }
+
+  // MUL - Vector - Scalar
+  INSN(mulvs, 0, 0b1000);
+
+#undef INSN
+
   // Floating-point Reciprocal Estimate
   void frecpe(FloatRegister Vd, FloatRegister Vn, SIMD_RegVariant type) {
     assert(type == D || type == S, "Wrong type for frecpe");
@@ -2480,6 +2516,45 @@ public:
     f(0b0111111001110000110110, 31, 10);
     rf(Vn, 5), rf(Vd, 0);
   }
+
+ protected:
+  void _xaddwv(bool is_unsigned, FloatRegister Vd, FloatRegister Vn, SIMD_Arrangement Ta,
+               FloatRegister Vm, SIMD_Arrangement Tb) {
+    starti;
+    assert((Tb >> 1) + 1 == (Ta >> 1), "Incompatible arrangement");
+    f(0, 31), f((int)Tb & 1, 30), f(is_unsigned ? 1 : 0, 29), f(0b01110, 28, 24);
+    f((int)(Ta >> 1) - 1, 23, 22), f(1, 21), rf(Vm, 16), f(0b000100, 15, 10), rf(Vn, 5), rf(Vd, 0);
+  }
+
+ public:
+#define INSN(NAME, assertion, is_unsigned)                                           \
+  void NAME(FloatRegister Vd, FloatRegister Vn, SIMD_Arrangement Ta, FloatRegister Vm, \
+            SIMD_Arrangement Tb) {                                                   \
+    assert((assertion), "invalid arrangement");                                      \
+    _xaddwv(is_unsigned, Vd, Vn, Ta, Vm, Tb);                                        \
+  }
+
+  INSN(uaddwv,  Tb == T8B || Tb == T4H || Tb == T2S,  true)
+  INSN(uaddwv2, Tb == T16B || Tb == T8H || Tb == T4S, true)
+  INSN(saddwv,  Tb == T8B || Tb == T4H || Tb == T2S,  false)
+  INSN(saddwv2, Tb == T16B || Tb == T8H || Tb == T4S, false)
+
+#undef INSN
+
+  // Floating-point AdvSIMD scalar pairwise
+#define INSN(NAME, op1, op2) \
+  void NAME(FloatRegister Vd, FloatRegister Vn, SIMD_RegVariant type) {                 \
+    starti;                                                                             \
+    assert(type == D || type == S, "Wrong type for faddp/fmaxp/fminp");                 \
+    f(0b0111111, 31, 25), f(op1, 24, 23),                                               \
+    f(type == S ? 0 : 1, 22), f(0b11000, 21, 17), f(op2, 16, 10), rf(Vn, 5), rf(Vd, 0); \
+  }
+
+  INSN(faddp, 0b00, 0b0110110);
+  INSN(fmaxp, 0b00, 0b0111110);
+  INSN(fminp, 0b01, 0b0111110);
+
+#undef INSN
 
   void ins(FloatRegister Vd, SIMD_RegVariant T, FloatRegister Vn, int didx, int sidx) {
     starti;
@@ -2544,6 +2619,20 @@ public:
 #undef INSN
 
 private:
+  void _sshll(FloatRegister Vd, SIMD_Arrangement Ta, FloatRegister Vn, SIMD_Arrangement Tb, int shift) {
+    starti;
+    /* The encodings for the immh:immb fields (bits 22:16) are
+     *   0001 xxx       8H, 8B/16b shift = xxx
+     *   001x xxx       4S, 4H/8H  shift = xxxx
+     *   01xx xxx       2D, 2S/4S  shift = xxxxx
+     *   1xxx xxx       RESERVED
+     */
+    assert((Tb >> 1) + 1 == (Ta >> 1), "Incompatible arrangement");
+    assert((1 << ((Tb>>1)+3)) > shift, "Invalid shift value");
+    f(0, 31), f(Tb & 1, 30), f(0b0011110, 29, 23), f((1 << ((Tb>>1)+3))|shift, 22, 16);
+    f(0b101001, 15, 10), rf(Vn, 5), rf(Vd, 0);
+  }
+
   void _ushll(FloatRegister Vd, SIMD_Arrangement Ta, FloatRegister Vn, SIMD_Arrangement Tb, int shift) {
     starti;
     /* The encodings for the immh:immb fields (bits 22:16) are
@@ -2567,6 +2656,24 @@ public:
   void ushll2(FloatRegister Vd, SIMD_Arrangement Ta, FloatRegister Vn,  SIMD_Arrangement Tb, int shift) {
     assert(Tb == T16B || Tb == T8H || Tb == T4S, "invalid arrangement");
     _ushll(Vd, Ta, Vn, Tb, shift);
+  }
+
+  void sshll(FloatRegister Vd, SIMD_Arrangement Ta, FloatRegister Vn,  SIMD_Arrangement Tb, int shift) {
+    assert(Tb == T8B || Tb == T4H || Tb == T2S, "invalid arrangement");
+    _sshll(Vd, Ta, Vn, Tb, shift);
+  }
+
+  void sshll2(FloatRegister Vd, SIMD_Arrangement Ta, FloatRegister Vn,  SIMD_Arrangement Tb, int shift) {
+    assert(Tb == T16B || Tb == T8H || Tb == T4S, "invalid arrangement");
+    _sshll(Vd, Ta, Vn, Tb, shift);
+  }
+
+  void sxtl(FloatRegister Vd, SIMD_Arrangement Ta, FloatRegister Vn,  SIMD_Arrangement Tb) {
+    sshll(Vd, Ta, Vn, Tb, 0);
+  }
+
+  void uxtl(FloatRegister Vd, SIMD_Arrangement Ta, FloatRegister Vn,  SIMD_Arrangement Tb) {
+    ushll(Vd, Ta, Vn, Tb, 0);
   }
 
   // Move from general purpose register
@@ -3026,6 +3133,33 @@ public:
     f(0b00100101, 31, 24), f(esize, 23, 22), f(0b011000111000, 21, 10);
     f(pattern, 9, 5), f(0b0, 4), prf(pd, 0);
   }
+
+  // SVE2 widening multiply (long), vectors. Only expose the forms used by the
+  // SVE2 hashcode stub; add other encodings together with their first user.
+#define INSN(NAME, is_unsigned, top)                                                    \
+  void NAME(FloatRegister Zd, SIMD_RegVariant T, FloatRegister Zn, FloatRegister Zm) {  \
+    starti;                                                                              \
+    assert(T == H || T == S || T == D, "invalid size for SVE2 widening multiply");       \
+    f(0b01000101, 31, 24), f(T, 23, 22), f(0b0, 21), rf(Zm, 16);                         \
+    f(is_unsigned ? 0b01111 : 0b01110, 15, 11), f(top, 10), rf(Zn, 5), rf(Zd, 0);        \
+  }
+
+  INSN(sve_smullb, false, 0b0);
+  INSN(sve_umullb, true,  0b0);
+#undef INSN
+
+  // SVE2 widening multiply-accumulate (long), vectors.
+#define INSN(NAME, is_unsigned, top)                                                     \
+  void NAME(FloatRegister Zda, SIMD_RegVariant T, FloatRegister Zn, FloatRegister Zm) {  \
+    starti;                                                                              \
+    assert(T == H || T == S || T == D, "invalid size for SVE2 widening multiply-add");   \
+    f(0b01000100, 31, 24), f(T, 23, 22), f(0b0, 21), rf(Zm, 16);                         \
+    f(is_unsigned ? 0b01001 : 0b01000, 15, 11), f(top, 10), rf(Zn, 5), rf(Zda, 0);        \
+  }
+
+  INSN(sve_smlalt, false, 0b1);
+  INSN(sve_umlalt, true,  0b1);
+#undef INSN
 
   Assembler(CodeBuffer* code) : AbstractAssembler(code) {
   }

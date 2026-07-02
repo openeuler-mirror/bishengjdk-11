@@ -35,6 +35,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import jdk.internal.HotSpotIntrinsicCandidate;
+import jdk.internal.util.ArraysSupport;
 
 import static java.lang.String.LATIN1;
 import static java.lang.String.UTF16;
@@ -191,11 +192,14 @@ final class StringLatin1 {
     }
 
     public static int hashCode(byte[] value) {
-        int h = 0;
-        for (byte v : value) {
-            h = 31 * h + (v & 0xff);
+        switch (value.length) {
+            case 0:
+                return 0;
+            case 1:
+                return value[0] & 0xff;
+            default:
+                return ArraysSupport.vectorizedHashCode(value, 0, value.length, 0, ArraysSupport.T_BOOLEAN);
         }
-        return h;
     }
 
     public static int indexOf(byte[] value, int ch, int fromIndex) {

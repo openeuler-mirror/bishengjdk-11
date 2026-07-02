@@ -5200,6 +5200,146 @@ void MacroAssembler::string_compare(Register str1, Register str2,
 #endif // COMPILER2
 
 // This method checks if provided byte array contains byte with highest bit set.
+// jdk.internal.util.ArraysSupport.vectorizedHashCode
+address MacroAssembler::arrays_hashcode(Register ary, Register cnt, Register result,
+                                        FloatRegister vdata0, FloatRegister vdata1,
+                                        FloatRegister vdata2, FloatRegister vdata3,
+                                        FloatRegister vmul0, FloatRegister vmul1,
+                                        FloatRegister vmul2, FloatRegister vmul3,
+                                        FloatRegister vpow, FloatRegister vpowm,
+                                        BasicType eltype) {
+  ARRAYS_HASHCODE_REGISTERS;
+
+  Register tmp1 = rscratch1, tmp2 = rscratch2;
+  const bool a53mac = (VM_Version::features() & VM_Version::CPU_A53MAC) != 0;
+
+  Label TAIL, LOOP, BR_BASE, LARGE, SVE2_LARGE, DONE;
+
+  // Number of elements processed per vector register in the large-array stub.
+  const size_t vf = eltype == T_BOOLEAN || eltype == T_BYTE ? 8
+                    : eltype == T_CHAR || eltype == T_SHORT ? 8
+                    : eltype == T_INT                       ? 4
+                                                            : 0;
+  guarantee(vf, "unsupported eltype");
+
+  const size_t unroll_factor = 4;
+
+  switch (eltype) {
+  case T_BOOLEAN:
+    BLOCK_COMMENT("arrays_hashcode(unsigned byte) {");
+    break;
+  case T_CHAR:
+    BLOCK_COMMENT("arrays_hashcode(char) {");
+    break;
+  case T_BYTE:
+    BLOCK_COMMENT("arrays_hashcode(byte) {");
+    break;
+  case T_SHORT:
+    BLOCK_COMMENT("arrays_hashcode(short) {");
+    break;
+  case T_INT:
+    BLOCK_COMMENT("arrays_hashcode(int) {");
+    break;
+  default:
+    ShouldNotReachHere();
+  }
+
+  // For ints, the stub only wins once we can execute at least two full vector iterations.
+  const size_t large_threshold = eltype == T_INT ? vf * 2 : vf;
+  size_t sve2_threshold = large_threshold;
+  const bool use_sve_hashcode =
+      UseSVEHashCodeIntrinsic &&
+      (eltype == T_BOOLEAN || eltype == T_BYTE ||
+       eltype == T_CHAR || eltype == T_SHORT);
+  if (use_sve_hashcode) {
+    assert(eltype != T_INT, "T_INT must stay on the base hashcode stub");
+
+    const size_t sve_chunk_elems =
+        VM_Version::get_initial_sve_vector_length() / type2aelembytes(eltype);
+    size_t min_elements = 0;
+    switch (eltype) {
+    case T_BOOLEAN:
+      min_elements = SVEHashCodeLatin1MinElements;
+      break;
+    case T_BYTE:
+      min_elements = SVEHashCodeByteMinElements;
+      break;
+    case T_CHAR:
+      min_elements = SVEHashCodeUTF16MinElements;
+      break;
+    case T_SHORT:
+      min_elements = SVEHashCodeShortMinElements;
+      break;
+    default:
+      ShouldNotReachHere();
+    }
+    sve2_threshold = MAX2(sve_chunk_elems * SVEHashCodeStubMinVectorChunks,
+                          min_elements);
+    cmpw(cnt, sve2_threshold);
+    br(Assembler::HS, SVE2_LARGE);
+  }
+  cmpw(cnt, large_threshold);
+  br(Assembler::HS, LARGE);
+
+  bind(TAIL);
+
+  // cnt % unroll_factor selects a jump into the unrolled madd sequence below.
+  assert(is_power_of_2(unroll_factor), "can't use this value to calculate the jump target PC");
+  andr(tmp2, cnt, unroll_factor - 1);
+  adr(tmp1, BR_BASE);
+  sub(tmp1, tmp1, tmp2, ext::sxtw, a53mac ? 4 : 3);
+  movw(tmp2, 0x1f);
+  br(tmp1);
+
+  bind(LOOP);
+  for (size_t i = 0; i < unroll_factor; ++i) {
+    load(tmp1, Address(post(ary, type2aelembytes(eltype))), eltype);
+    maddw(result, result, tmp2, tmp1);
+    // maddw expands with an extra nop on Cortex-A53; keep each unrolled slot the same width.
+    if (a53mac) {
+      nop();
+    }
+  }
+  bind(BR_BASE);
+  subsw(cnt, cnt, unroll_factor);
+  br(Assembler::HS, LOOP);
+
+  b(DONE);
+
+  bind(LARGE);
+
+  RuntimeAddress stub = RuntimeAddress(StubRoutines::aarch64::large_arrays_hashcode(eltype));
+  assert(stub.target() != NULL, "array_hashcode stub has not been generated");
+  address tpc = trampoline_call(stub);
+  if (tpc == NULL) {
+    DEBUG_ONLY(TAIL.reset(); BR_BASE.reset(); SVE2_LARGE.reset(); DONE.reset());
+    postcond(pc() == badAddress);
+    return NULL;
+  }
+  b(DONE);
+
+  if (use_sve_hashcode) {
+    bind(SVE2_LARGE);
+
+    RuntimeAddress sve_stub =
+        RuntimeAddress(StubRoutines::aarch64::large_arrays_hashcode_sve(eltype));
+    assert(sve_stub.target() != NULL, "SVE2 array_hashcode stub has not been generated");
+    address sve_tpc = trampoline_call(sve_stub);
+    if (sve_tpc == NULL) {
+      DEBUG_ONLY(TAIL.reset(); BR_BASE.reset(); DONE.reset());
+      postcond(pc() == badAddress);
+      return NULL;
+    }
+  }
+
+  bind(DONE);
+
+  BLOCK_COMMENT("} // arrays_hashcode");
+
+  postcond(pc() != badAddress);
+  return pc();
+}
+
 address MacroAssembler::has_negatives(Register ary1, Register len, Register result) {
     // Simple and most common case of aligned small array which is not at the
     // end of memory page is placed here. All other cases are in stub.

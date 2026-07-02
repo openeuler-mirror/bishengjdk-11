@@ -4484,11 +4484,14 @@ public class Arrays {
         if (a == null)
             return 0;
 
-        int result = 1;
-        for (int element : a)
-            result = 31 * result + element;
-
-        return result;
+        switch (a.length) {
+            case 0:
+                return 1;
+            case 1:
+                return 31 + a[0];
+            default:
+                return ArraysSupport.vectorizedHashCode(a, 0, a.length, 1, ArraysSupport.T_INT);
+        }
     }
 
     /**
@@ -4511,11 +4514,14 @@ public class Arrays {
         if (a == null)
             return 0;
 
-        int result = 1;
-        for (short element : a)
-            result = 31 * result + element;
-
-        return result;
+        switch (a.length) {
+            case 0:
+                return 1;
+            case 1:
+                return 31 + (int) a[0];
+            default:
+                return ArraysSupport.vectorizedHashCode(a, 0, a.length, 1, ArraysSupport.T_SHORT);
+        }
     }
 
     /**
@@ -4538,11 +4544,14 @@ public class Arrays {
         if (a == null)
             return 0;
 
-        int result = 1;
-        for (char element : a)
-            result = 31 * result + element;
-
-        return result;
+        switch (a.length) {
+            case 0:
+                return 1;
+            case 1:
+                return 31 + (int) a[0];
+            default:
+                return ArraysSupport.vectorizedHashCode(a, 0, a.length, 1, ArraysSupport.T_CHAR);
+        }
     }
 
     /**
@@ -4565,11 +4574,14 @@ public class Arrays {
         if (a == null)
             return 0;
 
-        int result = 1;
-        for (byte element : a)
-            result = 31 * result + element;
-
-        return result;
+        switch (a.length) {
+            case 0:
+                return 1;
+            case 1:
+                return 31 + (int) a[0];
+            default:
+                return ArraysSupport.vectorizedHashCode(a, 0, a.length, 1, ArraysSupport.T_BYTE);
+        }
     }
 
     /**

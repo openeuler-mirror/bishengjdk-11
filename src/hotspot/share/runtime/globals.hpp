@@ -478,6 +478,9 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   diagnostic(bool, UseVectorizedMismatchIntrinsic, false,                   \
           "Enables intrinsification of ArraysSupport.vectorizedMismatch()") \
                                                                             \
+  diagnostic(bool, UseVectorizedHashCodeIntrinsic, false,                   \
+          "Enables intrinsification of ArraysSupport.vectorizedHashCode()") \
+                                                                            \
   diagnostic(bool, UseCopySignIntrinsic, false,                             \
           "Enables intrinsification of Math.copySign")                      \
                                                                             \
