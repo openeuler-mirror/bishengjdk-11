@@ -166,11 +166,6 @@ public:
       // another volatile read.
       if (is_volatile || is_release) {
         _leading_membar = kit->insert_mem_bar(Op_MemBarRelease);
-#ifdef AARCH64
-        if (UseStlrForRelease && is_release && !is_volatile) {
-          _leading_membar->as_MemBar()->set_standalone_release();
-        }
-#endif
       }
     } else {
       // Memory barrier to prevent normal and 'unsafe' accesses from
