@@ -1185,6 +1185,10 @@ class MemBarNode: public MultiNode {
     LeadingLoadStore
   } _kind;
 
+#ifdef AARCH64
+  bool _leading_release_store;
+#endif // AARCH64
+
 #ifdef ASSERT
   uint _pair_idx;
 #endif
@@ -1219,6 +1223,10 @@ public:
   bool trailing() const { return _kind == TrailingLoad || _kind == TrailingStore || _kind == TrailingLoadStore; }
   bool leading() const { return _kind == LeadingStore || _kind == LeadingLoadStore; }
   bool standalone() const { return _kind == Standalone; }
+#ifdef AARCH64
+  void set_leading_release_store() { _leading_release_store = true; }
+  bool leading_release_store() const { return _leading_release_store; }
+#endif // AARCH64
 
   static void set_store_pair(MemBarNode* leading, MemBarNode* trailing);
   static void set_load_store_pair(MemBarNode* leading, MemBarNode* trailing);

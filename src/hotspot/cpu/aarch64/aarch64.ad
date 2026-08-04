@@ -1744,6 +1744,9 @@ bool unnecessary_release(const Node *n)
 
   MemBarNode *barrier = n->as_MemBar();
   if (!barrier->leading()) {
+    if (UseStlrForRelease && barrier->leading_release_store()) {
+      return true;
+    }
     return false;
   } else {
     Node* trailing = barrier->trailing_membar();
@@ -1801,7 +1804,7 @@ bool needs_releasing_store(const Node *n)
 
   StoreNode *st = n->as_Store();
 
-  return st->trailing_membar() != NULL;
+  return st->trailing_membar() != NULL || (!UseBarriersForVolatile && UseStlrForRelease && st->is_release());
 }
 
 // predicate controlling translation of CAS
