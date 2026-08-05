@@ -1085,6 +1085,21 @@ reg_class vectora_reg (
     V31, V31_H, V31_J, V31_K, V31_L, V31_M, V31_N, V31_O,
 );
 
+// Full-width SVE register classes for fixed stub scratch registers.
+reg_class v0a_reg(V0, V0_H, V0_J, V0_K, V0_L, V0_M, V0_N, V0_O);
+reg_class v1a_reg(V1, V1_H, V1_J, V1_K, V1_L, V1_M, V1_N, V1_O);
+reg_class v2a_reg(V2, V2_H, V2_J, V2_K, V2_L, V2_M, V2_N, V2_O);
+reg_class v3a_reg(V3, V3_H, V3_J, V3_K, V3_L, V3_M, V3_N, V3_O);
+reg_class v4a_reg(V4, V4_H, V4_J, V4_K, V4_L, V4_M, V4_N, V4_O);
+reg_class v5a_reg(V5, V5_H, V5_J, V5_K, V5_L, V5_M, V5_N, V5_O);
+reg_class v6a_reg(V6, V6_H, V6_J, V6_K, V6_L, V6_M, V6_N, V6_O);
+reg_class v7a_reg(V7, V7_H, V7_J, V7_K, V7_L, V7_M, V7_N, V7_O);
+reg_class v10a_reg(V10, V10_H, V10_J, V10_K, V10_L, V10_M, V10_N, V10_O);
+reg_class v11a_reg(V11, V11_H, V11_J, V11_K, V11_L, V11_M, V11_N, V11_O);
+reg_class v12a_reg(V12, V12_H, V12_J, V12_K, V12_L, V12_M, V12_N, V12_O);
+reg_class v13a_reg(V13, V13_H, V13_J, V13_K, V13_L, V13_M, V13_N, V13_O);
+reg_class v14a_reg(V14, V14_H, V14_J, V14_K, V14_L, V14_M, V14_N, V14_O);
+
 // Class for all 64bit vector registers
 reg_class vectord_reg(
     V0, V0_H,
@@ -1342,6 +1357,9 @@ reg_class gov_pr (
     // P7, non-allocatable, preserved with all elements preset to TRUE.
 );
 
+reg_class p0_reg(P0);
+reg_class p1_reg(P1);
+
 // Singleton class for condition codes
 reg_class int_flags(RFLAGS);
 
@@ -1442,6 +1460,9 @@ class HandlerImpl {
 
   // predicate controlling addressing modes
   bool size_fits_all_mem_uses(AddPNode* addp, int shift);
+
+  // predicate controlling SVE2 vectorizedHashCode matching
+  bool vectorized_hashcode_sve_supported_type(const Node* n);
 %}
 
 source %{
@@ -2775,6 +2796,15 @@ bool size_fits_all_mem_uses(AddPNode* addp, int shift) {
     }
   }
   return true;
+}
+
+bool vectorized_hashcode_sve_supported_type(const Node* n) {
+  assert(n->Opcode() == Op_VectorizedHashCode, "unexpected node");
+  if (n->req() <= 5 || !n->in(5)->is_Con()) {
+    return false;
+  }
+  BasicType bt = (BasicType)n->in(5)->get_int();
+  return bt == T_BOOLEAN || bt == T_BYTE || bt == T_CHAR || bt == T_SHORT;
 }
 
 const bool Matcher::convi2l_type_required = false;
@@ -5351,6 +5381,123 @@ operand vReg()
   interface(REG_INTER);
 %}
 
+operand vRegA_V0()
+%{
+  constraint(ALLOC_IN_RC(v0a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V1()
+%{
+  constraint(ALLOC_IN_RC(v1a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V2()
+%{
+  constraint(ALLOC_IN_RC(v2a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V3()
+%{
+  constraint(ALLOC_IN_RC(v3a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V4()
+%{
+  constraint(ALLOC_IN_RC(v4a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V5()
+%{
+  constraint(ALLOC_IN_RC(v5a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V6()
+%{
+  constraint(ALLOC_IN_RC(v6a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V7()
+%{
+  constraint(ALLOC_IN_RC(v7a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V10()
+%{
+  constraint(ALLOC_IN_RC(v10a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V11()
+%{
+  constraint(ALLOC_IN_RC(v11a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V12()
+%{
+  constraint(ALLOC_IN_RC(v12a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V13()
+%{
+  constraint(ALLOC_IN_RC(v13a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand vRegA_V14()
+%{
+  constraint(ALLOC_IN_RC(v14a_reg));
+  match(VecA);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
 operand vecD()
 %{
   constraint(ALLOC_IN_RC(vectord_reg));
@@ -5662,6 +5809,24 @@ operand vRegD_V31()
 operand pRegGov()
 %{
   constraint(ALLOC_IN_RC(gov_pr));
+  match(RegVMask);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand pRegGov_P0()
+%{
+  constraint(ALLOC_IN_RC(p0_reg));
+  match(RegVMask);
+  op_cost(0);
+  format %{ %}
+  interface(REG_INTER);
+%}
+
+operand pRegGov_P1()
+%{
+  constraint(ALLOC_IN_RC(p1_reg));
   match(RegVMask);
   op_cost(0);
   format %{ %}
@@ -16428,6 +16593,66 @@ instruct array_equalsC(iRegP_R1 ary1, iRegP_R2 ary2, iRegI_R0 result,
   ins_pipe(pipe_class_memory);
 %}
 
+instruct arrays_hashcode(iRegP_R1 ary, iRegI_R2 cnt, iRegI_R0 result, immI basic_type,
+                         vRegD_V0 vtmp0, vRegD_V1 vtmp1, vRegD_V2 vtmp2, vRegD_V3 vtmp3,
+                         vRegD_V4 vtmp4, vRegD_V5 vtmp5, vRegD_V6 vtmp6, vRegD_V7 vtmp7,
+                         vRegD_V12 vtmp8, vRegD_V13 vtmp9, rFlagsReg cr)
+%{
+  predicate(!(UseSVEHashCodeIntrinsic && vectorized_hashcode_sve_supported_type(n)));
+  match(Set result (VectorizedHashCode (Binary ary cnt) (Binary result basic_type)));
+  effect(TEMP vtmp0, TEMP vtmp1, TEMP vtmp2, TEMP vtmp3, TEMP vtmp4, TEMP vtmp5, TEMP vtmp6,
+         TEMP vtmp7, TEMP vtmp8, TEMP vtmp9, USE_KILL ary, USE_KILL cnt, USE basic_type, KILL cr);
+
+  format %{ "Array HashCode array[] $ary,$cnt,$result,$basic_type -> $result   // KILL all" %}
+  ins_encode %{
+    address tpc = __ arrays_hashcode($ary$$Register, $cnt$$Register, $result$$Register,
+                                     $vtmp3$$FloatRegister, $vtmp2$$FloatRegister,
+                                     $vtmp1$$FloatRegister, $vtmp0$$FloatRegister,
+                                     $vtmp4$$FloatRegister, $vtmp5$$FloatRegister,
+                                     $vtmp6$$FloatRegister, $vtmp7$$FloatRegister,
+                                     $vtmp8$$FloatRegister, $vtmp9$$FloatRegister,
+                                     (BasicType)$basic_type$$constant);
+    if (tpc == NULL) {
+      ciEnv::current()->record_failure("CodeCache is full");
+      return;
+    }
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
+instruct arrays_hashcode_sve(iRegP_R1 ary, iRegI_R2 cnt, iRegI_R0 result, immI basic_type,
+                             vRegA_V0 vtmp0, vRegA_V1 vtmp1, vRegA_V2 vtmp2, vRegA_V3 vtmp3,
+                             vRegA_V4 vtmp4, vRegA_V5 vtmp5, vRegA_V6 vtmp6, vRegA_V7 vtmp7,
+                             vRegA_V10 vtmp10, vRegA_V11 vtmp11,
+                             vRegA_V12 vtmp8, vRegA_V13 vtmp9, vRegA_V14 vtmp14,
+                             pRegGov_P0 ptmp0, pRegGov_P1 ptmp1, rFlagsReg cr)
+%{
+  predicate(UseSVEHashCodeIntrinsic && vectorized_hashcode_sve_supported_type(n));
+  match(Set result (VectorizedHashCode (Binary ary cnt) (Binary result basic_type)));
+  // The large-array SVE2 stubs use fixed whole-Z scratch registers
+  // (v0-v7, v10-v14) plus fixed predicate registers p0/p1.
+  effect(TEMP vtmp0, TEMP vtmp1, TEMP vtmp2, TEMP vtmp3, TEMP vtmp4, TEMP vtmp5, TEMP vtmp6,
+         TEMP vtmp7, TEMP vtmp10, TEMP vtmp11, TEMP vtmp8, TEMP vtmp9, TEMP vtmp14,
+         TEMP ptmp0, TEMP ptmp1,
+         USE_KILL ary, USE_KILL cnt, USE basic_type, KILL cr);
+
+  format %{ "Array HashCode array[] $ary,$cnt,$result,$basic_type -> $result   // KILL all" %}
+  ins_encode %{
+    address tpc = __ arrays_hashcode($ary$$Register, $cnt$$Register, $result$$Register,
+                                     $vtmp3$$FloatRegister, $vtmp2$$FloatRegister,
+                                     $vtmp1$$FloatRegister, $vtmp0$$FloatRegister,
+                                     $vtmp4$$FloatRegister, $vtmp5$$FloatRegister,
+                                     $vtmp6$$FloatRegister, $vtmp7$$FloatRegister,
+                                     $vtmp8$$FloatRegister, $vtmp9$$FloatRegister,
+                                     (BasicType)$basic_type$$constant);
+    if (tpc == NULL) {
+      ciEnv::current()->record_failure("CodeCache is full");
+      return;
+    }
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
 instruct has_negatives(iRegP_R1 ary1, iRegI_R2 len, iRegI_R0 result, rFlagsReg cr)
 %{
   match(Set result (HasNegatives ary1 len));
@@ -16505,6 +16730,58 @@ instruct encode_iso_array(iRegP_R2 src, iRegP_R1 dst, iRegI_R3 len,
                         $vtmp4$$FloatRegister, $vtmp5$$FloatRegister);
   %}
   ins_pipe( pipe_class_memory );
+%}
+
+// encode char[] to byte[] in UTF8
+instruct encode_utf8_from_utf16(iRegP_R2 src, iRegP_R1 dst, iRegI_R3 len,
+                                vRegD_V0 vtmp0, vRegD_V1 vtmp1, vRegD_V2 vtmp2,
+                                vRegD_V3 vtmp3, vRegD_V4 vtmp4, vRegD_V5 vtmp5,
+                                vRegD_V6 vtmp6, vRegD_V7 vtmp7, vRegD_V12 vtmp8,
+                                vRegD_V13 vtmp9, iRegI_R0 result, rFlagsReg cr)
+%{
+  match(Set result (EncodeUtf8FromUtf16 src (Binary dst len)));
+  effect(USE_KILL src, USE_KILL dst, USE_KILL len, TEMP vtmp0, TEMP vtmp1,
+         TEMP vtmp2, TEMP vtmp3, TEMP vtmp4, TEMP vtmp5, TEMP vtmp6, TEMP vtmp7,
+         TEMP vtmp8, TEMP vtmp9, KILL cr);
+
+  format %{ "Encode UTF8 from UTF16 $src, $dst, $len -> $result # KILL $src $dst V0-V9 cr" %}
+  ins_encode %{
+    __ encode_utf8_from_utf16($src$$Register, $dst$$Register, $len$$Register,
+                              $result$$Register,
+                              $vtmp0$$FloatRegister, $vtmp1$$FloatRegister,
+                              $vtmp2$$FloatRegister, $vtmp3$$FloatRegister,
+                              $vtmp4$$FloatRegister, $vtmp5$$FloatRegister,
+                              $vtmp6$$FloatRegister, $vtmp7$$FloatRegister,
+                              $vtmp8$$FloatRegister, $vtmp9$$FloatRegister);
+  %}
+  ins_pipe(pipe_class_memory);
+%}
+
+// decode byte[] in UTF8 to char[] in UTF16
+instruct decode_utf8_to_utf16(iRegP_R2 src, iRegP_R1 dst, iRegI_R3 len,
+                              vRegD_V0 vtmp0, vRegD_V1 vtmp1, vRegD_V2 vtmp2,
+                              vRegD_V3 vtmp3, vRegD_V4 vtmp4, vRegD_V5 vtmp5,
+                              vRegD_V6 vtmp6, vRegD_V7 vtmp7, vRegD_V12 vtmp8,
+                              vRegD_V13 vtmp9, vRegD vtmp10, iRegI_R0 result,
+                              rFlagsReg cr)
+%{
+  match(Set result (DecodeUtf8ToUtf16 src (Binary dst len)));
+  effect(USE_KILL src, USE_KILL dst, USE_KILL len, TEMP vtmp0, TEMP vtmp1,
+         TEMP vtmp2, TEMP vtmp3, TEMP vtmp4, TEMP vtmp5, TEMP vtmp6, TEMP vtmp7,
+         TEMP vtmp8, TEMP vtmp9, TEMP vtmp10, KILL cr);
+
+  format %{ "Decode UTF8 to UTF16 $src, $dst, $len -> $result # KILL $src $dst V0-V10 cr" %}
+  ins_encode %{
+    __ decode_utf8_to_utf16($src$$Register, $dst$$Register, $len$$Register,
+                            $result$$Register,
+                            $vtmp0$$FloatRegister, $vtmp1$$FloatRegister,
+                            $vtmp2$$FloatRegister, $vtmp3$$FloatRegister,
+                            $vtmp4$$FloatRegister, $vtmp5$$FloatRegister,
+                            $vtmp6$$FloatRegister, $vtmp7$$FloatRegister,
+                            $vtmp8$$FloatRegister, $vtmp9$$FloatRegister,
+                            $vtmp10$$FloatRegister);
+  %}
+  ins_pipe(pipe_class_memory);
 %}
 
 // ============================================================================

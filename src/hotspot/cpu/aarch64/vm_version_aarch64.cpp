@@ -305,6 +305,10 @@ void VM_Version::initialize() {
     UseBASE64Intrinsics = true;
   }
 
+  if (FLAG_IS_DEFAULT(UseVectorizedHashCodeIntrinsic)) {
+    FLAG_SET_DEFAULT(UseVectorizedHashCodeIntrinsic, true);
+  }
+
   if (is_zva_enabled()) {
     if (FLAG_IS_DEFAULT(UseBlockZeroing)) {
       FLAG_SET_DEFAULT(UseBlockZeroing, true);
@@ -327,6 +331,47 @@ void VM_Version::initialize() {
   } else if (UseSVE > 0) {
     warning("UseSVE specified, but not supported on current CPU. Disabling SVE.");
     FLAG_SET_DEFAULT(UseSVE, 0);
+  }
+
+  const bool is_hisi_enabled = VM_Version::is_hisi_enabled();
+
+#define ENABLE_HISI_FLAG_BY_DEFAULT(flag)                                   \
+  do {                                                                      \
+    if (!flag && FLAG_IS_DEFAULT(flag)) {                                   \
+      FLAG_SET_DEFAULT(flag, true);                                         \
+    }                                                                       \
+  } while (false)
+
+#define DISABLE_HISI_FLAG(flag)                                             \
+  do {                                                                      \
+    if (flag) {                                                             \
+      if (!FLAG_IS_DEFAULT(flag)) {                                         \
+        warning("%s specified, but is not supported on this hardware. "     \
+                "Disabling.", #flag);                                       \
+      }                                                                     \
+      FLAG_SET_DEFAULT(flag, false);                                        \
+    }                                                                       \
+  } while (false)
+
+  if (is_hisi_enabled) {
+    if (VM_Version::supports_sve2() && UseSVE >= 2) {
+      ENABLE_HISI_FLAG_BY_DEFAULT(UseSVEHashCodeIntrinsic);
+    } else {
+      DISABLE_HISI_FLAG(UseSVEHashCodeIntrinsic);
+    }
+    ENABLE_HISI_FLAG_BY_DEFAULT(UseUTFConversionIntrinsics);
+  } else {
+    DISABLE_HISI_FLAG(UseSVEHashCodeIntrinsic);
+    DISABLE_HISI_FLAG(UseUTFConversionIntrinsics);
+  }
+
+#undef ENABLE_HISI_FLAG_BY_DEFAULT
+#undef DISABLE_HISI_FLAG
+
+  if (UseSVEHashCodeIntrinsic && !UseVectorizedHashCodeIntrinsic) {
+    warning("UseSVEHashCodeIntrinsic specified, but requires "
+            "-XX:+UseVectorizedHashCodeIntrinsic. Disabling.");
+    FLAG_SET_DEFAULT(UseSVEHashCodeIntrinsic, false);
   }
 
   // This machine allows unaligned memory accesses

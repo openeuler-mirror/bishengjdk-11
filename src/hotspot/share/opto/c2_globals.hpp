@@ -616,6 +616,12 @@
   diagnostic(bool, SpecialEncodeISOArray, true,                             \
           "special version of ISO_8859_1$Encoder.encodeISOArray")           \
                                                                             \
+  diagnostic(bool, SpecialEncodeUtf8FromUtf16, true,                        \
+          "special version of UTF-16 to UTF-8 encode")                      \
+                                                                            \
+  diagnostic(bool, SpecialDecodeUtf8ToUtf16, true,                          \
+          "special version of UTF-8 to UTF-16 decode")                      \
+                                                                            \
   develop(bool, BailoutToInterpreterForThrows, false,                       \
           "Compiled methods which throws/catches exceptions will be "       \
           "deopt and intp.")                                                \

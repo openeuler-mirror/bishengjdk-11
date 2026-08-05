@@ -395,6 +395,7 @@
   template(cache_field_name,                          "cache")                                    \
   template(value_name,                                "value")                                    \
   template(compact_strings_name,                      "COMPACT_STRINGS")                          \
+  template(utf_conversion_intrinsics_name,            "UTF_CONVERSION_INTRINSICS")                \
   template(numberOfLeadingZeros_name,                 "numberOfLeadingZeros")                     \
   template(numberOfTrailingZeros_name,                "numberOfTrailingZeros")                    \
   template(bitCount_name,                             "bitCount")                                 \
@@ -982,6 +983,12 @@
                                                                                                                         \
   do_intrinsic(_encodeByteISOArray,     java_lang_StringCoding, encodeISOArray_name, indexOfI_signature,         F_S)   \
                                                                                                                         \
+  do_intrinsic(_encodeUtf8FromUtf16,    java_lang_StringCoding, encodeUtf8FromUtf16_name, indexOfI_signature,    F_S)   \
+   do_name(     encodeUtf8FromUtf16_name,                      "implEncodeUtf8fromUtf16")                               \
+                                                                                                                        \
+  do_intrinsic(_decodeUtf8ToUtf16,      java_lang_StringCoding, decodeUtf8ToUtf16_name, indexOfI_signature,      F_S)   \
+   do_name(     decodeUtf8ToUtf16_name,                        "implDecodeUtf8ToUtf16")                                 \
+                                                                                                                        \
   do_class(java_math_BigInteger,                      "java/math/BigInteger")                                           \
   do_intrinsic(_multiplyToLen,      java_math_BigInteger, multiplyToLen_name, multiplyToLen_signature, F_S)             \
    do_name(     multiplyToLen_name,                             "implMultiplyToLen")                                    \
@@ -1007,10 +1014,13 @@
   do_intrinsic(_nextInt,                  java_util_Random,       next_int_name, void_int_signature,             F_R)   \
    do_name(next_int_name,"nextInt")                                                                                     \
                                                                                                                         \
-  do_class(jdk_internal_util_ArraysSupport, "jdk/internal/util/ArraysSupport")                                                          \
-  do_intrinsic(_vectorizedMismatch, jdk_internal_util_ArraysSupport, vectorizedMismatch_name, vectorizedMismatch_signature, F_S)\
+   do_class(jdk_internal_util_ArraysSupport, "jdk/internal/util/ArraysSupport")                                     \
+   do_intrinsic(_vectorizedMismatch, jdk_internal_util_ArraysSupport, vectorizedMismatch_name, vectorizedMismatch_signature, F_S) \
    do_name(vectorizedMismatch_name, "vectorizedMismatch")                                                               \
    do_signature(vectorizedMismatch_signature, "(Ljava/lang/Object;JLjava/lang/Object;JII)I")                            \
+   do_intrinsic(_vectorizedHashCode, jdk_internal_util_ArraysSupport, vectorizedHashCode_name, vectorizedHashCode_signature, F_S) \
+   do_name(vectorizedHashCode_name, "vectorizedHashCode")                                                               \
+   do_signature(vectorizedHashCode_signature, "(Ljava/lang/Object;IIII)I")                                              \
                                                                                                                         \
   /* java/lang/ref/Reference */                                                                                         \
   do_intrinsic(_Reference_get,            java_lang_ref_Reference, get_name,    void_object_signature, F_R)             \

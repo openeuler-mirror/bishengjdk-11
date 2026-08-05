@@ -563,7 +563,13 @@ void ShenandoahBarrierC2Support::verify(RootNode* root) {
         { { 2, ShenandoahLoad },                  { 4, ShenandoahLoad } },
         Op_StrEquals,
         { { 2, ShenandoahLoad },                  { 3, ShenandoahLoad } },
+        Op_VectorizedHashCode,
+        { { 2, ShenandoahLoad },                  { -1, ShenandoahNone } },
         Op_EncodeISOArray,
+        { { 2, ShenandoahLoad },                  { 3, ShenandoahStore } },
+        Op_EncodeUtf8FromUtf16,
+        { { 2, ShenandoahLoad },                  { 3, ShenandoahStore } },
+        Op_DecodeUtf8ToUtf16,
         { { 2, ShenandoahLoad },                  { 3, ShenandoahStore } },
         Op_HasNegatives,
         { { 2, ShenandoahLoad },                  { -1, ShenandoahNone} },
@@ -3299,6 +3305,8 @@ bool ShenandoahLoadReferenceBarrierNode::is_redundant() {
       case Op_CastP2X:
       case Op_SafePoint:
       case Op_EncodeISOArray:
+      case Op_EncodeUtf8FromUtf16:
+      case Op_DecodeUtf8ToUtf16:
       case Op_AryEq:
       case Op_StrEquals:
       case Op_StrComp:

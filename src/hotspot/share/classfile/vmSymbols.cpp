@@ -545,6 +545,7 @@ bool vmIntrinsics::is_disabled_by_flags(vmIntrinsics::ID id) {
     case vmIntrinsics::_storeFence:
     case vmIntrinsics::_fullFence:
     case vmIntrinsics::_hasNegatives:
+    case vmIntrinsics::_vectorizedHashCode:
     case vmIntrinsics::_Reference_get:
       break;
     default:
@@ -772,6 +773,9 @@ bool vmIntrinsics::is_disabled_by_flags(vmIntrinsics::ID id) {
   case vmIntrinsics::_vectorizedMismatch:
     if (!UseVectorizedMismatchIntrinsic) return true;
     break;
+  case vmIntrinsics::_vectorizedHashCode:
+    if (!UseVectorizedHashCodeIntrinsic) return true;
+    break;
   case vmIntrinsics::_updateBytesAdler32:
   case vmIntrinsics::_updateByteBufferAdler32:
     if (!UseAdler32Intrinsics) return true;
@@ -822,6 +826,20 @@ bool vmIntrinsics::is_disabled_by_flags(vmIntrinsics::ID id) {
   case vmIntrinsics::_encodeByteISOArray:
     if (!SpecialEncodeISOArray) return true;
     break;
+  case vmIntrinsics::_encodeUtf8FromUtf16:
+#ifdef AARCH64
+    if (!SpecialEncodeUtf8FromUtf16 || !UseUTFConversionIntrinsics) return true;
+    break;
+#else
+    return true;
+#endif // AARCH64
+  case vmIntrinsics::_decodeUtf8ToUtf16:
+#ifdef AARCH64
+    if (!SpecialDecodeUtf8ToUtf16 || !UseUTFConversionIntrinsics) return true;
+    break;
+#else
+    return true;
+#endif // AARCH64
   case vmIntrinsics::_getCallerClass:
     if (!InlineReflectionGetCallerClass) return true;
     break;
