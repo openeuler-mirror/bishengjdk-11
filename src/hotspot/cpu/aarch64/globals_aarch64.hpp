@@ -100,6 +100,9 @@ define_pd_global(intx, InlineSmallCode,          1000);
           "Use Neon for CRC32 computation")                             \
   product(bool, UseCRC32, false,                                        \
           "Use CRC32 instructions for CRC32 computation")               \
+  product(bool, UseStlrForRelease, false,                               \
+          "Emit stlr for setRelease/putXRelease/putOrdered* stores "    \
+          "and elide the leading dmb ish")                              \
   product(bool, UseSIMDForMemoryOps, false,                             \
           "Use SIMD instructions in generated memory move code")        \
   product(bool, UseSIMDForArrayEquals, true,                            \
@@ -154,8 +157,6 @@ define_pd_global(intx, InlineSmallCode,          1000);
   product(int, SoftwarePrefetchHintDistance, -1,                        \
           "Use prfm hint with specified distance in compiled code."     \
           "Value -1 means off.")                                        \
-          range(-1, 4096)                                               \
-  product(bool, UseStlrForRelease, false,                               \
-          "Use stlr instead of dmb ish + str for release stores")       \
+          range(-1, 4096)
 
 #endif // CPU_AARCH64_VM_GLOBALS_AARCH64_HPP

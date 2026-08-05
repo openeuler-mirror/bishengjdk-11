@@ -166,11 +166,6 @@ public:
       // another volatile read.
       if (is_volatile || is_release) {
         _leading_membar = kit->insert_mem_bar(Op_MemBarRelease);
-#ifdef AARCH64
-        if (UseStlrForRelease && is_release && !is_volatile) {
-          _leading_membar->as_MemBar()->set_standalone_release();
-        }
-#endif
       }
     } else {
       // Memory barrier to prevent normal and 'unsafe' accesses from
@@ -205,6 +200,9 @@ public:
 
     bool is_volatile = (decorators & MO_SEQ_CST) != 0;
     bool is_acquire = (decorators & MO_ACQUIRE) != 0;
+#ifdef AARCH64
+    bool is_release = (decorators & MO_RELEASE) != 0;
+#endif // AARCH64
 
     // If reference is volatile, prevent following volatiles ops from
     // floating up before the volatile access.
@@ -228,7 +226,17 @@ public:
         if (_leading_membar != NULL) {
           MemBarNode::set_store_pair(_leading_membar->as_MemBar(), mb->as_MemBar());
         }
+#ifdef AARCH64
+      } else if (is_release && _leading_membar != NULL) {
+        Node* n = _access.raw_access();
+        if (n != NULL && n->is_Store()) {
+          assert(n->as_Store()->is_release(), "release store expected for MO_RELEASE access");
+          _leading_membar->as_MemBar()->set_leading_release_store();
+        }
       }
+#else
+      }
+#endif // AARCH64
     } else {
       if (is_volatile || is_acquire) {
         Node* n = _access.raw_access();
