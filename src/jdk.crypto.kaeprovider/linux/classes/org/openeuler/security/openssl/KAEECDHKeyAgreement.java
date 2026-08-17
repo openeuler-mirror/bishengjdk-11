@@ -27,10 +27,11 @@
 package org.openeuler.security.openssl;
 
 import sun.security.ec.ECKeyFactory;
+import sun.security.util.CurveDB;
+import sun.security.util.NamedCurve;
 
 import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidParameterException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
@@ -59,8 +60,15 @@ public class KAEECDHKeyAgreement extends KeyAgreementSpi {
         if (!(key instanceof PrivateKey)) {
             throw new InvalidKeyException("Key must be instance of PrivateKey");
         }
-        privateKey = (ECPrivateKey) ECKeyFactory.toECKey(key);
+        ECPrivateKey newPrivateKey = (ECPrivateKey) ECKeyFactory.toECKey(key);
+        String newCurveName = getCurveName(newPrivateKey.getParams());
+        if (newCurveName == null) {
+            throw new InvalidKeyException("Unsupported EC curve");
+        }
+
+        privateKey = newPrivateKey;
         publicKey = null;
+        curveName = newCurveName;
     }
 
     @Override
@@ -89,20 +97,31 @@ public class KAEECDHKeyAgreement extends KeyAgreementSpi {
                 ("Key must be a PublicKey with algorithm EC");
         }
 
-        publicKey = (ECPublicKey) key;
-        ECParameterSpec params = publicKey.getParams();
+        ECPublicKey newPublicKey = (ECPublicKey) key;
+        ECParameterSpec params = newPublicKey.getParams();
+        String publicCurveName = getCurveName(params);
+        if (publicCurveName == null) {
+            throw new InvalidKeyException("Unsupported EC curve");
+        }
+        if (!curveName.equals(publicCurveName)) {
+            throw new InvalidKeyException(
+                    "Public and private keys must use the same EC parameters");
+        }
+
         int keyLenBits = params.getCurve().getField().getFieldSize();
         // Bits to bytes.
         expectedSecretLen = (keyLenBits + 7) >> 3;
-
-        curveName = KAEUtils.getCurveBySize(keyLenBits);
-        if (curveName == null) {
-            throw new InvalidParameterException("unknown keyLenBits " + keyLenBits);
-        }
-        if (KAEUtils.getCurveByAlias(curveName) != null) {
-            curveName = KAEUtils.getCurveByAlias(curveName);
-        }
+        publicKey = newPublicKey;
         return null;
+    }
+
+    private static String getCurveName(ECParameterSpec params) {
+        NamedCurve namedCurve = CurveDB.lookup(params);
+        if (namedCurve == null) {
+            return null;
+        }
+
+        return KAEUtils.getCurveByAlias(namedCurve.getObjectId());
     }
 
     @Override
