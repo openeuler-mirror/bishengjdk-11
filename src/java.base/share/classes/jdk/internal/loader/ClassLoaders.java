@@ -29,8 +29,10 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.security.AccessController;
 import java.security.CodeSource;
 import java.security.PermissionCollection;
+import java.security.PrivilegedAction;
 import java.util.jar.Manifest;
 
 import jdk.internal.misc.JavaLangAccess;
@@ -219,14 +221,16 @@ public class ClassLoaders {
      */
     @Deprecated
     private static URL toFileURL(String s) {
-        try {
-            // Use an intermediate File object to construct a URI/URL without
-            // authority component as URLClassPath can't handle URLs with a UNC
-            // server name in the authority component.
-            return Path.of(s).toRealPath().toFile().toURI().toURL();
-        } catch (InvalidPathException | IOException ignore) {
-            // malformed path string or class path element does not exist
-            return null;
-        }
+        return AccessController.doPrivileged((PrivilegedAction<URL>) () -> {
+            try {
+                // Use an intermediate File object to construct a URI/URL without
+                // authority component as URLClassPath can't handle URLs with a UNC
+                // server name in the authority component.
+                return Path.of(s).toRealPath().toFile().toURI().toURL();
+            } catch (InvalidPathException | IOException ignore) {
+                // malformed path string or class path element does not exist
+                return null;
+            }
+        });
     }
 }
