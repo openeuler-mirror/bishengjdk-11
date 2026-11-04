@@ -279,6 +279,7 @@ module java.base {
         jdk.crypto.kaeprovider,
         jdk.crypto.cryptoki;
     exports sun.security.jca to
+        java.security.sasl,
         java.smartcardio,
         jdk.crypto.ec,
         jdk.crypto.cryptoki,
@@ -317,10 +318,10 @@ module java.base {
         java.xml.crypto,
         jdk.crypto.ec,
         jdk.crypto.cryptoki,
-        jdk.crypto.kaeprovider,
         jdk.jartool,
         jdk.naming.ldap,
         jdk.security.auth,
+        jdk.crypto.kaeprovider,
         jdk.security.jgss;
     exports sun.security.util.math to
         jdk.crypto.ec
