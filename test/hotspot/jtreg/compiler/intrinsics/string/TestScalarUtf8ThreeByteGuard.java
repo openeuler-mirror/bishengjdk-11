@@ -31,14 +31,22 @@
 
 package compiler.intrinsics.string;
 
+import jdk.test.lib.process.ProcessTools;
+import jtreg.SkippedException;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import jdk.test.lib.process.ProcessTools;
-import jtreg.SkippedException;
 
+/**
+ * Checks the hsdis dump of the AArch64 scalar UTF-8 decoder to verify that it
+ * branches to the fallback before storing a malformed three-byte batch.
+ *
+ * @version 11.0.33, 2026-11-21
+ * @since 11.0.33
+ */
 public class TestScalarUtf8ThreeByteGuard {
     public static void main(String[] args) throws Exception {
         String output = ProcessTools.executeProcess(ProcessTools.createJavaProcessBuilder(

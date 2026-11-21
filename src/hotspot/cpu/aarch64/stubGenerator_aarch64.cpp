@@ -4913,7 +4913,8 @@ class StubGenerator: public StubCodeGenerator {
     __ movi(vIn2, __ T4H, 0xf0);
     __ movi(vIn3, __ T4H, 0xe0);
     __ movi(vCalcMartha, __ T4H, 0x08, 8); // U+0800
-    __ movi(vCalcViki, __ T4H, 0xd800 >> 11);
+    const int surrogate_prefix_shift = 11; // U+D800..U+DFFF share their top five bits.
+    __ movi(vCalcViki, __ T4H, 0xd800 >> surrogate_prefix_shift);
 
     // __ sub(bytesLeft,len, actPos);
 
@@ -4983,7 +4984,7 @@ class StubGenerator: public StubCodeGenerator {
 
       // Reject overlong encodings and UTF-16 surrogates before committing the batch.
       __ cm(__ HI, vCalcGreg, __ T4H, vCalcMartha, vCalcJack);
-      __ ushr(vCalcSuzie, __ T4H, vCalcJack, 11);
+      __ ushr(vCalcSuzie, __ T4H, vCalcJack, surrogate_prefix_shift);
       __ cm(__ EQ, vCalcSuzie, __ T4H, vCalcSuzie, vCalcViki);
       __ orr(vErrors, __ T8B, vErrors, vCalcGreg);
       __ orr(vErrors, __ T8B, vErrors, vCalcSuzie);
