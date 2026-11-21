@@ -16760,8 +16760,8 @@ instruct encode_utf8_from_utf16(iRegP_R2 src, iRegP_R1 dst, iRegI_R3 len,
 instruct decode_utf8_to_utf16(iRegP_R2 src, iRegP_R1 dst, iRegI_R3 len,
                               vRegD_V0 vtmp0, vRegD_V1 vtmp1, vRegD_V2 vtmp2,
                               vRegD_V3 vtmp3, vRegD_V4 vtmp4, vRegD_V5 vtmp5,
-                              vRegD_V6 vtmp6, vRegD_V7 vtmp7, vRegD_V12 vtmp8,
-                              vRegD_V13 vtmp9, vRegD vtmp10, iRegI_R0 result,
+                              vRegD_V6 vtmp6, vRegD_V7 vtmp7, vRegD_V8 vtmp8,
+                              vRegD_V9 vtmp9, vRegD_V10 vtmp10, iRegI_R0 result,
                               rFlagsReg cr)
 %{
   match(Set result (DecodeUtf8ToUtf16 src (Binary dst len)));
